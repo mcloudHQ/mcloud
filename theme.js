@@ -254,13 +254,92 @@
   }
   const glassModes=['full','balanced','eco'],reducedTransparency=matchMedia('(prefers-reduced-transparency: reduce)');reducedTransparency.addEventListener?.('change',applySettings);
   applySettings();
+  // Settings tiles (#179): each choice is a small drawing of the part of the window it changes, as System Settings draws
+  // Light and Dark: the same framing on every tile of a row, only the setting's own difference changing, one sample album
+  // throughout (a teal cover with a coral sun, so the cover's edge colour, Apple Music's pick, reads apart from its main
+  // colour). The page follows the appearance (user.css .am-mini classes); a def's tile(value) returns one.
+  const mini=(()=>{
+    let n=0;const uid=()=>'am-mini-'+(++n);
+    const C={edge:'#1f5c63',sun:'#ef6a4f',band:'#163f45',main:'#8a3b33',deep:'#3b1a17',apple:'#1c4a50',sky:'#7fb8d6',rose:'#e48aa6'};
+    // Palettes as attributes: A follows the appearance, W is ink on a coloured fill, D and L are fixed dark and light.
+    const A={pg:'class="pg"',sd:'class="sd"',1:'class="a1"',2:'class="a2"',3:'class="a3"'},W={1:'fill="#ffffffdc"',2:'fill="#ffffff85"',3:'fill="#ffffff26"'};
+    const D={pg:'fill="#1e1e1e"',sd:'fill="#2a2a2a"',1:'fill="#ffffffd0"',2:'fill="#ffffff70"',3:'fill="#ffffff1c"'},L={pg:'fill="#fff"',sd:'fill="#f0f0f0"',1:'fill="#000000c4"',2:'fill="#00000063"',3:'fill="#00000014"'};
+    const r=(x,y,w,h,rx,a)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}"${rx?` rx="${rx}"`:''} ${a}/>`;
+    const line=(x,y,w,P,k,h=2.2)=>r(x,y,w,h,h/2,P[k]);
+    const cover=(x,y,s,rx=2)=>r(x,y,s,s,rx,`fill="${C.edge}"`)+`<circle cx="${x+s/2}" cy="${y+s*.5}" r="${s*.26}" fill="${C.sun}"/>`+r(x,y+s*.8,s,s*.2,0,`fill="${C.band}"`);
+    const grad=(a,b,v=true)=>{const id=uid();return [`url(#${id})`,`<linearGradient id="${id}" x1="0" y1="0" x2="${v?0:1}" y2="${v?1:0}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`];};
+    const blur=sd=>{const id=uid();return [`filter="url(#${id})"`,`<filter id="${id}" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${sd}"/></filter>`];};
+    const clip=(x,y,w,h,rx)=>{const id=uid();return [`clip-path="url(#${id})"`,`<clipPath id="${id}">${r(x,y,w,h,rx,'')}</clipPath>`];};
+    const svg=(body,defs='')=>`<svg class="am-mini" viewBox="0 0 104 66" aria-hidden="true"><defs>${defs}</defs>${body}</svg>`;
+    // Track rows from y0.
+    const rows=(y0,P,x=9,right=96)=>[36,28,41,24].map((w,i)=>{const y=y0+i*6.5;return line(x,y,2,P,2)+line(x+6,y,w,P,1)+line(right-6,y,6,P,2)+r(x+6,y+4.2,right-x-6,.5,0,P[3]);}).join('');
+    // A whole window: sidebar with the selection in the accent, Home's cards, the floating player; np adds Now Playing.
+    function win(P,np){
+      const w=np?68:100,cards=[30,48,66].filter(x=>x+15<=w);
+      let s=r(0,0,104,66,0,P.pg)+r(0,0,24,66,0,P.sd)+r(24,0,.5,66,0,P[3])+['#ff5f57','#febc2e','#28c840'].map((c,i)=>`<circle cx="${4.5+i*3.6}" cy="4.5" r="1.25" fill="${c}"/>`).join('');
+      s+=r(3,11,18,4.6,1.8,'class="ac"')+[19,24,29,37,42,47,52].map((y,i)=>line(5,y,[12,9,13,10,14,8,11][i],P,i<3?1:2,1.8)).join('');
+      s+=line(30,7,20,P,1,3)+cards.map((x,i)=>i?r(x,13,15,15,2,P[3]):cover(x,13,15)).join('')+cards.map(x=>line(x,30.5,11,P,2,1.6)).join('');
+      s+=cards.map((x,i)=>r(x,35,15,15,2,P[3])).join('');
+      s+=r(np==='docked'?28:34,56,np==='docked'?40:52,7.5,3.75,P[3])+cover(np==='docked'?30:36,57.2,5,1)+line(np==='docked'?37:43,59,14,P,1,1.6);
+      return s;
+    }
+    // The Now Playing pane at the right, as the default floating card or docked to the edge.
+    function npPane(layout){
+      const [fill,g]=grad(C.main,C.deep),docked=layout==='docked',x=docked?72:73,y=docked?0:5,w=docked?32:27,h=docked?66:52;
+      const [bl,f]=blur(2.2);
+      const shadow=docked?r(72,0,.6,66,0,'fill="#0000004d"'):r(x+.5,y+2,w,h,4,`fill="#000000a0" ${bl}`);
+      return [shadow+r(x,y,w,h,docked?0:4,`fill="${fill}"`)+cover(x+(w-17)/2,y+5,17)+line(x+4,y+26,15,W,1,2)+line(x+4,y+30,10,W,2,1.6)+[35,39.5,44,48.5].map((yy,i)=>line(x+4,y+yy,[19,16,20,12][i],W,i===1?1:2,2)).join(''),g+f];
+    }
+    // A close-up of the pane beside the page: bg (spicy, artwork, glass, plain) and art (large, blend, compact).
+    function np(bg,art){
+      const x=56,y=3,w=44,h=60,[cl,cdef]=clip(x,y,w,h,5);let defs=cdef,s=r(0,0,104,66,0,A.pg)+line(6,7,20,A,1,3)+r(6,13,18,18,2,A[3])+r(28,13,18,18,2,A[3])+line(6,34,12,A,2,1.6)+line(28,34,12,A,2,1.6)+r(6,40,18,18,2,A[3])+r(28,40,18,18,2,A[3]);
+      let back='',plain=bg==='plain';
+      if(bg==='spicy'){const [b,bd]=blur(5);defs+=bd;back=r(x,y,w,h,0,`fill="${C.deep}"`)+`<g ${b}><circle cx="${x+10}" cy="${y+14}" r="16" fill="${C.edge}"/><circle cx="${x+34}" cy="${y+38}" r="15" fill="${C.sun}" opacity=".85"/><circle cx="${x+38}" cy="${y+8}" r="11" fill="#4c8fa0"/><circle cx="${x+8}" cy="${y+52}" r="11" fill="${C.main}"/></g>`;}
+      else if(bg==='artwork'){const [f,g]=grad(C.main,C.deep);defs+=g;back=r(x,y,w,h,0,`fill="${f}"`);}
+      else if(bg==='glass'){const [b,bd]=blur(2);defs+=bd;back=`<g ${b}>${r(x,y,w,h,0,A.pg)}${r(x-6,y+10,18,18,2,'fill="#8884"')}${cover(x+20,y+14,16)}</g>`+r(x,y,w,h,0,'class="glass"');}
+      else back=r(x,y,w,h,0,'class="np-plain"');
+      const P=plain||bg==='glass'?A:W;let fg='';
+      if(plain)fg=[9,15,21,27,33,39,45,51].map((yy,i)=>line(x+5,y+yy,[30,24,33,20,28,31,22,26][i],P,i===3?1:2,2.6)).join('');
+      else if(art==='blend'){const fid=uid();defs+=`<linearGradient id="${fid}" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="${C.deep}" stop-opacity="0"/><stop offset="1" stop-color="${C.deep}"/></linearGradient>`
+        fg=r(x,y,w,30,0,`fill="${C.edge}"`)+`<circle cx="${x+w/2}" cy="${y+15}" r="9" fill="${C.sun}"/>`+r(x,y,w,32,0,`fill="url(#${fid})"`)+line(x+5,y+27,18,W,1,2.2)+line(x+5,y+31.5,11,W,2,1.6)+[38,43,48,53].map((yy,i)=>line(x+5,y+yy,[30,24,32,19][i],W,i===1?1:2,2.2)).join('');}
+      else if(art==='compact')fg=cover(x+5,y+5,9,1.5)+line(x+17,y+6.5,16,P,1,2)+line(x+17,y+10.5,10,P,2,1.6)+[20,25,30,35,40,45,50].map((yy,i)=>line(x+5,y+yy,[30,25,33,21,28,31,23][i],P,i===2?1:2,2.4)).join('');
+      else fg=cover(x+(w-24)/2,y+5,24)+line(x+5,y+33,18,P,1,2.2)+line(x+5,y+37.5,11,P,2,1.6)+[44,49,54].map((yy,i)=>line(x+5,y+yy,[30,24,32][i],P,i===1?1:2,2.2)).join('');
+      return svg(s+`<g ${cl}>${back}${fg}</g>`+r(x+.25,y+.25,w-.5,h-.5,4.75,'fill="none" stroke="#ffffff30" stroke-width=".5"'),defs);
+    }
+    // An album page: fill (none: the page's own), an optional tint over the header, the artist line's colour.
+    function album({fill,defs='',head='',artist}){
+      const P=fill?W:A;
+      return svg((fill?r(0,0,104,66,0,`fill="${fill}"`):r(0,0,104,66,0,A.pg))+head+cover(8,7,22)+line(35,10,30,P,1,3.4)+(artist?r(35,16,22,3,1.5,`fill="${artist}"`):line(35,16,22,P,2,3))+line(35,21.5,15,P,2,1.8)
+        +r(35,25,14,5,2.5,artist?'fill="#ef6a4f2e"':P[3])+`<path d="M39.6 26.3v2.4l2-1.2z" fill="${artist||'#fff'}"/>`+r(42.8,27,4,1,.5,`fill="${artist||'#fff'}"`)+rows(37,P),defs);
+    }
+    const fills={gradient:()=>grad(C.main,C.deep),solid:()=>[C.main,''],apple:()=>[C.apple,'']};
+    const full=fill=>{const [f,g]=(fills[fill]||fills.gradient)();return album({fill:f,defs:g});};
+    // A song preview: the sheet over the page, m its material.
+    function preview(m){
+      const [cl,cdef]=clip(5,5,94,56,7);let defs=cdef,sheet;
+      if(m==='artwork'){const [b,bd]=blur(7);defs+=bd;sheet=r(5,5,94,56,0,`fill="${C.deep}"`)+`<g ${b}><circle cx="30" cy="22" r="20" fill="${C.edge}"/><circle cx="62" cy="44" r="18" fill="${C.sun}" opacity=".85"/><circle cx="88" cy="16" r="14" fill="#4c8fa0"/></g>`+r(5,5,94,56,0,'fill="#0000002e"');}
+      else if(m==='glass'){const [b,bd]=blur(2.2);defs+=bd;sheet=`<g ${b}>${r(5,5,94,56,0,A.pg)}${cover(8,7,22)}${line(35,10,30,A,1,3.4)}${rows(37,A)}</g>`+r(5,5,94,56,0,'class="glass"');}
+      else sheet=r(5,5,94,56,0,`fill="${C.main}"`);
+      const P=m==='glass'?A:W;
+      return svg(r(0,0,104,66,0,A.pg)+`<g opacity=".35">${cover(8,7,22)}${line(35,10,30,A,1,3.4)}${rows(37,A)}</g><g ${cl}>${sheet}</g>`+r(5.25,5.25,93.5,55.5,6.75,'fill="none" stroke="#ffffff30" stroke-width=".5"')
+        +r(10,10,17,4.5,2.25,P[3])+cover(11,22,12,1.5)+line(26,24,24,P,1,3)+line(26,29.5,14,P,2,2)+r(11,38,44,1.2,.6,P[3])+r(11,38,9,1.2,.6,P[1])
+        +[11,22.5,34,45.5].map(x=>r(x,43,9.5,4.5,2.25,P[3])).join('')+r(66,10,25,46,3,`fill="${C.sky}"`)+`<circle cx="78.5" cy="30" r="7" fill="${C.sun}"/>`+r(66,45,25,11,0,`fill="${C.rose}" opacity=".7"`),defs);
+    }
+    return {
+      appearance:v=>svg(win(v==='light'?L:D)),
+      npLayout:v=>{const [s,d]=npPane(v);return svg(win(A,v)+s,d);},
+      npBg:v=>np(v,'large'),npArtSize:v=>np('artwork',v),
+      albumTint:v=>v==='off'?album({}):v==='subtle'?(()=>{const [f,g]=grad('#ef6a4f55','#ef6a4f00');return album({head:r(0,0,104,40,0,`fill="${f}"`),defs:g,artist:C.sun});})():full(settings.albumTintFill),
+      albumTintFill:full,previewMaterial:preview,
+    };
+  })();
   // Settings window (#am-settings) and its fallback, the profile menu's mcloud submenu, are both drawn from these
   // definitions, so a feature adds its setting here (or next to its code) and nothing else:
   //   defineSetting({key, group, label, type:'toggle'|'choice', default, options:[[value,label(,colour)],…],
   //     section?, note?, help?, style?:'menu'|'segmented'|'swatches'|'tiles', apply?(value), change?(value), reload?, when?(), value?(),
-  //     which?, context?, here?(), rank?, dim?()})
+  //     which?, context?, here?(), rank?, dim?(), tile?(value), tileWith?()})
   // note is one short line under the label; help, the longer story, opens from a "?" beside it. style 'tiles' draws each
-  // option as a small picture (user.css, by data-key and data-value). which: an "Apple Music or Spotify" choice, Apple's
+  // option as a small picture, tile(value) (mini's drawings), drawn again when tileWith() changes. which: an "Apple Music or Spotify" choice, Apple's
   // way first; the window gathers them under one heading. context: where else the setting is changed (the in-place menus,
   // contextEntries: 'player', 'np', 'sidebar', 'list', 'view', 'home'); here(): whether it applies to the page shown, for
   // those menus. rank orders a pane (lower first); a section named ' ' is a card of its own without a heading. dim(): the
@@ -3006,12 +3085,12 @@
   npSetting({key:'nowPlaying',group:'nowplaying',rank:0,type:'choice',style:'segmented',default:'off',label:T('Şimdi Çalan paneli','Now Playing sidebar'),context:['np','player'],
     options:[['off',T('Kapalı','Off')],['beside',T('Oynatıcıyla','With the player')],['only',T('Oynatıcı yerine','Instead of the player')]],
     note:T('Oynatıcı yerine: tüm kontroller panele geçer.','Instead of the player: every control moves into the sidebar.'),apply:()=>{npWant=null;npApply();}});
-  npSetting({key:'npLayout',group:'nowplaying',section:T('Görünüm','Look'),rank:1,type:'choice',style:'tiles',default:'card',label:T('Yerleşim','Layout'),context:['np'],
+  npSetting({key:'npLayout',group:'nowplaying',section:T('Görünüm','Look'),rank:1,tile:mini.npLayout,type:'choice',style:'tiles',default:'card',label:T('Yerleşim','Layout'),context:['np'],
     options:[['card',T('Yüzen kart','Floating')],['docked',T('Kenarda','Docked')]],apply:npApplyAll,dim:npOff});
-  npSetting({key:'npBg',group:'nowplaying',section:T('Görünüm','Look'),rank:2,type:'choice',style:'tiles',default:'spicy',label:T('Arka plan','Background'),context:['np'],
+  npSetting({key:'npBg',group:'nowplaying',section:T('Görünüm','Look'),rank:2,tile:mini.npBg,type:'choice',style:'tiles',default:'spicy',label:T('Arka plan','Background'),context:['np'],
     options:[['spicy','Spicy Lyrics'],['artwork',T('Kapak renkleri','Artwork colours')],['glass',T('Cam','Glass')],['plain',T('Sade','Plain')]],
     help:T('“Spicy Lyrics”: Spicy’nin hareketli arka planı. Bunun için Spicy Lyrics ayarlarında Background → Now Playing Sidebar → “Animated Background”ı açın; kapalıyken kapak renkleri görünür. “Sade”: Apple Music’in Mac’teki söz paneli gibi; kapak ve başlık yok, yalnızca sözler.','“Spicy Lyrics”: Spicy’s moving background. Turn on “Animated Background” in Spicy Lyrics’ settings (Background → Now Playing Sidebar); while it is off, the artwork’s colours show. “Plain”: like Apple Music’s lyrics pane on the Mac: no artwork or header, only the lyrics.'),apply:npApplyAll,dim:npOff});
-  npSetting({key:'npArtSize',group:'nowplaying',section:T('Görünüm','Look'),rank:3,dim:npOff,type:'choice',style:'tiles',default:'large',label:T('Kapak','Artwork'),context:['np'],
+  npSetting({key:'npArtSize',group:'nowplaying',section:T('Görünüm','Look'),rank:3,tile:mini.npArtSize,dim:npOff,type:'choice',style:'tiles',default:'large',label:T('Kapak','Artwork'),context:['np'],
     options:[['large',T('Büyük','Large')],['blend',T('Kenara eriyen','Edge to edge')],['compact',T('Küçük','Small')]],
     apply:npApplyAll,when:()=>settings.npBg!=='plain'&&(settings.npLyricsPlace==='below'||settings.npArtSize==='blend')});
   npSetting({key:'npArt',group:'nowplaying',section:T('Görünüm','Look'),rank:4,dim:npOff,type:'choice',default:'cover',label:T('Hareketli kapak','Animated artwork'),context:['np'],
@@ -4251,7 +4330,7 @@
     for(const tile of grid.querySelectorAll(':scope > [role="listitem"] > a > div[style*="background-color"]'))duoObserver?.observe(tile);
   }
   const pvMaterials=['artwork','glass','color'];
-  defineSetting({key:'previewMaterial',group:'home',section:T('Şarkı önizlemesi','Song previews'),rank:2,label:T('Önizleme zemini','Preview background'),note:T('Ana Sayfa’daki ve albümlerdeki “Keşfet” önizlemeleri.','Previews on Home and under “Explore” on albums.'),type:'choice',style:'tiles',default:'artwork',
+  defineSetting({key:'previewMaterial',group:'home',tile:mini.previewMaterial,section:T('Şarkı önizlemesi','Song previews'),rank:2,label:T('Önizleme zemini','Preview background'),note:T('Ana Sayfa’daki ve albümlerdeki “Keşfet” önizlemeleri.','Previews on Home and under “Explore” on albums.'),type:'choice',style:'tiles',default:'artwork',
     options:[['artwork',T('Bulanık kapak','Blurred artwork')],['glass',T('Cam','Glass')],['color',T('Kapak rengi','Artwork colour')]],apply:v=>pvMaterials.forEach(k=>document.body.classList.toggle('am-pv-'+k,k===v))});
   let previewView=null,previewWatch=null,previewFrame=0;
   function previewArt() {
@@ -4470,9 +4549,9 @@
   // Album and playlist pages can take their colour from the artwork, like artist pages: a wash at the top, or the whole page.
   const tintOptions=[['off',T('Kapalı','Off')],['subtle',T('Hafif','Subtle')],['full',T('Tam','Full')]];
   pageSetting({key:'photoHeaders',group:'pages',section:T('Sayfa','Page'),rank:2,label:T('Fotoğraflı listeler kapakla açılsın','Open photo playlists with artwork'),note:T('Daily Mix, … Mix, Today\'s Top Hits.','Daily Mix, … Mix, Today\'s Top Hits.'),type:'toggle',default:true,context:['view'],here:()=>!!playlistId(),apply:()=>{photoReady=true;watchHeader();}});
-  pageSetting({key:'albumTint',group:'pages',section:T('Sayfa','Page'),rank:0,label:T('Sayfa rengi','Page colour'),note:T('Albüm ve çalma listesi sayfaları kapağın rengini alır.','Album and playlist pages take the artwork’s colour.'),type:'choice',style:'tiles',default:'off',options:tintOptions,context:['view'],here:()=>!!(albumId()||playlistId()),apply:syncAlbum});
+  pageSetting({key:'albumTint',group:'pages',section:T('Sayfa','Page'),rank:0,tile:mini.albumTint,tileWith:()=>settings.albumTintFill,label:T('Sayfa rengi','Page colour'),note:T('Albüm ve çalma listesi sayfaları kapağın rengini alır.','Album and playlist pages take the artwork’s colour.'),type:'choice',style:'tiles',default:'off',options:tintOptions,context:['view'],here:()=>!!(albumId()||playlistId()),apply:syncAlbum});
   // Full colours the page with a light-to-deep wash, one flat colour, or Apple Music's own colour, flat (#175).
-  pageSetting({key:'albumTintFill',group:'pages',section:T('Sayfa','Page'),rank:1,label:T('Tam renk','Full colour'),type:'choice',style:'tiles',default:'gradient',context:['view'],here:()=>!!(albumId()||playlistId()),
+  pageSetting({key:'albumTintFill',group:'pages',section:T('Sayfa','Page'),rank:1,tile:mini.albumTintFill,label:T('Tam renk','Full colour'),type:'choice',style:'tiles',default:'gradient',context:['view'],here:()=>!!(albumId()||playlistId()),
     options:[['gradient',T('Geçişli','Gradient')],['solid',T('Tek renk','Solid')],['apple','Apple Music']],when:()=>settings.albumTint==='full',
     note:T('Apple Music: kapağın kenarındaki baskın renk.','Apple Music: the main colour at the cover’s edge.'),
     apply:value=>{document.body.classList.toggle('am-album-solid',value==='solid');document.body.classList.toggle('am-album-fill-apple',value==='apple');syncAlbum();}});
@@ -4680,10 +4759,13 @@
       const options=def.options.map(([value,name,color])=>{
         const b=el('button','am-settings-option',def.style==='swatches'||def.style==='tiles'?'':name);b.type='button';b.setAttribute('role','radio');b.dataset.value=String(value);
         if(color){b.style.setProperty('--am-swatch',color);b.title=name;b.setAttribute('aria-label',name);}
-        if(def.style==='tiles')b.append(el('span','am-settings-tile'),el('span','am-settings-tile-label',name));
+        if(def.style==='tiles'){const tile=el('span','am-settings-tile');tile.innerHTML=def.tile?.(value)||'';b.append(tile,el('span','am-settings-tile-label',name));}
         b.onclick=()=>setSetting(def.key,value);return [value,b];
       });
       control.append(...options.map(o=>o[1]));
+      // A tile that shows another setting (Page colour's Full, in the fill picked) is drawn again when that changes.
+      let drawn=def.tileWith?.();
+      if(def.tileWith)settingsSyncs.push(()=>{const w=def.tileWith();if(w===drawn)return;drawn=w;options.forEach(([value,b])=>{b.querySelector('.am-settings-tile').innerHTML=def.tile(value);});});
       settingsSyncs.push(()=>options.forEach(([value,b])=>{const on=now()===value;b.setAttribute('aria-checked',String(on));b.tabIndex=on?0:-1;}));
       control.addEventListener('keydown',event=>{
         const step={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[event.key];if(!step)return;event.preventDefault();
@@ -4745,7 +4827,7 @@
   }
   // The appearance setting: in the settings window when it is there (issue #76's defineSetting), otherwise its own submenu.
   {const [label,names]=appearanceLabels().appearance;
-    if(typeof defineSetting==='function')defineSetting({key:'appearance',group:'general',rank:-3,label,type:'choice',default:'dark',style:'tiles',options:appearanceModes.map(m=>[m,names[m]]),apply:v=>{settings.appearance=v;applyAppearance();}});
+    if(typeof defineSetting==='function')defineSetting({key:'appearance',group:'general',rank:-3,tile:mini.appearance,label,type:'choice',default:'dark',style:'tiles',options:appearanceModes.map(m=>[m,names[m]]),apply:v=>{settings.appearance=v;applyAppearance();}});
     else if(S.Menu?.SubMenu&&S.Menu?.Item){
       const items=appearanceModes.map(m=>new S.Menu.Item(label+': '+names[m],settings.appearance===m,()=>{setAppearance('appearance',m);items.forEach((item,i)=>item.setState(appearanceModes[i]===m));}));
       new S.Menu.SubMenu(T('mcloud görünüm','mcloud appearance'),items).register();

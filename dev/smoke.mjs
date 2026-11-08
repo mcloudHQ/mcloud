@@ -1780,6 +1780,25 @@ try {
     await page.click('#am-settings .am-settings-close');
   });
 
+  await check('settings tiles: every picture choice is a drawing of what it changes; Full follows the fill (#179)', async () => {
+    await page.keyboard.press('Meta+Alt+Comma');
+    const missing = await page.evaluate(() => {
+      const out = [];
+      for (const t of document.querySelectorAll('#am-settings .am-settings-tab')) { t.click(); for (const o of document.querySelectorAll('#am-settings .am-settings-tiles .am-settings-option')) if (!o.querySelector('.am-settings-tile > svg.am-mini rect')) out.push(o.closest('[data-key]').dataset.key + ':' + o.dataset.value); }
+      return out;
+    });
+    assert.deepEqual(missing, []);
+    await page.click('#am-settings .am-settings-close');
+    const full = () => page.evaluate(() => document.querySelector('#am-settings [data-key="albumTint"] [data-value="full"] svg').innerHTML.includes('#1c4a50'));
+    const { albumTint: tint, albumTintFill: fill } = await page.evaluate(() => JSON.parse(localStorage.getItem('mcloud:settings')));
+    await settingsWindow.pick('albumTint', 'Tam', true);
+    await settingsWindow.pick('albumTintFill', 'Apple Music', true);
+    assert.equal(await full(), true);
+    await settingsWindow.pick('albumTintFill', { gradient: 'Geçişli', solid: 'Tek renk', apple: 'Apple Music' }[fill || 'gradient'], true);
+    assert.equal(await full(), (fill || 'gradient') === 'apple');
+    await settingsWindow.pick('albumTint', { off: 'Kapalı', subtle: 'Hafif', full: 'Tam' }[tint || 'off']);
+  });
+
   await check('in-place settings: the player, Now Playing, the Playlists heading, column headings and ⌘J View Options (#179)', async () => {
     const items = sel => page.evaluate(sel => { const p = document.querySelector(sel); return p.hidden ? null : [...p.querySelectorAll('.am-popover-item')].map(i => i.textContent); }, sel || '#am-popover');
     const rightClick = sel => page.evaluate(sel => { const n = document.querySelector(sel), r = n.getBoundingClientRect(); n.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: r.left + 4, clientY: r.top + 4 })); }, sel);

@@ -1708,36 +1708,19 @@ body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(
 /* Pop-up button: Apple's rounded rectangle with the up/down chevrons. */
 .am-settings-select {max-width:220px;height:22px;padding:0 24px 0 9px;border:0;border-radius:5px;background:var(--am-settings-control) var(--am-settings-chevron) no-repeat right 8px center/8px 12px;box-shadow:inset 0 .5px rgb(var(--am-ink,255 255 255)/.1);color:var(--am-text);font:13px var(--encore-body-font-stack);appearance:none;cursor:pointer}
 .am-settings-select {display:block;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* Pictures for choices you judge by eye (System Settings' Appearance): a small preview over the name, ringed in the accent. */
+/* Pictures for choices you judge by eye (System Settings' Appearance): a small drawing of what the choice changes (theme.js
+   mini) over its name, ringed in the accent. The drawing's page follows the appearance. */
 .am-settings-tiles {display:flex;flex-wrap:wrap;gap:10px 14px}
-.am-settings-tiles .am-settings-option {display:grid;justify-items:center;gap:5px;width:72px;padding:0;border:0;background:none;color:var(--am-text);font:11px/1.25 var(--encore-body-font-stack);text-align:center;cursor:pointer}
-.am-settings-tile {display:block;width:68px;height:44px;border-radius:7px;background:#3a3a3c;box-shadow:inset 0 0 0 .5px rgb(var(--am-ink,255 255 255)/.2);transition:outline-color .15s}
+.am-settings-tiles .am-settings-option {display:grid;justify-items:center;gap:5px;width:108px;padding:0;border:0;background:none;color:var(--am-text);font:11px/1.25 var(--encore-body-font-stack);text-align:center;cursor:pointer}
+.am-settings-tile {display:block;width:104px;height:66px;border-radius:8px;overflow:hidden;background:var(--am-bg);box-shadow:0 0 0 .5px rgb(var(--am-ink,255 255 255)/.2);transition:outline-color .15s}
+.am-mini {display:block;width:100%;height:100%}
+.am-mini .pg {fill:var(--am-bg)}.am-mini .sd {fill:rgb(var(--am-ink,255 255 255)/.05)}.am-mini .ac {fill:var(--am-accent)}
+.am-mini .a1 {fill:rgb(var(--am-ink,255 255 255)/.8)}.am-mini .a2 {fill:rgb(var(--am-ink,255 255 255)/.4)}.am-mini .a3 {fill:rgb(var(--am-ink,255 255 255)/.1)}
+.am-mini .glass {fill:rgb(var(--am-ink,255 255 255)/.12)}.am-mini .np-plain {fill:#2c2c2c}body.am-light .am-mini .np-plain {fill:#eeedec}
 .am-settings-tiles .am-settings-option[aria-checked="true"] .am-settings-tile {outline:2.5px solid var(--am-accent);outline-offset:1.5px}
 .am-settings-tiles .am-settings-option[aria-checked="true"] .am-settings-tile-label {font-weight:600}
 .am-settings-tiles .am-settings-option:focus-visible {outline:0}
 .am-settings-tiles .am-settings-option:focus-visible .am-settings-tile {outline:2.5px solid var(--am-accent-focus);outline-offset:1.5px}
-[data-key="appearance"] [data-value="dark"] .am-settings-tile {background:linear-gradient(#1c1c1e 0 28%,#2c2c2e 28%)}
-[data-key="appearance"] [data-value="light"] .am-settings-tile {background:linear-gradient(#e5e5ea 0 28%,#fff 28%)}
-/* The floating card stands clear of the window's edges on every side, with a shadow, so it reads apart from "Docked". */
-[data-key="npLayout"] [data-value="card"] .am-settings-tile {position:relative;background:#2c2c2e}
-[data-key="npLayout"] [data-value="card"] .am-settings-tile::after {content:"";position:absolute;inset:7px 6px 7px auto;width:21px;border-radius:4px;background:var(--am-accent);box-shadow:0 3px 7px rgb(0 0 0/.6),0 0 0 .5px rgb(255 255 255/.3)}
-[data-key="npLayout"] [data-value="docked"] .am-settings-tile {background:linear-gradient(90deg,#2c2c2e 64%,var(--am-accent) 64%)}
-[data-key="npBg"] [data-value="spicy"] .am-settings-tile {background:radial-gradient(60% 75% at 30% 30%,#e2556f,#0000),radial-gradient(60% 75% at 80% 80%,#6b2d8f,#0000),#2a1830}
-[data-key="npBg"] [data-value="artwork"] .am-settings-tile {background:linear-gradient(160deg,#a0405a,#3a2040)}
-[data-key="npBg"] [data-value="glass"] .am-settings-tile {background:linear-gradient(#ffffff2e,#ffffff10),#48484a}
-[data-key="npBg"] [data-value="plain"] .am-settings-tile {background:repeating-linear-gradient(#0000 0 7px,#ffffff59 7px 10px,#0000 10px 14px) 10px 4px/48px 36px no-repeat,#1c1c1e}
-[data-key="npArtSize"] [data-value="large"] .am-settings-tile {background:linear-gradient(135deg,#e2556f,#6b2d8f) 50% 5px/30px 24px no-repeat,repeating-linear-gradient(#0000 0 4px,#ffffff40 4px 6px) 50% 33px/40px 8px no-repeat,#2a1830}
-[data-key="npArtSize"] [data-value="blend"] .am-settings-tile {background:linear-gradient(#0000 40%,#2a1830),linear-gradient(135deg,#e2556f,#6b2d8f)}
-[data-key="npArtSize"] [data-value="compact"] .am-settings-tile {background:linear-gradient(135deg,#e2556f,#6b2d8f) 6px 5px/12px 12px no-repeat,repeating-linear-gradient(#0000 0 5px,#ffffff40 5px 7px) 8px 21px/52px 20px no-repeat,#2a1830}
-[data-key="albumTint"] [data-value="off"] .am-settings-tile {background:linear-gradient(#232325 0 45%,#1c1c1e 45%)}
-[data-key="albumTint"] [data-value="subtle"] .am-settings-tile {background:linear-gradient(#7a3046,#1c1c1e 60%)}
-[data-key="albumTint"] [data-value="full"] .am-settings-tile {background:linear-gradient(#a0405a,#5a1e30)}
-[data-key="albumTintFill"] [data-value="gradient"] .am-settings-tile {background:linear-gradient(#c0566f,#4a1828)}
-[data-key="albumTintFill"] [data-value="solid"] .am-settings-tile {background:#7a3046}
-[data-key="albumTintFill"] [data-value="apple"] .am-settings-tile {background:#5d2a38}
-[data-key="previewMaterial"] [data-value="artwork"] .am-settings-tile {background:radial-gradient(70% 80% at 50% 40%,#e2556f99,#1c1c1e)}
-[data-key="previewMaterial"] [data-value="glass"] .am-settings-tile {background:linear-gradient(#ffffff38,#ffffff12),#2c2c2e}
-[data-key="previewMaterial"] [data-value="color"] .am-settings-tile {background:#6b2d8f}
 .am-settings-empty {padding:40px 0;text-align:center;color:var(--am-sub)}
 /* General's last card: the version, and Restore Defaults… on the right, which asks in place before it resets. */
 .am-settings-about {margin-top:18px}
