@@ -4099,6 +4099,14 @@
     style.setProperty('--am-mix-to',`hsl(${(hue+330)%360} ${Math.min(90,sat+10)}% ${Math.round((mid-.14)*100)}%)`);
     box.classList.toggle('am-mix-plain',!cover.photo);box.classList.add('am-mix-ready');
   }
+  // The name drawn into the band: a card's title, a playlist page's h1, else the nearest link with text around the image
+  // (Home's big "Made for you" cards and the shortcuts at the top have neither; their band was drawn empty, #194).
+  function mixName(img) {
+    const card=img.closest('[data-encore-id="card"]'),page=!card&&img.closest('[data-testid="playlist-page"]');
+    if(card||page)return (card?card.querySelector('[data-encore-id="cardTitle"]'):page.querySelector('h1'))?.textContent.trim()||'';
+    for(let node=img.parentElement,i=0;node&&i<5;node=node.parentElement,i++)for(const a of node.querySelectorAll('a[href]')){const text=(a.title||a.textContent).trim();if(text)return text;}
+    return '';
+  }
   // Apple's own pairing: radios as its stations (the photo in a circle), the other mixes as Essentials (the band).
   const mixStyle=url=>settings.mixCovers!=='apple'?settings.mixCovers:/\/img\/radio\//.test(url)?'station':'band';
   function markMix(img,radius) {
@@ -4107,9 +4115,8 @@
     const box=img.closest('[data-encore-id="card"]')?img.parentElement?.parentElement:img.parentElement,url=img.getAttribute('src')||'';if(!box||!img.closest('.am-native-main'))return;
     if(!mixUrl.test(url)||settings.mixCovers==='spotify'){if(box.classList.contains('am-mix'))box.classList.remove('am-mix','am-mix-ready','am-mix-plain');delete box.dataset.amMixSrc;return;}
     box.dataset.amMixStyle=mixStyle(url);
+    const name=mixName(img);if(box.dataset.amMix!==name)box.dataset.amMix=name;
     if(box.dataset.amMixSrc===url&&box.classList.contains('am-mix-ready'))return;
-    const card=img.closest('[data-encore-id="card"]');
-    box.dataset.amMix=(card?card.querySelector('[data-encore-id="cardTitle"]')?.textContent:img.closest('[data-testid="playlist-page"]')?.querySelector('h1')?.textContent)?.trim()||'';
     box.dataset.amMixSrc=url;box.classList.add('am-mix');box.style.setProperty('--am-mix-radius',radius??getComputedStyle(img).borderRadius);
     const known=mixCovers.get(url);
     if(known){drawMix(box,known);return;}

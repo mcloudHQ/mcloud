@@ -3141,6 +3141,37 @@ try {
     await page.evaluate(() => document.getElementById('mock-home').remove());
   });
 
+  await check('Home (#194): big "Made for you" cards and shortcuts name their mix cover; the big card\'s buttons are glass on the description', async () => {
+    // Spotify's big card: no encore card or cardTitle (the name is the header's h2), and a footer that reserves four lines
+    // for the description above a 48px row of buttons; its own CSS is copied here. The covers were drawn before (cache).
+    const pick = 'https://pickasso.spotifycdn.com/image/ab67c0de0000deef/dt/v1/img/';
+    assert.deepEqual(await page.evaluate(async pick => {
+      const s = document.createElement('section');s.id = 'mock-bigcard';
+      s.innerHTML = `<style>#mock-bigcard footer{--footer-height:80px;height:calc(var(--footer-height) + 8px + 48px);display:flex;flex-direction:column;justify-content:space-between;transform:translateY(56px)}#mock-bigcard footer>div:first-child{height:var(--footer-height);margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:14;-webkit-box-orient:vertical;overflow:hidden;line-height:20px}#mock-bigcard footer>div:last-child{display:flex;flex:0 0 0%;height:48px;align-items:center;justify-content:space-between}</style>`
+        + `<div data-encore-id="box" style="position:relative;width:456px;height:592px;display:flex;flex-direction:column;justify-content:space-between"><header><div><div class="main-cardImage-imageWrapper" style="width:96px;height:96px"><div style="position:relative;width:96px;height:96px"><img alt="" style="width:96px;height:96px" src="${pick}daily/2/ab6761610000e5eb97f323784adb2a66291c0cd4/en"></div></div></div>`
+        + `<div><a href="/playlist/37i9dQZF1EQpj7X7UK8OOF"><h2 data-encore-id="text">Rock Mix</h2></a></div></header>`
+        + `<footer><div><span data-encore-id="text"><a href="/playlist/37i9dQZF1EIYTvhRGazpU1">Nirvana</a> and more</span></div><div><div><button data-testid="big-card-toggle-preview-button" data-encore-id="buttonSecondary"><span><svg viewBox="0 0 16 16"></svg></span><span>Preview</span></button></div>`
+        + `<div><button aria-label="More" data-encore-id="buttonTertiary"><span><svg viewBox="0 0 24 24"></svg></span></button><button aria-checked="false" data-encore-id="buttonTertiary"><span><svg viewBox="0 0 24 24"></svg></span></button><div><div><button data-encore-id="buttonPrimary"><span><span><svg viewBox="0 0 24 24"></svg></span></span></button></div></div></div></div></footer></div>`
+        + `<div data-am-shortcut><div draggable="true"><a aria-hidden="true" href="/playlist/37i9dQZF1EIVtWqDHkZ7t4"><div><div class="mock-short" style="position:relative;width:48px;height:48px"><img alt="" style="width:48px;height:48px" src="${pick}topic/chill/0ECwFtbIWEVNwjlrfc6xoL/en"></div></div></a><div><div><a title="Chill Mix" href="/playlist/37i9dQZF1EIVtWqDHkZ7t4"><p>Chill Mix</p></a></div></div></div></div>`;
+      document.querySelector('.am-native-main main').prepend(s);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const art = s.querySelector('.main-cardImage-imageWrapper > div'), short = s.querySelector('.mock-short'), footer = s.querySelector('footer');
+      const text = footer.firstElementChild.getBoundingClientRect(), row = footer.lastElementChild.getBoundingClientRect(), more = getComputedStyle(footer.querySelector('[aria-label="More"]'));
+      const play = getComputedStyle(footer.querySelector('[data-encore-id="buttonPrimary"] > span')), preview = getComputedStyle(footer.querySelector('[data-encore-id="buttonSecondary"]'));
+      document.body.classList.add('am-solid');const eco = getComputedStyle(footer.querySelector('[aria-label="More"]')).backdropFilter;document.body.classList.remove('am-solid');
+      // Save is Apple's star (the album pages' masks): outlined and white, filled in the accent once Spotify checks it; More keeps its glyph.
+      const save = footer.querySelector('[aria-checked]'), mask = () => getComputedStyle(save.querySelector('svg')).maskImage, accent = getComputedStyle(document.body).getPropertyValue('--am-accent').trim();
+      const probe = document.createElement('i');probe.style.color = accent;document.body.append(probe);const accentRgb = getComputedStyle(probe).color;probe.remove();
+      const star = [mask().includes("fill='none'") && mask().includes('m12 3.2'), getComputedStyle(save).color, getComputedStyle(save).width,
+        getComputedStyle(footer.querySelector('[aria-label="More"] svg')).maskImage];
+      save.setAttribute('aria-checked', 'true');star.push(mask().includes("fill='%23000'"), getComputedStyle(save).color === accentRgb, getComputedStyle(save).backdropFilter);
+      const out = [art.dataset.amMix, getComputedStyle(art, '::after').content, short.dataset.amMix, Math.round(text.height), Math.round(row.top - text.bottom), Math.round(row.height),
+        more.width, more.borderRadius, more.backdropFilter, play.width, play.backdropFilter, preview.height, preview.backgroundColor, eco, ...star];
+      s.remove();return out;
+    }, pick), ['Rock Mix', '"Rock Mix"', 'Chill Mix', 20, 8, 48, '40px', '999px', 'blur(12px) saturate(1.4)', '44px', 'blur(12px) saturate(1.4)', '36px', 'rgba(255, 255, 255, 0.12)', 'none',
+      true, 'rgb(255, 255, 255)', '40px', 'none', true, true, 'blur(12px) saturate(1.4)']);
+  });
+
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
     // Spotify's page for a mix: no artwork container, an empty slot before the text, the photo in .before-scroll-node,
     // and "About recommendations" as a button under the creator line. The cover comes from the playlist's metadata.
