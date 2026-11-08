@@ -37,6 +37,8 @@
       Item: class { constructor(name, checked, onClick) { Object.assign(this, { name, checked, onClick }); } setState(v) { this.checked = v; } register() { (window.__menuItems ||= []).push(this); } deregister() { window.__menuItems = (window.__menuItems || []).filter(i => i !== this); } },
       SubMenu: class { constructor(name, items) { Object.assign(this, { name, items }); } register() { window.__menus.push(this); } deregister() {} },
     },
+    // Spicetify.Queue as Spicetify keeps it: the next tracks (#182's queue variant), a delimiter among them.
+    Queue: { nextTracks: [['Pink + White', 'Frank Ocean', '#d88a9a'], ['Ivy', 'Frank Ocean', '#6a8f4e'], ['Self Control', 'Frank Ocean', '#4a6fa5'], ['spotify:delimiter'], ['Solo', 'Frank Ocean', '#c9a227'], ['Godspeed', 'Frank Ocean', '#7d5ba6']].map(([title, artist, color], i) => ({ contextTrack: title.startsWith('spotify:') ? { uri: title, uid: 'd' } : { uri: 'spotify:track:q' + i, uid: 'u' + i, metadata: { title, artist_name: artist, image_url: 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="${color}"/></svg>`) } }, provider: i < 2 ? 'queue' : 'context' })) },
     Player: {
       origin: { _state: {} },
       data: { context: { uri: 'spotify:album:0' }, item: { uri: 'spotify:track:1', name: 'Nights', artists: [{ name: 'Frank Ocean', uri: 'spotify:artist:0' }], album: { uri: 'spotify:album:0', name: 'Blonde', images: [{ url: art(30, 'Bl'), label: 'standard' }] }, images: [{ url: art(30, 'Bl'), label: 'small' }], metadata: { title: 'Nights', artist_name: 'Frank Ocean', album_uri: 'spotify:album:0', has_lyrics: 'true', 'canvas.url': 'https://canvaz.scdn.co/upload/mock/video/nights.cnvs.mp4', 'canvas.type': 'VIDEO_LOOPING_RANDOM' } } },
@@ -62,6 +64,7 @@
       PlayerAPI: {
         addToQueue: async items => { (window.__queueAdds ||= []).push(...items); },
         play: async () => {},
+        skipTo: async item => { (window.__skips ||= []).push(item); },
       },
       PlaylistAPI: {
         add: async (playlistUri, uris, options) => { (window.__playlistAdds ||= []).push({ playlistUri, uris, options }); },
