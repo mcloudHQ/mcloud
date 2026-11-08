@@ -391,6 +391,8 @@ body.am-album-clean .am-native-main [data-testid="album-page"] .main-trackList-r
 body.am-album-clean .am-native-main [data-testid="album-page"] .main-trackList-rowMainContent > :nth-child(2):not(:last-child) {grid-area:badges!important;align-self:center;justify-content:flex-start!important;margin:0!important}
 body.am-album-clean .am-native-main [data-testid="album-page"] .main-trackList-rowMainContent > :nth-child(2):not(:last-child) > :not([data-encore-id="tagIcon"]) {display:none!important}
 body.am-album-clean .am-native-main [data-testid="album-page"] .main-trackList-rowMainContent > :last-child:not(:first-child) {grid-area:subtitle!important;contain:inline-size}
+/* Apple Music's way with guests (#187): theme.js puts "feat. …" on the title (data-am-feat); the line is hidden. */
+body.am-album-clean.am-album-feat .am-native-main [data-testid="album-page"] [data-am-feat]::after {content:" (" attr(data-am-feat) ")"}
 /* Text is drawn as Music draws it (#72). Chromium sets the system font exactly as AppKit does (same SF optical sizes
    and tracking, widths equal to 0.01px), but Spotify's -webkit-font-smoothing:antialiased leaves strokes about a
    quarter lighter than Music's (ink 0.75 against 0.98 with the system's smoothing, 13pt). SF tracks itself per size,

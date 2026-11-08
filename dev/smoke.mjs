@@ -1987,6 +1987,28 @@ try {
     await albumPage(1);
     await page.waitForFunction(() => document.getElementById('am-album-style')?.textContent.includes('kanye'));
     assert.deepEqual(await shown(), [true, true, false]);
+    // #187: a guest's line (Frank Ocean with André 3000) can go too, or move into the title as Apple Music writes it;
+    // a track by other artists keeps its line either way.
+    await albumPage(0);
+    await page.waitForFunction(() => document.getElementById('am-album-style')?.textContent.includes('frank'));
+    const feat = () => page.$$eval('#mock-album72 .main-trackList-rowTitle', l => l.map(t => getComputedStyle(t, '::after').content));
+    const centred = () => page.evaluate(() => [...document.querySelectorAll('#mock-album72 .main-trackList-rowMarker')].map(m => { const s = m.firstElementChild.getBoundingClientRect(), r = m.getBoundingClientRect(); return Math.round(s.top + s.height / 2 - r.top - r.height / 2); }));
+    await settingsWindow.pick('albumFeatures', 'Gizle');
+    await page.waitForFunction(() => document.getElementById('am-album-style').textContent.split('{display:none').length === 3);
+    assert.deepEqual(await shown(), [false, false, true]);
+    assert.deepEqual(await centred(), [0, 0, -2]);
+    assert.deepEqual(await feat(), ['none', 'none', 'none']);
+    await settingsWindow.pick('albumFeatures', 'Apple Music gibi');
+    await page.waitForFunction(() => document.querySelector('#mock-album72 [data-am-feat]'));
+    assert.deepEqual(await shown(), [false, false, true]);
+    assert.deepEqual(await feat(), ['none', '" (feat. André 3000)"', 'none']);
+    assert.equal(await saved('albumFeatures'), 'apple');
+    await settingsWindow.pick('albumFeatures', 'Satırda göster');
+    await page.waitForFunction(() => document.getElementById('am-album-style').textContent.split('{display:none').length === 2);
+    assert.deepEqual(await shown(), [false, true, true]);
+    assert.deepEqual(await feat(), ['none', 'none', 'none']);
+    await albumPage(1);
+    await page.waitForFunction(() => document.getElementById('am-album-style')?.textContent.includes('kanye'));
     // Switched off, Spotify's rows come back as they were.
     await flip('albumClean', 'Sade albüm listesi');
     assert.deepEqual(await shown(), [true, true, true]);
