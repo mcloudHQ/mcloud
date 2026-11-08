@@ -2671,7 +2671,7 @@
   const npOnSpicyPage=()=>document.body.classList.contains('am-spicy-route');
   const npOpenFor=mode=>mode==='only'||mode==='beside';
   const npSpicyWanted=mode=>mode==='beside'&&!npOnSpicyPage()&&!npFullOn&&settings.npLyricsSource==='spicy'&&(settings.npLyricsPlace==='below'||settings.npBg==='plain')
-    &&!document.body.classList.contains('am-panel-open')&&!!npSpicyCard();
+    &&!document.body.classList.contains('am-panel-open')&&!npQueueOn&&!!npSpicyCard();
   function npSpicyFill() {
     const card=npSpicyCard(),right=card?.closest('.am-native-right');if(!card)return;
     for(let n=card.closest('aside');n&&n!==right;n=n.parentElement)if(!n.hasAttribute('data-am-np-fill'))n.setAttribute('data-am-np-fill','');
@@ -2765,13 +2765,15 @@
     if(!items.length)npQueueList.append(el('div','am-np-queue-empty',T('Sırada şarkı yok','Nothing playing next')));
     for(const img of npQueueList.querySelectorAll('img[data-src]'))observeLazy(npQueueArt,img);
   }
-  function npQueueShow(on) {
+  function npQueueShow(on,inApply) {
     npQueueOn=on;document.body.classList.toggle('am-np-queue-open',on);
     queueButton.classList.toggle('am-active',on);setAttributeIfChanged(queueButton,'aria-pressed',String(on));
     clearInterval(npQueueTimer);
     // While it shows, the list is read again each second (Spicetify fires nothing when the queue changes); unchanged, it is left alone.
     if(on){npQueueKey=null;npQueueRender();npQueueTimer=setInterval(()=>{if(!document.hidden)npQueueRender();},1000);}
     else releaseLazy(npQueueArt,npQueueList);
+    // Spicy Lyrics' card steps aside while the list shows (it stays mounted in Spotify's view) and comes back after.
+    if(!inApply)npApply();
   }
   document.addEventListener('click',event=>{
     const b=document.body.classList;
@@ -2824,7 +2826,7 @@
     const content=[settings.npBg,settings.npLyricsPlace,settings.npArt,npOnSpicyPage(),npCompact()].join();if(content!==npContent){npContent=content;npTrackKey='';npLyricUri=null;}
     if(!npLyricsShown()){npLyricsBox.replaceChildren();npLyrics=null;npLyricUri=null;}
     if(!shown){
-      npStopVideo();clearTimeout(npLyricTimer);if(npQueueOn)npQueueShow(false);
+      npStopVideo();clearTimeout(npLyricTimer);if(npQueueOn)npQueueShow(false,true);
       if(closing){
         // Spicy's own column takes the pane's place at the same moment: no slide there.
         if(spicy||reducedMotion.matches||typeof np.animate!=='function')np.hidden=true;
