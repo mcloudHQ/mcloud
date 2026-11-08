@@ -4339,7 +4339,19 @@
     for(const tint of albumTints)document.body.classList.toggle('am-album-tint-'+tint,tint===level);
     return level;
   }
+  // Full colours the page's play and shuffle buttons (user.css). Until an album's colour is known they show as Music's
+  // grey capsule (am-album-pending) instead of the accent first and then a jump to the colour (#183); 1.5s at most.
+  let pendingTimer=0;
+  let revealTimer=0;
+  function albumPending(on) {
+    const body=document.body.classList,was=body.contains('am-album-pending');
+    clearTimeout(pendingTimer);body.toggle('am-album-pending',on);
+    if(on)pendingTimer=setTimeout(()=>albumPending(false),1500);
+    // The moment the colour lands (200ms, am-album-reveal) the grey eases to it; hover stays as it was.
+    else if(was){clearTimeout(revealTimer);body.add('am-album-reveal');revealTimer=setTimeout(()=>body.remove('am-album-reveal'),200);}
+  }
   function pageTint(hex,edge) {
+    albumPending(false);
     const hsl=hexToHsl(hex);if(!hsl)return;
     // A grey cover keeps a grey page (see setTint); other colours are kept clear of muddy and neon extremes. The floor
     // on saturation is higher than the artist page's, so Full reads as the cover's colour, not a grey cast (#175).
@@ -4360,20 +4372,20 @@
     document.body.classList.add('am-album-tinted');
   }
   async function syncAlbum() {
-    const id=albumId(),playlist=playlistId(),request=++albumRequest,tint=tintLevel()!=='off',body=document.body.classList;
-    if(playlist)return syncPlaylist(playlist,request,tint);
+    const id=albumId(),playlist=playlistId(),request=++albumRequest,level=tintLevel(),tint=level!=='off',body=document.body.classList;
+    if(playlist){albumPending(level==='full');return syncPlaylist(playlist,request,tint);}
     if(!id||!gql()||!S.GraphQL?.Definitions?.getAlbum){
-      albumStyle.textContent='';body.remove('am-album-tinted');setListInfo('');
+      albumStyle.textContent='';body.remove('am-album-tinted');setListInfo('');albumPending(false);
       // An album opened before the client is there asks again (every 0.5s for 15s) while the page stays open.
       if(albumWait.id!==id)albumWait={id,tries:0};
       if(id&&albumWait.tries++<30)setTimeout(()=>{if(request===albumRequest)syncAlbum();},500);
       return;
     }
-    const cached=albumInfo.get(id);if(!tint||!cached?.color)body.remove('am-album-tinted');
+    const cached=albumInfo.get(id);if(!tint||!cached?.color)body.remove('am-album-tinted');albumPending(level==='full'&&!cached?.color);
     setListInfo(cached?.list);
     const info=cached||await albumData(id);
     if(request!==albumRequest)return;
-    if(!info){albumStyle.textContent='';return;}
+    if(!info){albumStyle.textContent='';albumPending(false);return;}
     setListInfo(info.list);
     const sub='.main-trackList-rowMainContent > :is(a,div,span):last-child'; // a tag, not a bare :last-child, after :has() (#137)
     // Without its artist line a row's title sits in the middle, so its number is centred too (Spotify lifts it 4px to
@@ -4393,7 +4405,7 @@
     setListInfo(Number.isFinite(meta?.totalLength)&&meta.totalLength>0?listInfo(meta.totalLength,meta.duration?.milliseconds||0,true):'');
     const images=meta?.images||[],cover=(images.find(image=>image.label==='standard')||images[0])?.url;
     if(cover&&photoCovers.get(id)!==cover){photoCovers.set(id,cover);watchHeader();}
-    if(!tint||!cover){body.remove('am-album-tinted');return;}
+    if(!tint||!cover){body.remove('am-album-tinted');albumPending(false);return;}
     if(!playlistColors.has(cover)){body.remove('am-album-tinted');if(playlistColors.size>50)playlistColors.delete(playlistColors.keys().next().value);playlistColors.set(cover,await artworkColor(spotifyImage(cover)));}
     if(appleFill()&&!playlistEdges.has(cover)){if(playlistEdges.size>50)playlistEdges.delete(playlistEdges.keys().next().value);playlistEdges.set(cover,await edgeColor(spotifyImage(cover)));}
     if(request===albumRequest)pageTint(playlistColors.get(cover),appleFill()?playlistEdges.get(cover):null);

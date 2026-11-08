@@ -2168,7 +2168,20 @@ try {
     const [r, g, b] = [1, 3, 5].map(i => parseInt(appleDark.slice(i, i + 2), 16));
     assert.ok(r > g && g > b && r < 120, 'a deep gold from the gold cover: ' + appleDark);
     assert.equal(await pageBg(), `rgb(${r}, ${g}, ${b})`, 'the page is that colour, flat');
+    await page.waitForTimeout(250); // the grey capsule's ease to the colour (#183)
     assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), 'rgba(255, 255, 255, 0.92)', "Apple's white play button");
+    // Its glyph is knocked out, as music.apple.com blends the pill (lighten): it shows the page colour, not black.
+    assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'color'), `rgb(${r}, ${g}, ${b})`, 'the play glyph takes the page colour');
+    // A page whose colour is not known yet (#183): play and shuffle show at once as a grey capsule instead of the
+    // accent, then ease to the colour.
+    await page.evaluate(() => { window.__apiDelay = 400; window.__mockPlaylistMeta['spotify:playlist:p184'] = { images: [{ url: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#30a050"/></svg>'), label: 'standard' }] }; });
+    await mount('playlist', 'p184');
+    assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-pending')), true);
+    assert.deepEqual([await css('[data-encore-id="buttonPrimary"]', 'visibility'), await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), await css('.e-1-button-tertiary--condensed-all', 'backgroundColor')], ['visible', 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.1)']);
+    await page.waitForFunction(() => !document.body.classList.contains('am-album-pending') && document.body.classList.contains('am-album-tinted'));
+    await page.waitForTimeout(250);
+    assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), 'rgba(255, 255, 255, 0.92)');
+    await page.evaluate(() => { window.__apiDelay = 0; });
     await settingsWindow.pick('albumTintFill', 'Geçişli');
     assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-solid') || document.body.classList.contains('am-album-fill-apple')), false);
     // Other pages have no colour level.
