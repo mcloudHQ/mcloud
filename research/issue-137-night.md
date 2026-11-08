@@ -43,8 +43,10 @@ Wheel scrolling over CDP (compositor scroll), CPU profile + timeline, 4s:
   - body class toggle, natural frame: original 46–60ms (11,466 elements restyled) → ~7ms (5), the same as with the
     rules removed;
   - forced, the committed file loaded in place of the installed one: 34–41ms → 0.8ms;
-  - album wheel scroll, style: 37 → 28 ms/s (rules removed entirely: 16). A ~18ms recalc of 642 elements remains at
-    each crossing that the removed rules do not show; not pinned down (not hover rules, not one half of the set).
+  - album wheel scroll, style: first run 37 → 28 ms/s (rules removed entirely: 16), with a ~18ms recalc of 642
+    elements at each crossing that the removed rules did not show; after reopening the album, 3s each: original 67.7
+    ms/s with two 30ms whole-page recalcs, rewritten 50.8, removed 49.3, the 642 recalc gone. The ~16ms recalcs of
+    ~2,650 elements left in all three are Spotify's own (`xpui-modules.js`, `dwp-top-bar.js`).
 - **Look:** computed styles (every property, plus `::before`/`::after`) identical with the committed file on the album
   page (13,261 and 14,406 elements), a playlist with a context menu open (15,529), and the search dropdown with a row
   selected (1,102 / 1,180). The loading dropdown could not be caught (it lasts a few ms); the rewrite is the same
@@ -99,7 +101,6 @@ would cost more than they save in a large window. A 0×0 Spotify element with `b
 
 - The thin layer's 8-bit darkening (needs a restart with `--force-color-profile=srgb`; measurement only).
 - A look-kept way to cut the number of backdrop layers (each costs a window-sized store/reload).
-- The 642-element recalc left at the album crossing after the fix.
 - The marquee: it moves one device pixel per step (28 CSS px/s at 2x = 56 steps/s) whenever the title or subtitle
   overflows, playing or paused, and each step redraws the player's glass. Measure only (the current track did not
   overflow).
