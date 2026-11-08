@@ -221,7 +221,8 @@
     document.documentElement.style.setProperty('--am-accent',accent);
     document.documentElement.style.setProperty('--am-accent-focus',focus);
     document.body.classList.toggle('am-no-artwork',!settings.artwork);
-    document.body.classList.toggle('am-liquid',settings.liquid);
+    // The Liquid Glass setting is the player's (#137): the toolbar, menus and arrows keep their glass; Eco turns all of it off.
+    document.body.classList.add('am-liquid');document.body.classList.toggle('am-liquid-player',settings.liquid);
     document.body.classList.toggle('am-no-numbers',!settings.numbers);
     // Glass modes. Over a page that redraws every frame (Spicy Lyrics) each backdrop filter re-runs every frame, so
     // "balanced" draws glass without them there (body.am-balanced), "eco" (and the OS reduced-transparency setting)
@@ -2383,7 +2384,7 @@
   // button size). Off with the setting or reduced transparency (user.css keeps the frosted or solid player then).
   let playerFace=null;
   function syncPlayerGlass() {
-    const live=document.body.classList.contains('am-liquid')&&!document.body.classList.contains('am-solid');
+    const live=document.body.classList.contains('am-liquid-player')&&!document.body.classList.contains('am-solid');
     player.classList.toggle('am-player-glass',live);
     if(!live){playerFace?.remove();player.querySelector(':scope > .am-tglass-rim')?.remove();playerFace=null;return;}
     if(playerFace)return;
@@ -2431,8 +2432,15 @@
     place(){
       // The controls are scaled with a press (--am-tg-scale), and Spotify's colour transitions call this mid-press
       // (transitionend): measure them as at rest, or the shape kept the pressed size (Home 36.8 for 36 at 125%).
-      const k=devicePixelRatio||1,u=Number.isInteger(k)?1:1/k,snap=v=>Math.round(v/u)*u,ps=this.scale?.x||1,rs=this.controls.map(c=>{const r=c.getBoundingClientRect(),cx=(r.left+r.right)/2,cy=(r.top+r.bottom)/2,w=r.width/ps,h=r.height/ps;return {left:cx-w/2,right:cx+w/2,top:cy-h/2,bottom:cy+h/2,width:w,height:h};}),l=snap(Math.min(...rs.map(r=>r.left))),t=snap(Math.min(...rs.map(r=>r.top))),
+      // Buttons are moved by the snap's remainder (--am-tg-dx/dy, under half a pixel), so a glyph sits in the middle of
+      // its circle when Spotify lays them out on half pixels (Home at 671.5 drew 0.5px left of its glass); measured
+      // without that move.
+      const k=devicePixelRatio||1,u=Number.isInteger(k)?1:1/k,snap=v=>Math.round(v/u)*u,ps=this.scale?.x||1,[ox,oy]=this.nudge||[0,0],rs=this.controls.map(c=>{const r=c.getBoundingClientRect(),cx=(r.left+r.right)/2-ox,cy=(r.top+r.bottom)/2-oy,w=r.width/ps,h=r.height/ps;return {left:cx-w/2,right:cx+w/2,top:cy-h/2,bottom:cy+h/2,width:w,height:h};}),l=snap(Math.min(...rs.map(r=>r.left))),t=snap(Math.min(...rs.map(r=>r.top))),
         w=snap(Math.max(...rs.map(r=>r.right)))-l,h=snap(Math.max(...rs.map(r=>r.bottom)))-t;
+      if(this.controls.every(c=>c.tagName==='BUTTON')){
+        const dx=+(l+w/2-(Math.min(...rs.map(r=>r.left))+Math.max(...rs.map(r=>r.right)))/2).toFixed(3),dy=+(t+h/2-(Math.min(...rs.map(r=>r.top))+Math.max(...rs.map(r=>r.bottom)))/2).toFixed(3);
+        this.nudge=[dx,dy];this.controls.forEach(c=>{c.style.setProperty('--am-tg-dx',dx+'px');c.style.setProperty('--am-tg-dy',dy+'px');});
+      }
       this.box={left:l,top:t,width:w,height:h,right:l+w,bottom:t+h};Object.assign(this.el.style,{left:l+'px',top:t+'px',width:w+'px',height:h+'px'});
       rs.forEach((r,i)=>Object.assign(this.lights[i].style,{left:r.left-l+'px',top:'0',width:r.width+'px',height:h+'px',transformOrigin:`${w/2-(r.left-l)}px 50%`}));
       this.render();
