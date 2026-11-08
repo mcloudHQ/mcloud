@@ -2046,6 +2046,8 @@ body.am-np-spicy-split:not(.am-panel-open).am-ready .am-native-right aside[data-
    and one at the bottom (scrubber, transport, volume, buttons); Spicy's view shows between them (--am-np-split-end). */
 body.am-np-spicy-split.am-np-only #am-nowplaying {clip-path:polygon(0 0,100% 0,100% var(--am-np-split,100%),0 var(--am-np-split,100%),0 calc(100% - var(--am-np-split-end,0px)),100% calc(100% - var(--am-np-split-end,0px)),100% 100%,0 100%)}
 body.am-np-spicy.am-np-only:not(.am-np-docked):not(.am-panel-open).am-ready .am-native-right {bottom:16px!important}
+/* Docked, the pane stops 16px short of the window's bottom (body.am-np-only) while the column runs to it. */
+body.am-np-spicy-split.am-np-only.am-np-docked:not(.am-panel-open).am-ready .am-native-right aside[data-am-np-fill] {padding-bottom:calc(var(--am-np-split-end,0px) + 16px)!important}
 body.am-np-spicy-split:not(.am-np-artbg):not(.am-panel-open).am-ready .am-native-right {background:transparent!important}
 body.am-np-spicy-split:not(.am-panel-open).am-ready .am-native-right::before {background:color-mix(in srgb,#2a2a2a 78%,transparent)}
 body.am-np-spicy-split.am-solid:not(.am-panel-open).am-ready .am-native-right {background:#1f1f1f!important}
