@@ -208,6 +208,37 @@
       return { lyrics: { syncType: 'LINE_SYNCED', providerDisplayName: 'Musixmatch', lines: lyricLines.map((words, i) => ({ startTimeMs: String(60000 + i * 10000), words })) }, colors: {} }; }
     return { mediaItems: [{ uri: 'spotify:playlist:radio' }] }; } };
   Spicetify.Platform.History.goBack = function () { this.push('/'); };
+  // ?os=windows: Spotify's Windows client. Its native shell draws the app menu's "…" (top left) and minimise/maximise/close
+  // (top right) over the page, here a stand-in strip (#mock-caption) that follows the calls. The desktop services as
+  // Spicetify resolves them from Spotify's registry: one DesktopUpdateUi client (methods on its prototype) behind
+  // ControlMessageAPI and NativeAPI, and DesktopWindowState behind FocusMainWindowAPI. window.__win records it all.
+  if (new URLSearchParams(location.search).get('os') === 'windows') {
+    Object.defineProperty(navigator, 'userAgent', { value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Spotify/1.3.8.620 Safari/537.36' });
+    document.documentElement.classList.add('spotify__os--is-windows', 'spotify__container--is-desktop');
+    const win = window.__win = { calls: [], buttons: true, height: 64, state: 1, subscribers: [] };
+    const strip = document.createElement('div'); strip.id = 'mock-caption';
+    strip.innerHTML = '<style>#mock-caption{position:fixed;inset:0 0 auto;z-index:2147483647;pointer-events:none;font:16px "Segoe UI",sans-serif;color:#fff}#mock-caption>div{position:absolute;top:0;display:flex;align-items:center;height:var(--h)}#mock-caption .m{left:12px;width:46px;justify-content:center}#mock-caption .c{right:0}#mock-caption .c span{width:46px;text-align:center}</style><div class="m">…</div><div class="c"><span>─</span><span>☐</span><span>✕</span></div>';
+    const draw = () => { strip.style.display = win.buttons && win.height > 1 ? '' : 'none'; strip.style.setProperty('--h', win.height + 'px'); };
+    document.addEventListener('DOMContentLoaded', () => { document.body.append(strip); draw(); });
+    class DesktopUpdateUi {
+      updateTitlebarHeight(req) { win.calls.push(['height', req.height]); win.height = req.height; draw(); return Promise.resolve({}); }
+      setButtonsVisibility(req) { win.calls.push(['buttons', req.showButtons]); win.buttons = req.showButtons; draw(); return Promise.resolve({}); }
+      updateMenuState() { return Promise.resolve({}); }
+    }
+    const ui = new DesktopUpdateUi();
+    const windowState = {
+      getWindowState: async () => ({ state: win.state }),
+      setWindowState: async ({ state }) => { win.calls.push(['state', state]); if (state !== 3) win.state = state; win.subscribers.forEach(f => f({ state })); return {}; },
+      closeWindow: async () => { win.calls.push(['close']); return {}; },
+      focusWindow: async () => ({}),
+      subscribeWindowState: (req, f) => { win.subscribers.push(f); return { cancel() {} }; },
+    };
+    Object.assign(Spicetify.Platform, {
+      ControlMessageAPI: { _updateUiClient: ui, setTitlebarHeight: h => ui.updateTitlebarHeight({ height: h }) },
+      NativeAPI: { _updateUiClient: ui, setWindowButtonsVisibility: v => ui.setButtonsVisibility({ showButtons: v }) },
+      FocusMainWindowAPI: { _windowStateClient: windowState },
+    });
+  }
   // ?spicetify=nobindings: Spicetify 2.46.2 after skipping its webpack bindings on a cold start. Player.origin, Player.data,
   // GraphQL.Request, Locale, CosmosAsync and addToQueue are missing; Platform still has PlayerAPI, GraphQLLoader,
   // Translations and Session. As in Spicetify, Player.data, addToQueue and CosmosAsync come once Player.origin exists.

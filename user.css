@@ -2059,6 +2059,35 @@ body.am-windows.am-light::before,body.am-windows.am-light::after {content:'';pos
 body.am-windows.am-light::before {left:12px;width:46px}
 body.am-windows.am-light::after {right:2px;width:134px}
 body.am-windows.am-light.am-solid::before,body.am-windows.am-light.am-solid::after {background:var(--am-caption-solid);-webkit-backdrop-filter:none;backdrop-filter:none}
+/* macOS traffic lights on Windows (#200, theme.js trafficSync): the native buttons are hidden, so their capsules go; on
+   the right the lights need less room than Windows' three buttons. Colours read off macOS 27's own buttons (AppKit,
+   2x): a vertical fill, a bright rim at the top and bottom in dark mode, a darker ring in light mode, glyphs on hover
+   of the group. */
+body.am-traffic.am-light::before,body.am-traffic.am-light::after {content:none}
+body.am-windows.am-traffic-right.am-ready #global-nav-bar {right:96px!important}
+body.am-windows.am-traffic-right #am-artist .am-artist-actions {right:96px}
+#am-traffic {position:fixed;top:25px;left:19px;z-index:2147483646;display:flex;gap:9px;padding:0;-webkit-app-region:no-drag;transition:opacity .2s}
+#am-traffic[data-side="right"] {left:auto;right:19px}
+#am-traffic button {--am-tl-top:#f9665b;--am-tl-mid:#f54f46;--am-tl-bottom:#ef6961;--am-tl-rim-top:#fab0a6;--am-tl-rim-bottom:#faaca3;--am-tl-ring:#0000;--am-tl-glyph:#8c0000;
+  position:relative;width:14px;height:14px;margin:0;padding:0;border:0;border-radius:50%;cursor:default;-webkit-app-region:no-drag;
+  background:linear-gradient(var(--am-tl-top),var(--am-tl-mid) 35%,var(--am-tl-bottom) 75%);box-shadow:inset 0 0 0 .75px var(--am-tl-ring)}
+#am-traffic button::before {content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;background:linear-gradient(var(--am-tl-rim-top),#0000 30% 72%,var(--am-tl-rim-bottom));-webkit-mask:radial-gradient(closest-side,#0000 calc(100% - 1.25px),#000 calc(100% - .5px));mask:radial-gradient(closest-side,#0000 calc(100% - 1.25px),#000 calc(100% - .5px))}
+#am-traffic button:focus-visible {outline:2px solid var(--am-accent-focus);outline-offset:2px}
+#am-traffic .am-traffic-minimize {--am-tl-top:#fbb500;--am-tl-mid:#fcb400;--am-tl-bottom:#fece2d;--am-tl-rim-top:#fae856;--am-tl-rim-bottom:#faf468;--am-tl-glyph:#a63a00}
+#am-traffic .am-traffic-zoom {--am-tl-top:#4bc620;--am-tl-mid:#00bc00;--am-tl-bottom:#50c33c;--am-tl-rim-top:#96f278;--am-tl-rim-bottom:#8ff078;--am-tl-glyph:#2e7300}
+#am-traffic svg {position:absolute;inset:0;width:14px;height:14px;opacity:0;fill:var(--am-tl-glyph);stroke:var(--am-tl-glyph);stroke-width:.5;stroke-linecap:round;stroke-linejoin:round}
+#am-traffic :is(.am-traffic-close,.am-traffic-minimize) svg {fill:none}
+#am-traffic:hover svg {opacity:1}
+#am-traffic .am-traffic-in,#am-traffic.am-traffic-max .am-traffic-out {display:none}
+#am-traffic.am-traffic-max .am-traffic-in {display:inline}
+#am-traffic button:active {filter:brightness(.8)}
+/* In the background the discs are grey; the pointer brings the colours back, as on macOS. */
+#am-traffic.am-traffic-inactive:not(:hover) button {--am-tl-top:#494949;--am-tl-mid:#464646;--am-tl-bottom:#3f3f3f;--am-tl-rim-top:#979797;--am-tl-rim-bottom:#8e8e8e}
+body.am-light #am-traffic button {--am-tl-top:#fe6f64;--am-tl-mid:#fb766d;--am-tl-bottom:#f78f87;--am-tl-rim-top:#ffffff40;--am-tl-rim-bottom:#ffffff26;--am-tl-ring:#c40a0a80;--am-tl-glyph:#a30000}
+body.am-light #am-traffic .am-traffic-minimize {--am-tl-top:#fcbb2a;--am-tl-mid:#fdc32f;--am-tl-bottom:#ffd545;--am-tl-ring:#9e0a0a66;--am-tl-glyph:#c14500}
+body.am-light #am-traffic .am-traffic-zoom {--am-tl-top:#60d028;--am-tl-mid:#76d34b;--am-tl-bottom:#9dde7c;--am-tl-ring:#0a550a66;--am-tl-glyph:#368800}
+body.am-light #am-traffic.am-traffic-inactive:not(:hover) button {--am-tl-top:#f5f6f7;--am-tl-mid:#eff0f2;--am-tl-bottom:#f6f7f8;--am-tl-ring:#aaabb099}
+#am-traffic.am-traffic-fs:not(:hover) {opacity:0}
 
 /* Home as Apple Music's (issue #84, settings.homeStyle): cards without a plate or hover fill, 8px artwork, 13px text,
    round glass play (bottom left) and "…" (bottom right, .am-card-more, added by theme.js) over the artwork on hover,

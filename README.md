@@ -35,6 +35,7 @@ Run the same command again to update, or after a Spotify update removes the them
 - **Now Playing panel:** artwork (animated covers from Apple Music or Spotify Canvas), lyrics and Playing Next beside the page.
 - **Redrawn pages:** artist pages tinted with the artist's colour, search results, Home cards, mix covers and album pages in Apple Music's style.
 - **Light and dark mode**, nine accent colours, Turkish and English.
+- **macOS window buttons on Windows** (optional): red, yellow and green in place of minimise, maximise and close, on the left or right (**Settings → General → Window buttons**).
 - **Spicy Lyrics** works from the player and the Now Playing panel, if you have it installed.
 - **Lightweight:** no downloads besides Spotify's own artwork; background work stops while the window is hidden.
 
