@@ -4145,6 +4145,10 @@
     apply:v=>document.body.classList.toggle('am-home-apple',v==='apple')});
   defineSetting({key:'homeShortcuts',group:'home',rank:0,label:T('Üstteki kısayollar','Shortcuts at the top'),type:'toggle',default:true,context:['home'],
     apply:v=>document.body.classList.toggle('am-home-no-shortcuts',!v)});
+  // "New release from …" (#199): the card's look while it is being decided, a temporary switch (user.css has the variants):
+  // localStorage['mcloud:spot'] = 'a' (Apple's buttons), 'b' (glass card), 'c' (Music's Latest Release) or 'off'.
+  let spotLook='b';try{spotLook=localStorage.getItem('mcloud:spot')||'b';}catch{}
+  for(const look of ['a','b','c','off'])document.body.classList.toggle('am-spot-'+look,look===spotLook);
   // What's New (#128): Spotify's feed (/content-feed) is a column of wide rows; the reporter's reference is a grid of frosted
   // cards (cover, "Album • 2026", title, subtitle, a round "+"). The rows stay Spotify's (user.css lays them out as cards) and
   // the Music / Podcasts chips give way to a pop-up button like the library's sort, which only clicks the chips.
@@ -4194,13 +4198,13 @@
       shortcut.append(more);return;
     }
     // The pointer is over the card's click layer, which covers the card beside its artwork.
-    const card=settings.homeStyle==='apple'?event.target.closest?.('.am-native-main [data-encore-id="card"]:not([aria-labelledby*=":artist:"],[aria-labelledby*=":user:"],:has(.main-cardImage-circular))'):null;
+    const card=settings.homeStyle==='apple'?event.target.closest?.('.am-native-main [data-encore-id="card"]:not([aria-labelledby*=":artist:"],[aria-labelledby*=":user:"],:has(.main-cardImage-circular))'+(spotLook==='c'?',.am-native-main a[data-encore-id="box"]:has(> div > div > #promotion-default-native-title)':'')):null;
     const box=card?.querySelector('img')?.parentElement?.parentElement;
     if(!box||box.querySelector(':scope > .am-card-more'))return;
     const more=button(T('Diğer','More'),'more',e=>{
       e.preventDefault();e.stopPropagation();
       const r=more.getBoundingClientRect();
-      more.closest('[data-encore-id="card"]')?.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:r.left+r.width/2,clientY:r.bottom+4}));
+      more.closest('[data-encore-id="card"],a[data-encore-id="box"]')?.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:r.left+r.width/2,clientY:r.bottom+4}));
     },'am-card-more');
     box.append(more);
   });
