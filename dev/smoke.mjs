@@ -2716,9 +2716,7 @@ try {
         const x = (Math.max(d.left, p.left) + Math.min(d.right, p.right)) / 2, y = (Math.max(d.top, p.top) + Math.min(d.bottom, p.bottom)) / 2;
         return [x > Math.max(d.left, p.left) && y > Math.max(d.top, p.top), !!document.elementFromPoint(x, y)?.closest('#search-dropdown'), getComputedStyle(document.getElementById('main')).zIndex];
       }), [true, true, 'auto']);
-      await page.fill('#global-nav-bar input', '');
-      await page.keyboard.press('Escape');
-      await page.evaluate(() => document.activeElement?.blur());
+      await page.mouse.click(700, 500);
       await page.waitForFunction(() => !document.getElementById('search-dropdown'));
       // Closed, #main isolates again and the pane is back over the page.
       assert.deepEqual(await page.evaluate(() => { const p = document.getElementById('am-nowplaying').getBoundingClientRect(); return [getComputedStyle(document.getElementById('main')).isolation, !!document.elementFromPoint(p.left + p.width / 2, p.top + p.height / 2)?.closest('#am-nowplaying')]; }), ['isolate', true]);
