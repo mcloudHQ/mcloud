@@ -4342,8 +4342,9 @@
     const body=document.body.classList,was=body.contains('am-album-pending');
     clearTimeout(pendingTimer);body.toggle('am-album-pending',on);
     if(on)pendingTimer=setTimeout(()=>albumPending(false),1500);
-    // The grey eases to the colour only in that moment: hover stays instant.
-    else if(was&&body.contains('am-album-wait-fade')){clearTimeout(revealTimer);body.add('am-album-reveal');revealTimer=setTimeout(()=>body.remove('am-album-reveal'),200);}
+    // The moment the colour lands (200ms, am-album-reveal) the grey eases to it, or the unseen buttons appear without
+    // Spotify's own 150ms colour ease, which would start from the accent; hover stays as it was.
+    else if(was){clearTimeout(revealTimer);body.add('am-album-reveal');revealTimer=setTimeout(()=>body.remove('am-album-reveal'),200);}
   }
   function pageTint(hex,edge) {
     albumPending(false);
