@@ -4337,9 +4337,13 @@
   // On trial (#183): localStorage mcloud:play-wait = 'fade' shows them at once in a neutral grey that eases to the colour.
   try{document.body.classList.toggle('am-album-wait-fade',localStorage.getItem('mcloud:play-wait')==='fade');}catch{}
   let pendingTimer=0;
+  let revealTimer=0;
   function albumPending(on) {
-    clearTimeout(pendingTimer);document.body.classList.toggle('am-album-pending',on);
-    if(on)pendingTimer=setTimeout(()=>document.body.classList.remove('am-album-pending'),1500);
+    const body=document.body.classList,was=body.contains('am-album-pending');
+    clearTimeout(pendingTimer);body.toggle('am-album-pending',on);
+    if(on)pendingTimer=setTimeout(()=>albumPending(false),1500);
+    // The grey eases to the colour only in that moment: hover stays instant.
+    else if(was&&body.contains('am-album-wait-fade')){clearTimeout(revealTimer);body.add('am-album-reveal');revealTimer=setTimeout(()=>body.remove('am-album-reveal'),200);}
   }
   function pageTint(hex,edge) {
     albumPending(false);
