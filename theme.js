@@ -4334,6 +4334,8 @@
   }
   // Full colours the page's play and shuffle buttons (user.css). Until an album's colour is known they wait unseen
   // (am-album-pending) instead of showing the accent first and then jumping to the colour (#183); 1.5s at most.
+  // On trial (#183): localStorage mcloud:play-wait = 'fade' shows them at once in a neutral grey that eases to the colour.
+  try{document.body.classList.toggle('am-album-wait-fade',localStorage.getItem('mcloud:play-wait')==='fade');}catch{}
   let pendingTimer=0;
   function albumPending(on) {
     clearTimeout(pendingTimer);document.body.classList.toggle('am-album-pending',on);

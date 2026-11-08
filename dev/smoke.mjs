@@ -2129,7 +2129,14 @@ try {
     await page.waitForFunction(() => !document.body.classList.contains('am-album-pending') && document.body.classList.contains('am-album-tinted'));
     assert.deepEqual([await css('[data-encore-id="buttonPrimary"]', 'visibility'), await css('.e-1-button-tertiary--condensed-all', 'visibility')], ['visible', 'visible']);
     assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), 'rgba(255, 255, 255, 0.92)');
-    await page.evaluate(() => { window.__apiDelay = 0; });
+    // The variant on trial (mcloud:play-wait = fade): shown at once as a grey capsule, then the colour.
+    await page.evaluate(() => { document.body.classList.add('am-album-wait-fade'); window.__mockPlaylistMeta['spotify:playlist:p184'] = { images: [{ url: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#30a050"/></svg>'), label: 'standard' }] }; });
+    await mount('playlist', 'p184');
+    assert.deepEqual([await css('[data-encore-id="buttonPrimary"]', 'visibility'), await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), await css('.e-1-button-tertiary--condensed-all', 'backgroundColor')], ['visible', 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.1)']);
+    await page.waitForFunction(() => !document.body.classList.contains('am-album-pending') && document.body.classList.contains('am-album-tinted'));
+    await page.waitForTimeout(250);
+    assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), 'rgba(255, 255, 255, 0.92)');
+    await page.evaluate(() => { window.__apiDelay = 0; document.body.classList.remove('am-album-wait-fade'); });
     await settingsWindow.pick('albumTintFill', 'Geçişli');
     assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-solid') || document.body.classList.contains('am-album-fill-apple')), false);
     // Other pages have no colour level.
