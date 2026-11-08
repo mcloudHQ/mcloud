@@ -3243,6 +3243,7 @@
   // Header image sources give maxWidth instead of width.
   const bySize=visual=>[...(visual?.sources||[])].sort((a,b)=>(a.width||a.maxWidth||0)-(b.width||b.maxWidth||0));
   const smallImage=visual=>spotifyImage(bySize(visual)[0]?.url||'');
+  const placeholderArt=new Map(); // isPlaceholderArt's, here as the artist page can open before that code has run
   function closeArtist() {
     closeArtistInfo();
     if(!document.body.classList.contains('am-artist-open')&&!artistView.hasChildNodes())return;
@@ -3536,7 +3537,14 @@
     const hero=el('header','am-artist-hero'+(avatarOnly?' am-hero-avatar':''));
     const heroArt=lazyImage(avatarOnly?artistImage(visuals.avatarImage,true):heroSource(header),avatarOnly?'am-hero-portrait':'am-hero-image');heroArt.loading='eager';
     const heroContent=el('div','am-hero-content');
-    if(avatarOnly)heroContent.append(heroArt);
+    if(avatarOnly){
+      heroContent.append(heroArt);
+      // No photo: Apple's circle and microphone (user.css, .am-artist-art), as on the cards (#178). The small picture is the
+      // one read: downscaled, the large one's glyph is too bright for isPlaceholderArt (128 against 94, on a ground of 25).
+      const small=smallImage(visuals.avatarImage),noPhoto=()=>heroArt.replaceWith(el('span','am-hero-portrait am-artist-art'));
+      if(!small)noPhoto();
+      else{heroArt.style.visibility='hidden';isPlaceholderArt(small).then(flat=>{if(flat)noPhoto();else heroArt.style.visibility='';});}
+    }
     const concerts=artist.goods?.events?.concerts?.items||[];
     if(concerts.length)heroContent.append(el('span','am-hero-pill',T('Yaklaşan Konserler','Upcoming Concerts')));
     heroContent.append(el('h1','am-artist-name',artist.profile.name));
@@ -4113,7 +4121,6 @@
   // Tsoi's on Home) has no photo either, so it gets Apple's microphone too (#127). Each picture is read once, at 16x16,
   // from Spotify's CDN; measured: the placeholder's ground is 26 with no colour and its glyph lifts only ~4% of the
   // pixels, while no real cover or portrait on Home came close. The artwork's box is marked data-am-no-photo.
-  const placeholderArt=new Map();
   function isPlaceholderArt(src) {
     if(!placeholderArt.has(src))placeholderArt.set(src,new Promise(resolve=>{
       const img=new Image();img.crossOrigin='anonymous';img.decoding='async';img.onerror=()=>resolve(false);
@@ -4130,7 +4137,7 @@
   }
   document.addEventListener('load',event=>{
     const img=event.target;if(img.tagName!=='IMG')return;
-    const box=img.closest('.am-native-main [data-encore-id="card"][aria-labelledby*=":artist:"],.am-card-round[data-uri^="spotify:artist:"] .am-card-art,.am-artist-art');
+    const box=img.closest('.am-native-main [data-encore-id="card"][aria-labelledby*=":artist:"],.am-card-round[data-uri^="spotify:artist:"] .am-card-art,.am-artist-art,.am-native-main [draggable="true"] > a[href*="/artist/"]:first-child > div > div,#search-dropdown [role="row"]:has([id$="-title"] a[href*="/artist/"]) div:has(> img)');
     const src=img.currentSrc||img.src;if(!box||!/^https:\/\/(i\.scdn\.co|[a-z0-9-]+\.spotifycdn\.com)\//.test(src))return;
     isPlaceholderArt(src).then(flat=>{if(img.isConnected&&(img.currentSrc||img.src)===src)box.toggleAttribute('data-am-no-photo',flat);});
   },true);
@@ -4345,7 +4352,19 @@
     for(const tint of albumTints)document.body.classList.toggle('am-album-tint-'+tint,tint===level);
     return level;
   }
+  // Full colours the page's play and shuffle buttons (user.css). Until an album's colour is known they show as Music's
+  // grey capsule (am-album-pending) instead of the accent first and then a jump to the colour (#183); 1.5s at most.
+  let pendingTimer=0;
+  let revealTimer=0;
+  function albumPending(on) {
+    const body=document.body.classList,was=body.contains('am-album-pending');
+    clearTimeout(pendingTimer);body.toggle('am-album-pending',on);
+    if(on)pendingTimer=setTimeout(()=>albumPending(false),1500);
+    // The moment the colour lands (200ms, am-album-reveal) the grey eases to it; hover stays as it was.
+    else if(was){clearTimeout(revealTimer);body.add('am-album-reveal');revealTimer=setTimeout(()=>body.remove('am-album-reveal'),200);}
+  }
   function pageTint(hex,edge) {
+    albumPending(false);
     const hsl=hexToHsl(hex);if(!hsl)return;
     // A grey cover keeps a grey page (see setTint); other colours are kept clear of muddy and neon extremes. The floor
     // on saturation is higher than the artist page's, so Full reads as the cover's colour, not a grey cast (#175).
@@ -4366,20 +4385,20 @@
     document.body.classList.add('am-album-tinted');
   }
   async function syncAlbum() {
-    const id=albumId(),playlist=playlistId(),request=++albumRequest,tint=tintLevel()!=='off',body=document.body.classList;albumFeat=null;
-    if(playlist)return syncPlaylist(playlist,request,tint);
+    const id=albumId(),playlist=playlistId(),request=++albumRequest,level=tintLevel(),tint=level!=='off',body=document.body.classList;albumFeat=null;
+    if(playlist){albumPending(level==='full');return syncPlaylist(playlist,request,tint);}
     if(!id||!gql()||!S.GraphQL?.Definitions?.getAlbum){
-      albumStyle.textContent='';body.remove('am-album-tinted');setListInfo('');
+      albumStyle.textContent='';body.remove('am-album-tinted');setListInfo('');albumPending(false);
       // An album opened before the client is there asks again (every 0.5s for 15s) while the page stays open.
       if(albumWait.id!==id)albumWait={id,tries:0};
       if(id&&albumWait.tries++<30)setTimeout(()=>{if(request===albumRequest)syncAlbum();},500);
       return;
     }
-    const cached=albumInfo.get(id);if(!tint||!cached?.color)body.remove('am-album-tinted');
+    const cached=albumInfo.get(id);if(!tint||!cached?.color)body.remove('am-album-tinted');albumPending(level==='full'&&!cached?.color);
     setListInfo(cached?.list);
     const info=cached||await albumData(id);
     if(request!==albumRequest)return;
-    if(!info){albumStyle.textContent='';return;}
+    if(!info){albumStyle.textContent='';albumPending(false);return;}
     setListInfo(info.list);
     const sub='.main-trackList-rowMainContent > :is(a,div,span):last-child'; // a tag, not a bare :last-child, after :has() (#137)
     // Without its artist line a row's title sits in the middle, so its number is centred too (Spotify lifts it 4px to
@@ -4402,7 +4421,7 @@
     setListInfo(Number.isFinite(meta?.totalLength)&&meta.totalLength>0?listInfo(meta.totalLength,meta.duration?.milliseconds||0,true):'');
     const images=meta?.images||[],cover=(images.find(image=>image.label==='standard')||images[0])?.url;
     if(cover&&photoCovers.get(id)!==cover){photoCovers.set(id,cover);watchHeader();}
-    if(!tint||!cover){body.remove('am-album-tinted');return;}
+    if(!tint||!cover){body.remove('am-album-tinted');albumPending(false);return;}
     if(!playlistColors.has(cover)){body.remove('am-album-tinted');if(playlistColors.size>50)playlistColors.delete(playlistColors.keys().next().value);playlistColors.set(cover,await artworkColor(spotifyImage(cover)));}
     if(appleFill()&&!playlistEdges.has(cover)){if(playlistEdges.size>50)playlistEdges.delete(playlistEdges.keys().next().value);playlistEdges.set(cover,await edgeColor(spotifyImage(cover)));}
     if(request===albumRequest)pageTint(playlistColors.get(cover),appleFill()?playlistEdges.get(cover):null);

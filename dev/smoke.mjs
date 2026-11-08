@@ -992,6 +992,55 @@ try {
     await page.waitForFunction(() => !document.body.classList.contains('am-artist-open'));
   });
 
+  await check('an artist without a photo gets the microphone in the hero, a real portrait stays (#178)', async () => {
+    const hero = async (id, kind) => {
+      await page.evaluate(([id, kind]) => {
+        const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#1a1a1a'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#5a5a5a'; x.fillRect(28, 24, 8, 16);
+        const flat = c.toDataURL(); x.fillStyle = '#c33'; x.fillRect(0, 0, 64, 64);
+        window.__savedHeader = window.__mockArtist.headerImage; window.__savedVisuals = window.__mockArtist.visuals;
+        window.__mockArtist.headerImage = null;
+        window.__mockArtist.visuals = { ...window.__savedVisuals, headerImage: null, avatarImage: kind && { sources: [{ url: kind === 'flat' ? flat : c.toDataURL(), width: 160, height: 160 }] } };
+        Spicetify.Platform.History.push('/artist/' + id);
+      }, [id, kind]);
+      await page.waitForSelector('body.am-artist-open .am-hero-avatar .am-hero-portrait');
+      await page.waitForFunction(() => { const p = document.querySelector('.am-hero-portrait'); return p.tagName !== 'IMG' || p.style.visibility !== 'hidden'; });
+      const seen = await page.evaluate(() => { const p = document.querySelector('.am-hero-portrait'), s = getComputedStyle(p, '::after'); return [p.tagName, s.content !== 'none', p.getBoundingClientRect().width > 100, getComputedStyle(p).borderRadius]; });
+      await page.evaluate(() => { window.__mockArtist.headerImage = window.__savedHeader; window.__mockArtist.visuals = window.__savedVisuals; Spicetify.Platform.History.push('/'); });
+      await page.waitForFunction(() => !document.body.classList.contains('am-artist-open'));
+      return seen;
+    };
+    assert.deepEqual(await hero('noPhoto178', 'flat'), ['SPAN', true, true, '50%']);
+    assert.deepEqual(await hero('noAvatar178', null), ['SPAN', true, true, '50%']);
+    assert.deepEqual(await hero('portrait178', 'photo'), ['IMG', false, true, '50%']);
+  });
+
+  await check('Home shortcuts and search results: an artist without a photo gets the microphone, others keep their image (#178)', async () => {
+    const home = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+      await home.goto(pathToFileURL(path.join(here, 'preview.html')).href);
+      await home.waitForSelector('body.am-ready #am-sidebar');
+      const flat = await home.evaluate(() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#1a1a1a'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#5a5a5a'; x.fillRect(28, 24, 8, 16); return c.toDataURL().split(',')[1]; });
+      await home.route('https://i.scdn.co/image/**', r => r.fulfill({ contentType: 'image/png', headers: { 'Access-Control-Allow-Origin': '*' }, body: Buffer.from(flat, 'base64') }));
+      await home.evaluate(() => {
+        const tile = (href, n) => `<div><div draggable="true"><a href="${href}"><div><div><img alt="" src="https://i.scdn.co/image/flat${n}"></div></div></a><div data-testid="shortcut-background"></div></div></div>`;
+        const s = document.createElement('div'); s.id = 'mock-home178'; s.innerHTML = tile('/artist/1', 1) + tile('/album/2', 2);
+        document.querySelector('.am-native-main main').prepend(s);
+        const d = document.createElement('div'); d.id = 'search-dropdown'; d.innerHTML = '<div role="row"><div><img alt="" src="https://i.scdn.co/image/flat3"></div><div id="r1-title"><a href="/artist/3">Artist</a></div></div><div role="row" id="mock-album178"><div><img alt="" src="https://i.scdn.co/image/flat4"></div><div id="r2-title"><a href="/album/4">Black album</a></div></div>';
+        document.body.append(d);
+      });
+      await home.waitForSelector('#mock-home178 [data-am-shortcut] [data-am-no-photo]');
+      await home.waitForSelector('#search-dropdown [data-am-no-photo]');
+      await home.waitForTimeout(200);
+      assert.deepEqual(await home.evaluate(() => {
+        const [artist, album] = [...document.querySelectorAll('#mock-home178 img')].map(i => i.parentElement);
+        return [artist.hasAttribute('data-am-no-photo'), getComputedStyle(artist.firstElementChild).opacity, getComputedStyle(artist, '::after').content !== 'none', album.hasAttribute('data-am-no-photo'), getComputedStyle(album.firstElementChild).opacity];
+      }), [true, '0', true, false, '1']);
+      // Only artist rows: a dark, nearly flat cover (Metallica's black album) passes isPlaceholderArt too.
+      assert.deepEqual(await home.evaluate(() => { const img = document.querySelector('#mock-album178 img'); return [img.complete, img.parentElement.hasAttribute('data-am-no-photo'), getComputedStyle(img).opacity]; }), [true, false, '1']);
+      assert.deepEqual(await home.evaluate(() => { const box = document.querySelector('#search-dropdown [data-am-no-photo]'); return [getComputedStyle(box.firstElementChild).opacity, getComputedStyle(box, '::after').content !== 'none', getComputedStyle(box).borderRadius]; }), ['0', true, '50%']);
+    } finally { await home.close(); }
+  });
+
   await check('going back, the artist page stays up until Spotify\'s page has settled', async () => {
     await page.evaluate(() => Spicetify.Platform.History.push('/artist/mock'));
     await page.waitForSelector('body.am-artist-open .am-artist-name');
@@ -2141,7 +2190,20 @@ try {
     const [r, g, b] = [1, 3, 5].map(i => parseInt(appleDark.slice(i, i + 2), 16));
     assert.ok(r > g && g > b && r < 120, 'a deep gold from the gold cover: ' + appleDark);
     assert.equal(await pageBg(), `rgb(${r}, ${g}, ${b})`, 'the page is that colour, flat');
+    await page.waitForTimeout(250); // the grey capsule's ease to the colour (#183)
     assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), 'rgba(255, 255, 255, 0.92)', "Apple's white play button");
+    // Its glyph is knocked out, as music.apple.com blends the pill (lighten): it shows the page colour, not black.
+    assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'color'), `rgb(${r}, ${g}, ${b})`, 'the play glyph takes the page colour');
+    // A page whose colour is not known yet (#183): play and shuffle show at once as a grey capsule instead of the
+    // accent, then ease to the colour.
+    await page.evaluate(() => { window.__apiDelay = 400; window.__mockPlaylistMeta['spotify:playlist:p184'] = { images: [{ url: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#30a050"/></svg>'), label: 'standard' }] }; });
+    await mount('playlist', 'p184');
+    assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-pending')), true);
+    assert.deepEqual([await css('[data-encore-id="buttonPrimary"]', 'visibility'), await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), await css('.e-1-button-tertiary--condensed-all', 'backgroundColor')], ['visible', 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.1)']);
+    await page.waitForFunction(() => !document.body.classList.contains('am-album-pending') && document.body.classList.contains('am-album-tinted'));
+    await page.waitForTimeout(250);
+    assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), 'rgba(255, 255, 255, 0.92)');
+    await page.evaluate(() => { window.__apiDelay = 0; });
     await settingsWindow.pick('albumTintFill', 'Geçişli');
     assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-solid') || document.body.classList.contains('am-album-fill-apple')), false);
     // Other pages have no colour level.
@@ -2724,6 +2786,29 @@ try {
     await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-only'), null, { timeout: 3000 }).catch(() => {});
     assert.ok(await page.evaluate(() => document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-only')));
     assert.equal(await page.getAttribute('#am-lyrics-toggle', 'aria-label'), 'Spicy Lyrics sözlerini aç / kapat', 'off again: the lyrics button drives Spicy Lyrics');
+  });
+
+  await check('the search field\'s live results draw over the Now Playing pane, which stays over the page (#181)', async () => {
+    await page.setViewportSize({ width: 1100, height: 800 }); // narrow enough for the results to reach the pane
+    await page.click('#am-player .am-np-toggle');
+    await page.waitForFunction(() => !document.getElementById('am-nowplaying').hidden && !document.querySelector('#am-nowplaying').getAnimations().length);
+    try {
+      await page.fill('#global-nav-bar input', 'sena');
+      await page.waitForSelector('#search-dropdown [role="row"]');
+      assert.deepEqual(await page.evaluate(() => {
+        const d = document.querySelector('#search-dropdown > :first-child').getBoundingClientRect(), p = document.getElementById('am-nowplaying').getBoundingClientRect();
+        const x = (Math.max(d.left, p.left) + Math.min(d.right, p.right)) / 2, y = (Math.max(d.top, p.top) + Math.min(d.bottom, p.bottom)) / 2;
+        return [x > Math.max(d.left, p.left) && y > Math.max(d.top, p.top), !!document.elementFromPoint(x, y)?.closest('#search-dropdown'), getComputedStyle(document.getElementById('main')).zIndex];
+      }), [true, true, 'auto']);
+      await page.mouse.click(700, 500);
+      await page.waitForFunction(() => !document.getElementById('search-dropdown'));
+      // Closed, #main isolates again and the pane is back over the page.
+      assert.deepEqual(await page.evaluate(() => { const p = document.getElementById('am-nowplaying').getBoundingClientRect(); return [getComputedStyle(document.getElementById('main')).isolation, !!document.elementFromPoint(p.left + p.width / 2, p.top + p.height / 2)?.closest('#am-nowplaying')]; }), ['isolate', true]);
+    } finally {
+      await page.click('#am-player .am-np-toggle');
+      await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden, null, { timeout: 3000 }).catch(() => {});
+      await page.setViewportSize({ width: 1440, height: 900 });
+    }
   });
 
   await check('English when Spotify is not in Turkish; the menu switches the language and reloads', async () => {
