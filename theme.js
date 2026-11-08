@@ -4535,7 +4535,8 @@
     return [...out];
   }
   // Search matches a row's label, note, help, section and option names, ignoring case and accents (ı as i).
-  const fold=s=>String(s||'').toLocaleLowerCase().replace(/ı/g,'i').normalize('NFD').replace(/[̀-ͯ]/g,'');
+  // ğ folds to k: Turkish softens a final k (kapak → kapağı), so "kapak" finds "Albüm kapağı".
+  const fold=s=>String(s||'').toLocaleLowerCase().replace(/ı/g,'i').replace(/ğ/g,'k').normalize('NFD').replace(/[̀-ͯ]/g,'');
   function settingMatches(d) {
     const words=fold(settingsQuery).split(/\s+/).filter(Boolean);let menu=[];try{menu=d.type==='custom'&&d.menu?d.menu().map(m=>m.label||m.name):[];}catch{}
     const text=fold([d.label,d.note,d.help,d.section,...(d.options||[]).map(o=>o[1]),...menu].join(' '));return words.every(w=>text.includes(w));
@@ -4567,7 +4568,7 @@
     input.addEventListener('keydown',event=>{if(event.key==='Escape'&&input.value){event.stopPropagation();input.value='';settingsQuery='';settingsBody?.();}});
     field.append(input);return field;
   }
-  function searchResults(body,panes) {
+  function settingsSearchResults(body,panes) {
     let any=false;
     for(const pane of panes){const hits=pane.defs.filter(settingMatches);if(!hits.length)continue;any=true;body.append(el('h4','am-settings-section',pane.label));settingCards(body,[['',hits]],{heading:false});}
     if(!any)body.append(el('div','am-settings-empty',T('Sonuç yok','No results')));
@@ -4604,7 +4605,7 @@
       settingsBody=()=>{
         settingsSyncs=[];body.replaceChildren();title.textContent=settingsQuery.trim()?T('Arama sonuçları','Search results'):pane?.label||'mcloud';
         for(const b of settingsBox.querySelectorAll('.am-settings-tab')){const on=!settingsQuery.trim()&&b.dataset.group===settingsPane.a;b.classList.toggle('am-selected',on);b.setAttribute('aria-selected',String(on));}
-        if(settingsQuery.trim())searchResults(body,panes);else if(pane)settingCards(body,paneSections(pane));
+        if(settingsQuery.trim())settingsSearchResults(body,panes);else if(pane)settingCards(body,paneSections(pane));
       };
     } else if(L==='b'){
       // Apple Music's window: the tabs in the toolbar, the title over them, OK at the bottom.
@@ -4640,7 +4641,7 @@
         settingsSyncs=[];
         if(pane){body.replaceChildren();settingCards(body,paneSections(pane,pane.id==='general'?pane.defs.filter(d=>!first.includes(d.key)):pane.defs));return;}
         results.replaceChildren();
-        if(settingsQuery.trim())return searchResults(results,panes);
+        if(settingsQuery.trim())return settingsSearchResults(results,panes);
         settingCards(results,[['',defs.filter(d=>first.includes(d.key)).sort((a,b)=>(a.rank||0)-(b.rank||0))]]);
         const list=el('div','am-settings-card am-settings-pages');list.setAttribute('role','list');
         for(const p of [...panes.filter(p=>p.id!=='general'),...panes.filter(p=>p.id==='general'&&p.defs.some(d=>!first.includes(d.key)))]){
