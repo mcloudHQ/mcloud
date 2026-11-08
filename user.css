@@ -840,6 +840,10 @@ body.am-solid > [data-tippy-root] > div > div:has(> #hover-or-focus-tooltip),bod
    a 32px search, so ours left that much empty glass under the last row. Counted in the theme's rows instead (a
    separator is 1px between 5px margins); past 50vh the menu scrolls, as Spotify's does. */
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) {--context-menu-submenu-item-height:24px;--context-menu-submenu-filter-height:30px;--context-menu-submenu-divider-height:11px}
+/* Add to playlist: a folder's submenu without Spotify's "New playlist" and its separator (theme.js marks them, #202), as
+   tall as the rows left; a folder with nothing else opens no submenu. */
+[data-tippy-root] [data-tippy-root] [data-tippy-root] [data-am-folder-new],[data-tippy-root][data-am-folder-empty] {display:none!important}
+[data-tippy-root] [data-tippy-root] [data-tippy-root] > ul[role="menu"]:has([data-am-folder-new]) {height:auto!important}
 /* Rows answer as the theme's do: the accent under the pointer, grey while their submenu is open, the thin › for a
    submenu instead of Spotify's filled triangle (submenu rows carry aria-expanded). */
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button):not([aria-disabled="true"],:disabled,:has([role="search"])):is(:hover,:focus-visible) {background:var(--am-accent)!important;color:#fff!important}
