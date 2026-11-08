@@ -477,14 +477,14 @@
       for(const node of nodes){
         if(node.matches('[data-testid="shortcut-background"]'))tagShortcut(node);
         else if(node.matches('[role="grid"]'))tagTrackList(node);
-        else if(node.matches('[role="row"]'))tagTrackRow(node);
+        else if(node.matches('[role="row"]')){tagTrackRow(node);featRow(node);}
         else if(node.matches('[role="list"],.main-gridContainer-gridContainer'))tagGenreList(node);
         else if(!node.hasAttribute('data-shelf'))node.setAttribute('data-shelf','');
       }
       // Browse all's tiles arrive one by one after the empty list; a list's header and a row's cells can land after theirs.
       const list=root.closest('[role="list"],.main-gridContainer-gridContainer');if(list)tagGenreList(list);
       const grid=root.closest('[role="grid"]');if(grid)tagTrackList(grid);
-      const row=root.closest('[role="row"]');if(row)tagTrackRow(row);
+      const row=root.closest('[role="row"]');if(row){tagTrackRow(row);featRow(row);}
       root.closest('section.Shelf,[data-testid="component-shelf"]')?.setAttribute('data-shelf','');
       tagChevrons(root);
     }
@@ -525,6 +525,19 @@
     box?.classList.add('main-trackList-trackListHeader');
     header?.classList.add('main-trackList-trackListHeaderRow');
     for(const row of grid.querySelectorAll('[role="row"]'))tagTrackRow(row);
+  }
+  // Guests on an album the Apple Music way (#187, settings.albumFeatures 'apple'): "(feat. …)" after the title, from the
+  // row's own artist links; #am-album-style hides the line. albumFeat holds the open album's artist ids while it is on.
+  let albumFeat=null;
+  function featRow(row) {
+    if(!albumFeat)return;
+    const title=row.querySelector('.main-trackList-rowMainContent > :first-child');if(!title)return;
+    const links=row.closest('[data-testid="album-page"]')?[...row.querySelectorAll('.main-trackList-rowMainContent > :is(a,div,span):last-child:not(:first-child) a[href*="/artist/"]')]:[];
+    const own=links.filter(a=>albumFeat.some(id=>a.getAttribute('href').endsWith('/artist/'+id)));
+    // A title that names its guests already (Spotify's own "(feat. …)", "ft.", "(with …)") is left as it is.
+    const names=own.length&&!/\b(feat|ft)\.|\(with /i.test(title.textContent)?links.filter(a=>!own.includes(a)).map(a=>a.textContent.trim()):[];
+    const feat=names.length?'feat. '+(names.length>1?names.slice(0,-1).join(', ')+' & '+names.at(-1):names[0]):'';
+    if(feat)setAttributeIfChanged(title,'data-am-feat',feat);else if(title.hasAttribute('data-am-feat'))title.removeAttribute('data-am-feat');
   }
   function tagTrackRow(row) {
     if(!row.closest('[role="grid"]')?.querySelector('[role="columnheader"]'))return;
@@ -4373,7 +4386,7 @@
     document.body.classList.add('am-album-tinted');
   }
   async function syncAlbum() {
-    const id=albumId(),playlist=playlistId(),request=++albumRequest,level=tintLevel(),tint=level!=='off',body=document.body.classList;
+    const id=albumId(),playlist=playlistId(),request=++albumRequest,level=tintLevel(),tint=level!=='off',body=document.body.classList;albumFeat=null;
     if(playlist){albumPending(level==='full');return syncPlaylist(playlist,request,tint);}
     if(!id||!gql()||!S.GraphQL?.Definitions?.getAlbum){
       albumStyle.textContent='';body.remove('am-album-tinted');setListInfo('');albumPending(false);
@@ -4392,7 +4405,10 @@
     // Without its artist line a row's title sits in the middle, so its number is centred too (Spotify lifts it 4px to
     // meet a title on the top line; #93).
     const own=`body.am-album-clean .am-native-main [data-testid="album-page"] .main-trackList-trackListRow:not(:has(${sub} a[href*="/artist/"]${info.artists.map(a=>`:not([href$="/artist/${a}"])`).join('')}))`;
-    albumStyle.textContent=settings.albumClean&&info.artists.length?`${own} ${sub}{display:none!important}${own} .main-trackList-rowMarker > span{top:50%!important;translate:0 -50%}`:'';
+    // Hidden, or moved into the title, a guest's line goes too (#187): any row with one of the album's artists on it.
+    const rows=[own];if(settings.albumFeatures!=='show')rows.push(`body.am-album-clean .am-native-main [data-testid="album-page"] .main-trackList-trackListRow:has(${sub} :is(${info.artists.map(a=>`a[href$="/artist/${a}"]`).join(',')}))`);
+    albumStyle.textContent=settings.albumClean&&info.artists.length?rows.map(row=>`${row} ${sub}{display:none!important}${row} .main-trackList-rowMarker > span{top:50%!important;translate:0 -50%}`).join(''):'';
+    if(settings.albumClean&&settings.albumFeatures==='apple'&&info.artists.length){albumFeat=info.artists;document.querySelectorAll('.am-native-main [data-testid="album-page"] [role="row"]').forEach(featRow);}
     if(!tint)return;
     if(info.color===undefined)info.color=await artworkColor(info.cover);
     if(appleFill()&&info.edge===undefined)info.edge=await edgeColor(info.edgeCover||info.cover); // 300px: closer to Apple's than the 64px cover
@@ -4423,6 +4439,11 @@
   pageSetting({key:'numbersAlbum',group:'pages',section:T('Albümler','Albums'),label:T('Albümlerde parça numaraları','Track numbers on albums'),type:'toggle',default:true,apply:syncNumbers});
   // Albums list the artist on a track only when it is not the album's own (a guest, a compilation), as Apple Music does.
   pageSetting({key:'albumClean',group:'pages',section:T('Albümler','Albums'),label:T('Sade albüm listesi','Clean album track list'),note:T('Sanatçı yalnızca konuk ya da başka bir sanatçı varsa görünür.','The artist shows only when a guest or another artist is on the track.'),type:'toggle',default:true,apply:value=>{document.body.classList.toggle('am-album-clean',value);syncAlbum();}});
+  // A guest's artist line on a clean album (#187): shown, hidden, or Apple Music's way, the guests in the title as "(feat. …)".
+  pageSetting({key:'albumFeatures',group:'pages',section:T('Albümler','Albums'),label:T('Konuk sanatçılar','Featured artists'),type:'choice',default:'show',when:()=>settings.albumClean,
+    options:[['show',T('Satırda göster','Show the artist line')],['hide',T('Gizle','Hide it')],['apple',T('Apple Music gibi','Apple Music\'s way')]],
+    note:T('Apple Music gibi: konuklar başlığa "(feat. …)" olarak eklenir, sanatçı satırı kalkar.','Apple Music\'s way: the guests go into the title as "(feat. …)", and the artist line goes.'),
+    apply:value=>{document.body.classList.toggle('am-album-feat',value==='apple');syncAlbum();}});
   // Album and playlist pages can take their colour from the artwork, like artist pages: a wash at the top, or the whole page.
   const tintOptions=[['off',T('Kapalı','Off')],['subtle',T('Hafif','Subtle')],['full',T('Tam','Full')]];
   pageSetting({key:'photoHeaders',group:'pages',section:T('Çalma listeleri','Playlists'),label:T('Fotoğraflı başlıklar kapakla','Photo headers as artwork'),note:T('Daily Mix, "… Mix" ve Today\'s Top Hits gibi listeler de solda kapakla açılır, Apple Music\'teki gibi.','Daily Mix, "… Mix" and lists like Today\'s Top Hits open with their artwork on the left, as in Apple Music.'),type:'toggle',default:true,apply:()=>{photoReady=true;watchHeader();}});
