@@ -3573,6 +3573,20 @@ try {
     await page.evaluate(back => Spicetify.Platform.History.push(back), back);
   });
 
+  await check('Liked Songs: Music\'s Favourite Songs cover, and a star for Recents\' "added" check', async () => {
+    const r = await page.evaluate(async () => {
+      const host = document.createElement('div'); host.id = 'mock-liked'; host.style.cssText = 'position:fixed;left:0;top:0;width:120px';
+      host.innerHTML = '<img src="https://misc.scdn.co/liked-songs/liked-songs-300.png" width="64" height="64"><div><svg data-encore-id="icon" role="img" viewBox="0 0 16 16" width="16" height="16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m11.748-1.97a.75.75 0 0 0-1.06-1.06l-4.47 4.47-1.405-1.406a.75.75 0 1 0-1.061 1.06l2.466 2.467 5.53-5.53z"/></svg></div><button><svg data-encore-id="icon" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m11.748-1.97z"/></svg></button>';
+      document.body.append(host);
+      const img = host.querySelector('img'), [badge, inButton] = host.querySelectorAll('svg'), cs = n => getComputedStyle(n);
+      const out = { content: cs(img).content, mask: cs(badge).maskImage, path: cs(badge.firstChild).display, buttonMask: cs(inButton).maskImage };
+      host.remove(); return out;
+    });
+    assert.match(r.content, /^url\("data:image\/svg\+xml.*fa233b/, 'the cover is the star tile');
+    assert.match(r.mask, /svg/, 'the check circle is masked to a star');
+    assert.equal(r.path, 'none', "Spotify's check is not drawn");
+    assert.equal(r.buttonMask, 'none', 'a save button keeps its own rules');
+  });
   await check('no runtime errors', async () => assert.deepEqual(errors, []));
 } finally {
   await browser.close();
