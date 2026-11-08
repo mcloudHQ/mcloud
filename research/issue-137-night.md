@@ -47,6 +47,8 @@ Wheel scrolling over CDP (compositor scroll), CPU profile + timeline, 4s:
     elements at each crossing that the removed rules did not show; after reopening the album, 3s each: original 67.7
     ms/s with two 30ms whole-page recalcs, rewritten 50.8, removed 49.3, the 642 recalc gone. The ~16ms recalcs of
     ~2,650 elements left in all three are Spotify's own (`xpui-modules.js`, `dwp-top-bar.js`).
+- Route changes (playlist ↔ album, 4 navigations, twice): no difference (style ~1,030–1,045ms either way), as a new
+  page restyles the whole document anyway. The gain is where the page stays: the scroll crossing, panes, settings.
 - **Look:** computed styles (every property, plus `::before`/`::after`) identical with the committed file on the album
   page (13,261 and 14,406 elements), a playlist with a context menu open (15,529), and the search dropdown with a row
   selected (1,102 / 1,180). The loading dropdown could not be caught (it lasts a few ms); the rewrite is the same
