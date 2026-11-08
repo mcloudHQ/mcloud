@@ -1733,10 +1733,12 @@ body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(
 body.am-np-open.am-np-docked {--am-right:var(--am-np-w)}
 body.am-ready.am-np-open .am-layout {grid-template-columns:var(--am-side) minmax(0,1fr) var(--am-right)!important}
 body.am-np-anim .am-layout {transition:grid-template-columns .24s cubic-bezier(.32,.72,0,1)}
+/* overflow:clip, not hidden: a pane that cannot scroll keeps its content in place when a control is focused or scrolled
+   into view while the pane slides in (it was left 200px out of place). */
 #am-nowplaying {
  --am-np-text:var(--am-text);--am-np-sub:var(--am-sub);--am-np-track:rgb(var(--am-ink,255 255 255) / .2);--am-np-chip:rgb(var(--am-ink,255 255 255) / .12);
  --am-np-fill:var(--am-panel-fill,color-mix(in srgb,#262626 74%,transparent));--am-np-base:var(--am-bg);--am-np-scrim:#0000008c;
- position:fixed;z-index:50;top:var(--am-header);right:16px;bottom:96px;width:var(--am-np-w);box-sizing:border-box;border-radius:18px;overflow:hidden;isolation:isolate;
+ position:fixed;z-index:50;top:var(--am-header);right:16px;bottom:96px;width:var(--am-np-w);box-sizing:border-box;border-radius:18px;overflow:clip;isolation:isolate;
  color:var(--am-np-text);font-family:var(--encore-body-font-stack);-webkit-font-smoothing:antialiased;letter-spacing:-.01em;-webkit-app-region:no-drag;
  background:var(--am-np-fill);backdrop-filter:blur(20px) saturate(1.6);-webkit-backdrop-filter:blur(20px) saturate(1.6);box-shadow:inset 0 1px 0 rgb(var(--am-rim,255 255 255)/.149),inset 0 0 0 1px rgb(var(--am-rim,255 255 255)/.071),0 18px 50px #0007;
 }
@@ -1868,6 +1870,32 @@ body:not(.am-np-only) #am-nowplaying .am-np-actions {margin-top:auto}
 #am-nowplaying .am-np-actions svg {width:21px;height:21px}
 #am-nowplaying .am-np-actions .am-active {color:var(--am-np-text);background:var(--am-np-chip)}
 #am-player .am-np-toggle.am-active {color:var(--am-accent-focus)}
+/* #182: with the lyrics only in full screen, the artwork stays at the top and the title and controls sit at the bottom,
+   spaced as iOS's Now Playing, instead of following the artwork down the middle. */
+body:not(.am-np-lyrics-below,.am-np-full,.am-np-plain):not(.am-np-blend) #am-nowplaying .am-np-art {flex:0 1 calc(var(--am-np-w) - 44px);place-items:start center}
+body:not(.am-np-lyrics-below,.am-np-full,.am-np-plain) #am-nowplaying .am-np-meta {margin-top:auto}
+body:not(.am-np-lyrics-below,.am-np-full,.am-np-plain):not(.am-np-only) #am-nowplaying .am-np-actions {margin-top:4px}
+body.am-np-only:not(.am-np-lyrics-below,.am-np-full,.am-np-plain) #am-nowplaying .am-np-controls {gap:16px;margin-top:4px}
+body.am-np-only:not(.am-np-lyrics-below,.am-np-full,.am-np-plain) #am-nowplaying .am-np-actions {margin-top:8px}
+/* Playing Next inside the pane (the queue button, theme.js npQueueShow), as Music on iOS: the cover shrinks
+   beside the title at the top and the list takes the artwork's and the lyrics' room. */
+.am-np-queue {display:none;flex:1 1 0;min-height:0;flex-direction:column;margin:0 -22px}
+body.am-np-queue-open:not(.am-np-full) #am-nowplaying .am-np-queue {display:flex}
+body.am-np-queue-open:not(.am-np-full) #am-nowplaying :is(.am-np-art,.am-np-lyrics) {display:none!important}
+body.am-np-queue-open:not(.am-np-full) #am-nowplaying .am-np-thumb {display:block}
+body.am-np-queue-open.am-np-blend:not(.am-np-full) #am-nowplaying .am-np-body {padding-top:22px}
+body.am-np-queue-open.am-np-blend.am-np-beside:not(.am-np-full) #am-nowplaying .am-np-body {padding-top:42px}
+.am-np-queue-head {padding:6px 22px 8px;font-size:15px;font-weight:700;color:var(--am-np-text)}
+.am-np-queue-list {flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:0 12px 16px;-webkit-mask-image:linear-gradient(#000 85%,#0000);mask-image:linear-gradient(#000 85%,#0000)}
+#am-nowplaying .am-np-queue-row {display:flex;align-items:center;gap:12px;width:100%;padding:6px 10px;border-radius:8px;text-align:left;color:inherit}
+#am-nowplaying .am-np-queue-row:hover {background:var(--am-np-chip)}
+.am-np-queue-row img {flex:0 0 auto;width:42px;height:42px;border-radius:5px;object-fit:cover;background:var(--am-np-chip)}
+.am-np-queue-row img:not([src]) {visibility:visible}
+.am-np-queue-text {display:flex;flex-direction:column;min-width:0;gap:1px}
+.am-np-queue-title,.am-np-queue-artist {overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.am-np-queue-title {font-size:14px;font-weight:600;color:var(--am-np-text)}
+.am-np-queue-artist {font-size:13px;color:var(--am-np-sub)}
+.am-np-queue-empty {padding:24px 10px;text-align:center;font-size:14px;color:var(--am-np-sub)}
 /* Beside the player the pane has its own close button, at the top left as macOS's (Windows' caption buttons sit at the top right). */
 #am-nowplaying .am-np-close {display:none;position:absolute;z-index:2;top:10px;left:12px;width:24px;height:24px;border-radius:50%;background:var(--am-np-chip);color:var(--am-np-sub)}
 #am-nowplaying .am-np-close svg {width:12px;height:12px;stroke-width:2.4}
@@ -1875,13 +1903,14 @@ body:not(.am-np-only) #am-nowplaying .am-np-actions {margin-top:auto}
 body.am-np-beside #am-nowplaying .am-np-close {display:grid}
 body.am-np-beside .am-np-body {padding-top:42px}
 /* Docked (#182): the artwork starts as far from the window's top as from the sides, and the close button sits on its
-   corner instead of in a strip of its own above it. On Windows the caption buttons keep the window's top 44px. */
-body.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact) #am-nowplaying .am-np-close {top:30px;left:30px;background:rgb(0 0 0/.35);color:#fff;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-body.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact) .am-np-body {padding-top:22px}
-body.am-windows.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact) #am-nowplaying .am-np-close {top:52px}
-body.am-windows.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact) #am-nowplaying .am-np-body {padding-top:44px}
-body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact) #am-nowplaying .am-np-close {top:44px}
-body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact) #am-nowplaying .am-np-body {padding-top:76px}
+   corner instead of in a strip of its own above it (Plain, Compact and Playing Next keep the strip: no cover there). On
+   Windows the caption buttons keep the window's top 44px. */
+body.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:30px;left:30px;background:rgb(0 0 0/.35);color:#fff;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+body.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact,.am-np-queue-open) .am-np-body {padding-top:22px}
+body.am-windows.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:52px}
+body.am-windows.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:44px}
+body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:44px}
+body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:76px}
 /* Full screen without Spicy Lyrics (with it, Spicy's page; theme.js npFullscreen): the pane fills the window as
    Apple Music's full-screen player, the artwork and title on the left and the lyrics large on the right. The floating
    player stays above it. Its button moves to the top right corner. */

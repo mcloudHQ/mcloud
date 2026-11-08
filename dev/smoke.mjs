@@ -2566,6 +2566,17 @@ try {
       // over it; lyrics kept for full screen only show there. Esc or the button again brings the card back as it was.
       await pick('npLyricsPlace', 'Yalnızca tam ekranda');
       assert.ok(!(await page.isVisible('#am-nowplaying .am-np-lyrics')) && await page.isVisible('#am-nowplaying .am-np-art'));
+      // #182: the artwork stays at the top, the title and buttons sit at the pane's bottom (iOS), in both layouts.
+      // Measured once the pane has come to rest (it slides on a mode change; a measure mid-way read it out of place).
+      const npEnds = async () => { await page.waitForFunction(() => !document.getElementById('am-nowplaying').getAnimations({ subtree: true }).length); await page.waitForTimeout(100);
+        return page.evaluate(() => { const box = s => document.querySelector(s).getBoundingClientRect(), np = box('#am-nowplaying'), cover = box('#am-nowplaying .am-np-cover'), meta = box('#am-nowplaying .am-np-meta'), last = box('#am-nowplaying .am-np-actions');
+          return { top: Math.round(cover.top - np.top), gap: Math.round(meta.top - cover.bottom), bottom: Math.round(np.bottom - last.bottom) }; }); };
+      for (const layout of ['Cam kart', 'Kenara yapışık']) {
+        await pick('npLayout', layout);
+        const ends = await npEnds();
+        assert.ok(ends.top <= 50 && ends.gap > 60 && ends.bottom <= 30, layout + ' ' + JSON.stringify(ends));
+      }
+      await pick('npLayout', 'Cam kart');
       assert.equal(await page.getAttribute('#am-nowplaying .am-np-fullscreen', 'title'), 'Tam ekran sözler');
       await page.evaluate(() => { window.__mockState.progress = 125000; });
       await page.click('#am-nowplaying .am-np-fullscreen');
@@ -2698,6 +2709,27 @@ try {
       await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden);
       state = await spicyState();
       assert.deepEqual([state.pane, state.radius, state.col], [false, '18px', paneRect]);
+      // #182: the queue button brings the pane back with Playing Next; Spicy's column steps aside meanwhile and returns after.
+      // Each frame from the click on (the click in a frame's rAF, then that frame and the next 23): the list, the pane fully
+      // shown and still, Spicy's column. The pane takes the column's place at once both ways: it slid in (npAnimate) from
+      // nothing over the bare page while the column was already gone, a flicker.
+      const npFrames = sel => page.evaluate(sel => new Promise(done => {
+        const np = document.getElementById('am-nowplaying'), col = document.querySelector('.am-native-right'), frames = [];
+        const frame = () => { const p = getComputedStyle(np), c = getComputedStyle(col);
+          frames.push({ list: document.body.classList.contains('am-np-queue-open') && !!np.querySelector('.am-np-queue').getClientRects().length,
+            pane: !np.hidden && p.display !== 'none' && p.opacity === '1' && p.transform === 'none', column: c.display !== 'none' && c.visibility !== 'hidden', slide: np.getAnimations().length,
+            covers: [...np.querySelectorAll('.am-np-queue-row img')].filter(i => i.complete && i.naturalWidth).length });
+          if (frames.length < 24) requestAnimationFrame(frame); else done(frames); };
+        requestAnimationFrame(() => { document.querySelector(sel).click(); frame(); });
+      }), sel);
+      const swapOk = (frames, list) => frames.every(f => (f.pane || f.column) && !f.slide) && frames.every(f => f.list === list);
+      let frames = await npFrames('#am-player button[aria-label="Çalma sırası"]');
+      assert.ok(swapOk(frames, true), 'Playing Next replaces Spicy\'s column in one frame: ' + JSON.stringify(frames.slice(0, 4)));
+      await page.waitForFunction(() => !document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-spicy') && document.body.classList.contains('am-np-queue-open'));
+      assert.equal(await page.evaluate(() => document.body.classList.contains('am-panel-open')), false, 'Spotify\'s queue panel stays shut');
+      frames = await npFrames('#am-player button[aria-label="Çalma sırası"]');
+      assert.ok(swapOk(frames, false), 'Spicy\'s column comes back in one frame: ' + JSON.stringify(frames.slice(0, 4)));
+      await page.waitForFunction(() => document.body.classList.contains('am-np-spicy') && document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-queue-open'));
       assert.ok(await page.evaluate(() => { const c = document.querySelector('.am-native-right'), r = c.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('.am-native-right') === c; }), 'Spicy\'s column is on top');
       await pick('npLayout', 'Kenara yapışık');
       state = await spicyState();
@@ -2719,6 +2751,52 @@ try {
       await page.evaluate(() => document.getElementById('SpicyLyricsNPVCard').remove());
       await pick('npBg', 'Kapak renkleri');
       await page.evaluate(() => document.getElementById('SpicyLyrics_PageButton').remove());
+      // #182: with the pane open the queue button shows Playing Next inside it (Spicetify.Queue, delimiters left out) instead
+      // of Spotify's queue panel: the small cover beside the title in the artwork's and lyrics' place. A row skips to its song.
+      const queueButton = '#am-player button[aria-label="Çalma sırası"]';
+      // The list shows from the click's frame on, in the pane as it was (no slide, no frame without it).
+      assert.ok((await npFrames(queueButton)).every(f => f.list && f.pane && !f.slide), 'the list shows at once');
+      await page.waitForSelector('#am-nowplaying .am-np-queue-row');
+      assert.deepEqual(await page.evaluate(() => { const np = document.getElementById('am-nowplaying'), shown = s => !!np.querySelector(s)?.getClientRects().length;
+        return [[...np.querySelectorAll('.am-np-queue-title')].map(t => t.textContent).join(), shown('.am-np-art'), shown('.am-np-lyrics'), np.querySelector('.am-np-thumb').getBoundingClientRect().width > 0,
+          document.body.classList.contains('am-panel-open'), document.querySelector('#am-player button[aria-label="Çalma sırası"]').getAttribute('aria-pressed')]; }),
+        ['Pink + White,Ivy,Self Control,Solo,Godspeed', false, false, true, false, 'true']);
+      await page.click('#am-nowplaying .am-np-queue-row >> nth=1');
+      assert.deepEqual(await page.evaluate(() => window.__skips.pop()), { uri: 'spotify:track:q1', uid: 'u1' });
+      await page.click(queueButton);
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
+      assert.ok(await page.isVisible('#am-nowplaying .am-np-art') && await page.isVisible('#am-nowplaying .am-np-lyrics'), 'the artwork and lyrics come back');
+      assert.equal(await page.getAttribute(queueButton, 'aria-pressed'), 'false');
+      // Docked, the close button sits on the big cover's corner; over the list it keeps its strip above the small cover.
+      await pick('npLayout', 'Kenara yapışık');
+      // Opened again, the list has its covers in its first frame (they loaded before; they popped in a few frames late).
+      assert.equal((await npFrames(queueButton))[0].covers, 5, 'the covers show with the list');
+      await page.waitForSelector('#am-nowplaying .am-np-queue-row');
+      assert.ok(await page.evaluate(() => document.querySelector('#am-nowplaying .am-np-close').getBoundingClientRect().bottom <= document.querySelector('#am-nowplaying .am-np-thumb').getBoundingClientRect().top), 'the × clears the small cover');
+      await page.click(queueButton);
+      await pick('npLayout', 'Cam kart');
+      // npQueue 'spotify' keeps Spotify's own queue panel beside the pane, as before #182: picking it closes an open list,
+      // the button then opens Spotify's panel and nothing of the list shows; back on 'pane', the list again.
+      await page.click(queueButton);
+      await page.waitForSelector('#am-nowplaying .am-np-queue-row');
+      await pick('npQueue', 'Ayrı panel (Spotify)');
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
+      await page.click(queueButton);
+      await page.waitForFunction(() => document.body.classList.contains('am-panel-open') && !document.getElementById('am-nowplaying').hidden);
+      assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-np-queue-open'), !!document.querySelector('#am-nowplaying .am-np-queue').getClientRects().length]), [false, false], 'no list in the pane');
+      await page.click(queueButton);
+      await page.waitForFunction(() => !document.body.classList.contains('am-panel-open'));
+      await pick('npQueue', 'Panelin içinde');
+      await page.click(queueButton);
+      await page.waitForFunction(() => document.body.classList.contains('am-np-queue-open') && !document.body.classList.contains('am-panel-open'));
+      await page.click(queueButton);
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
+      // Closing the pane closes the list with it.
+      await page.click(queueButton);
+      await page.click('#am-nowplaying .am-np-close');
+      await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-queue-open'));
+      await page.click('#am-player .am-np-toggle');
+      await page.waitForFunction(() => !document.getElementById('am-nowplaying').hidden);
       // The × turns the pane off, and so does the player's "…" menu.
       await page.click('#am-nowplaying .am-np-close');
       await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-open'));
@@ -2740,6 +2818,16 @@ try {
       await page.click('#am-nowplaying .am-transport .am-play');
       assert.equal(await page.evaluate(() => window.__mockState.playing), !playing);
       await page.click('#am-nowplaying .am-transport .am-play');
+      // #182: with the lyrics only in full screen the controls sit at the bottom, and the queue button opens Playing Next in the pane.
+      await pick('npLyricsPlace', 'Yalnızca tam ekranda');
+      const onlyEnds = await npEnds();
+      assert.ok(onlyEnds.top <= 50 && onlyEnds.gap > 20 && onlyEnds.bottom <= 30, JSON.stringify(onlyEnds));
+      await page.click('#am-nowplaying .am-np-actions [aria-label="Çalma sırası"]');
+      await page.waitForFunction(() => document.body.classList.contains('am-np-queue-open') && !document.body.classList.contains('am-panel-open'));
+      assert.ok(await page.isVisible('#am-nowplaying .am-np-queue-row') && await page.isVisible('#am-nowplaying .am-np-controls .am-transport'), 'the list above the controls');
+      await page.click('#am-nowplaying .am-np-actions [aria-label="Çalma sırası"]');
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
+      await pick('npLyricsPlace', 'Kapağın altında');
       await pick('npLayout', 'Kenara yapışık');
       // The pane slides into place (npAnimate); measure where it lands, not a frame of the slide (a slow renderer
       // was still mid-way when the rect was read).
