@@ -1761,7 +1761,7 @@ try {
     await page.click('#am-settings .am-settings-tab:has-text("Şimdi Çalan")');
     const rows = () => page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key + (n.classList.contains('am-settings-dim') && n.inert ? '~' : '')));
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('mcloud:settings')))).nowPlaying ?? 'off', 'off');
-    assert.deepEqual(await rows(), ['nowPlaying', 'npLayout~', 'npBg~', 'npArtSize~', 'npArt~', 'npLyricsPlace~']);
+    assert.deepEqual(await rows(), ['nowPlaying', 'npLayout~', 'npBg~', 'npArtSize~', 'npArt~', 'npLyricsPlace~', 'npQueue~']);
     assert.deepEqual(await page.locator('#am-settings .am-settings-section').allTextContents(), ['Görünüm', 'Sözler ve sıra']);
     // On, the same rows wake up; the background's "?" opens over the rows below and closes on Escape, the window stays.
     await page.click('#am-settings [data-key="nowPlaying"] .am-settings-option:has-text("Oynatıcıyla")');
@@ -2690,6 +2690,17 @@ try {
       // over it; lyrics kept for full screen only show there. Esc or the button again brings the card back as it was.
       await pick('npLyricsPlace', 'Yalnız tam ekranda');
       assert.ok(!(await page.isVisible('#am-nowplaying .am-np-lyrics')) && await page.isVisible('#am-nowplaying .am-np-art'));
+      // #182: the artwork stays at the top, the title and buttons sit at the pane's bottom (iOS), in both layouts.
+      // Measured once the pane has come to rest (it slides on a mode change; a measure mid-way read it out of place).
+      const npEnds = async () => { await page.waitForFunction(() => !document.getElementById('am-nowplaying').getAnimations({ subtree: true }).length); await page.waitForTimeout(100);
+        return page.evaluate(() => { const box = s => document.querySelector(s).getBoundingClientRect(), np = box('#am-nowplaying'), cover = box('#am-nowplaying .am-np-cover'), meta = box('#am-nowplaying .am-np-meta'), last = box('#am-nowplaying .am-np-actions');
+          return { top: Math.round(cover.top - np.top), gap: Math.round(meta.top - cover.bottom), bottom: Math.round(np.bottom - last.bottom) }; }); };
+      for (const layout of ['Yüzen kart', 'Kenarda']) {
+        await pick('npLayout', layout);
+        const ends = await npEnds();
+        assert.ok(ends.top <= 50 && ends.gap > 60 && ends.bottom <= 30, layout + ' ' + JSON.stringify(ends));
+      }
+      await pick('npLayout', 'Yüzen kart');
       assert.equal(await page.getAttribute('#am-nowplaying .am-np-fullscreen', 'title'), 'Tam ekran sözler');
       await page.evaluate(() => { window.__mockState.progress = 125000; });
       await page.click('#am-nowplaying .am-np-fullscreen');
@@ -2822,6 +2833,27 @@ try {
       await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden);
       state = await spicyState();
       assert.deepEqual([state.pane, state.radius, state.col], [false, '18px', paneRect]);
+      // #182: the queue button brings the pane back with Playing Next; Spicy's column steps aside meanwhile and returns after.
+      // Each frame from the click on (the click in a frame's rAF, then that frame and the next 23): the list, the pane fully
+      // shown and still, Spicy's column. The pane takes the column's place at once both ways: it slid in (npAnimate) from
+      // nothing over the bare page while the column was already gone, a flicker.
+      const npFrames = sel => page.evaluate(sel => new Promise(done => {
+        const np = document.getElementById('am-nowplaying'), col = document.querySelector('.am-native-right'), frames = [];
+        const frame = () => { const p = getComputedStyle(np), c = getComputedStyle(col);
+          frames.push({ list: document.body.classList.contains('am-np-queue-open') && !!np.querySelector('.am-np-queue').getClientRects().length,
+            pane: !np.hidden && p.display !== 'none' && p.opacity === '1' && p.transform === 'none', column: c.display !== 'none' && c.visibility !== 'hidden', slide: np.getAnimations().length,
+            covers: [...np.querySelectorAll('.am-np-queue-row img')].filter(i => i.complete && i.naturalWidth).length });
+          if (frames.length < 24) requestAnimationFrame(frame); else done(frames); };
+        requestAnimationFrame(() => { document.querySelector(sel).click(); frame(); });
+      }), sel);
+      const swapOk = (frames, list) => frames.every(f => (f.pane || f.column) && !f.slide) && frames.every(f => f.list === list);
+      let frames = await npFrames('#am-player button[aria-label="Çalma sırası"]');
+      assert.ok(swapOk(frames, true), 'Playing Next replaces Spicy\'s column in one frame: ' + JSON.stringify(frames.slice(0, 4)));
+      await page.waitForFunction(() => !document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-spicy') && document.body.classList.contains('am-np-queue-open'));
+      assert.equal(await page.evaluate(() => document.body.classList.contains('am-panel-open')), false, 'Spotify\'s queue panel stays shut');
+      frames = await npFrames('#am-player button[aria-label="Çalma sırası"]');
+      assert.ok(swapOk(frames, false), 'Spicy\'s column comes back in one frame: ' + JSON.stringify(frames.slice(0, 4)));
+      await page.waitForFunction(() => document.body.classList.contains('am-np-spicy') && document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-queue-open'));
       assert.ok(await page.evaluate(() => { const c = document.querySelector('.am-native-right'), r = c.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('.am-native-right') === c; }), 'Spicy\'s column is on top');
       await pick('npLayout', 'Kenarda');
       state = await spicyState();
@@ -2843,6 +2875,52 @@ try {
       await page.evaluate(() => document.getElementById('SpicyLyricsNPVCard').remove());
       await pick('npBg', 'Kapak renkleri');
       await page.evaluate(() => document.getElementById('SpicyLyrics_PageButton').remove());
+      // #182: with the pane open the queue button shows Playing Next inside it (Spicetify.Queue, delimiters left out) instead
+      // of Spotify's queue panel: the small cover beside the title in the artwork's and lyrics' place. A row skips to its song.
+      const queueButton = '#am-player button[aria-label="Çalma sırası"]';
+      // The list shows from the click's frame on, in the pane as it was (no slide, no frame without it).
+      assert.ok((await npFrames(queueButton)).every(f => f.list && f.pane && !f.slide), 'the list shows at once');
+      await page.waitForSelector('#am-nowplaying .am-np-queue-row');
+      assert.deepEqual(await page.evaluate(() => { const np = document.getElementById('am-nowplaying'), shown = s => !!np.querySelector(s)?.getClientRects().length;
+        return [[...np.querySelectorAll('.am-np-queue-title')].map(t => t.textContent).join(), shown('.am-np-art'), shown('.am-np-lyrics'), np.querySelector('.am-np-thumb').getBoundingClientRect().width > 0,
+          document.body.classList.contains('am-panel-open'), document.querySelector('#am-player button[aria-label="Çalma sırası"]').getAttribute('aria-pressed')]; }),
+        ['Pink + White,Ivy,Self Control,Solo,Godspeed', false, false, true, false, 'true']);
+      await page.click('#am-nowplaying .am-np-queue-row >> nth=1');
+      assert.deepEqual(await page.evaluate(() => window.__skips.pop()), { uri: 'spotify:track:q1', uid: 'u1' });
+      await page.click(queueButton);
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
+      assert.ok(await page.isVisible('#am-nowplaying .am-np-art') && await page.isVisible('#am-nowplaying .am-np-lyrics'), 'the artwork and lyrics come back');
+      assert.equal(await page.getAttribute(queueButton, 'aria-pressed'), 'false');
+      // Docked, the close button sits on the big cover's corner; over the list it keeps its strip above the small cover.
+      await pick('npLayout', 'Kenarda');
+      // Opened again, the list has its covers in its first frame (they loaded before; they popped in a few frames late).
+      assert.equal((await npFrames(queueButton))[0].covers, 5, 'the covers show with the list');
+      await page.waitForSelector('#am-nowplaying .am-np-queue-row');
+      assert.ok(await page.evaluate(() => document.querySelector('#am-nowplaying .am-np-close').getBoundingClientRect().bottom <= document.querySelector('#am-nowplaying .am-np-thumb').getBoundingClientRect().top), 'the × clears the small cover');
+      await page.click(queueButton);
+      await pick('npLayout', 'Yüzen kart');
+      // npQueue 'spotify' keeps Spotify's own queue panel beside the pane, as before #182: picking it closes an open list,
+      // the button then opens Spotify's panel and nothing of the list shows; back on 'pane', the list again.
+      await page.click(queueButton);
+      await page.waitForSelector('#am-nowplaying .am-np-queue-row');
+      await pick('npQueue', 'Ayrı panel (Spotify)');
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
+      await page.click(queueButton);
+      await page.waitForFunction(() => document.body.classList.contains('am-panel-open') && !document.getElementById('am-nowplaying').hidden);
+      assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-np-queue-open'), !!document.querySelector('#am-nowplaying .am-np-queue').getClientRects().length]), [false, false], 'no list in the pane');
+      await page.click(queueButton);
+      await page.waitForFunction(() => !document.body.classList.contains('am-panel-open'));
+      await pick('npQueue', 'Panelin içinde');
+      await page.click(queueButton);
+      await page.waitForFunction(() => document.body.classList.contains('am-np-queue-open') && !document.body.classList.contains('am-panel-open'));
+      await page.click(queueButton);
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
+      // Closing the pane closes the list with it.
+      await page.click(queueButton);
+      await page.click('#am-nowplaying .am-np-close');
+      await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-queue-open'));
+      await page.click('#am-player .am-np-toggle');
+      await page.waitForFunction(() => !document.getElementById('am-nowplaying').hidden);
       // The × turns the pane off, and so does the player's "…" menu.
       await page.click('#am-nowplaying .am-np-close');
       await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-open'));
@@ -2864,6 +2942,16 @@ try {
       await page.click('#am-nowplaying .am-transport .am-play');
       assert.equal(await page.evaluate(() => window.__mockState.playing), !playing);
       await page.click('#am-nowplaying .am-transport .am-play');
+      // #182: with the lyrics only in full screen the controls sit at the bottom, and the queue button opens Playing Next in the pane.
+      await pick('npLyricsPlace', 'Yalnız tam ekranda');
+      const onlyEnds = await npEnds();
+      assert.ok(onlyEnds.top <= 50 && onlyEnds.gap > 20 && onlyEnds.bottom <= 30, JSON.stringify(onlyEnds));
+      await page.click('#am-nowplaying .am-np-actions [aria-label="Çalma sırası"]');
+      await page.waitForFunction(() => document.body.classList.contains('am-np-queue-open') && !document.body.classList.contains('am-panel-open'));
+      assert.ok(await page.isVisible('#am-nowplaying .am-np-queue-row') && await page.isVisible('#am-nowplaying .am-np-controls .am-transport'), 'the list above the controls');
+      await page.click('#am-nowplaying .am-np-actions [aria-label="Çalma sırası"]');
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
+      await pick('npLyricsPlace', 'Kapağın altında');
       await pick('npLayout', 'Kenarda');
       // The pane slides into place (npAnimate); measure where it lands, not a frame of the slide (a slow renderer
       // was still mid-way when the rect was read).
@@ -3265,6 +3353,37 @@ try {
     await page.evaluate(() => document.getElementById('mock-home').remove());
   });
 
+  await check('Home (#194): big "Made for you" cards and shortcuts name their mix cover; the big card\'s buttons are glass on the description', async () => {
+    // Spotify's big card: no encore card or cardTitle (the name is the header's h2), and a footer that reserves four lines
+    // for the description above a 48px row of buttons; its own CSS is copied here. The covers were drawn before (cache).
+    const pick = 'https://pickasso.spotifycdn.com/image/ab67c0de0000deef/dt/v1/img/';
+    assert.deepEqual(await page.evaluate(async pick => {
+      const s = document.createElement('section');s.id = 'mock-bigcard';
+      s.innerHTML = `<style>#mock-bigcard footer{--footer-height:80px;height:calc(var(--footer-height) + 8px + 48px);display:flex;flex-direction:column;justify-content:space-between;transform:translateY(56px)}#mock-bigcard footer>div:first-child{height:var(--footer-height);margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:14;-webkit-box-orient:vertical;overflow:hidden;line-height:20px}#mock-bigcard footer>div:last-child{display:flex;flex:0 0 0%;height:48px;align-items:center;justify-content:space-between}</style>`
+        + `<div data-encore-id="box" style="position:relative;width:456px;height:592px;display:flex;flex-direction:column;justify-content:space-between"><header><div><div class="main-cardImage-imageWrapper" style="width:96px;height:96px"><div style="position:relative;width:96px;height:96px"><img alt="" style="width:96px;height:96px" src="${pick}daily/2/ab6761610000e5eb97f323784adb2a66291c0cd4/en"></div></div></div>`
+        + `<div><a href="/playlist/37i9dQZF1EQpj7X7UK8OOF"><h2 data-encore-id="text">Rock Mix</h2></a></div></header>`
+        + `<footer><div><span data-encore-id="text"><a href="/playlist/37i9dQZF1EIYTvhRGazpU1">Nirvana</a> and more</span></div><div><div><button data-testid="big-card-toggle-preview-button" data-encore-id="buttonSecondary"><span><svg viewBox="0 0 16 16"></svg></span><span>Preview</span></button></div>`
+        + `<div><button aria-label="More" data-encore-id="buttonTertiary"><span><svg viewBox="0 0 24 24"></svg></span></button><button aria-checked="false" data-encore-id="buttonTertiary"><span><svg viewBox="0 0 24 24"></svg></span></button><div><div><button data-encore-id="buttonPrimary"><span><span><svg viewBox="0 0 24 24"></svg></span></span></button></div></div></div></div></footer></div>`
+        + `<div data-am-shortcut><div draggable="true"><a aria-hidden="true" href="/playlist/37i9dQZF1EIVtWqDHkZ7t4"><div><div class="mock-short" style="position:relative;width:48px;height:48px"><img alt="" style="width:48px;height:48px" src="${pick}topic/chill/0ECwFtbIWEVNwjlrfc6xoL/en"></div></div></a><div><div><a title="Chill Mix" href="/playlist/37i9dQZF1EIVtWqDHkZ7t4"><p>Chill Mix</p></a></div></div></div></div>`;
+      document.querySelector('.am-native-main main').prepend(s);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const art = s.querySelector('.main-cardImage-imageWrapper > div'), short = s.querySelector('.mock-short'), footer = s.querySelector('footer');
+      const text = footer.firstElementChild.getBoundingClientRect(), row = footer.lastElementChild.getBoundingClientRect(), more = getComputedStyle(footer.querySelector('[aria-label="More"]'));
+      const play = getComputedStyle(footer.querySelector('[data-encore-id="buttonPrimary"] > span')), preview = getComputedStyle(footer.querySelector('[data-encore-id="buttonSecondary"]'));
+      document.body.classList.add('am-solid');const eco = getComputedStyle(footer.querySelector('[aria-label="More"]')).backdropFilter;document.body.classList.remove('am-solid');
+      // Save is Apple's star (the album pages' masks): outlined and white, filled in the accent once Spotify checks it; More keeps its glyph.
+      const save = footer.querySelector('[aria-checked]'), mask = () => getComputedStyle(save.querySelector('svg')).maskImage, accent = getComputedStyle(document.body).getPropertyValue('--am-accent').trim();
+      const probe = document.createElement('i');probe.style.color = accent;document.body.append(probe);const accentRgb = getComputedStyle(probe).color;probe.remove();
+      const star = [mask().includes("fill='none'") && mask().includes('m12 3.2'), getComputedStyle(save).color, getComputedStyle(save).width,
+        getComputedStyle(footer.querySelector('[aria-label="More"] svg')).maskImage];
+      save.setAttribute('aria-checked', 'true');star.push(mask().includes("fill='%23000'"), getComputedStyle(save).color === accentRgb, getComputedStyle(save).backdropFilter);
+      const out = [art.dataset.amMix, getComputedStyle(art, '::after').content, short.dataset.amMix, Math.round(text.height), Math.round(row.top - text.bottom), Math.round(row.height),
+        more.width, more.borderRadius, more.backdropFilter, play.width, play.backdropFilter, preview.height, preview.backgroundColor, eco, ...star];
+      s.remove();return out;
+    }, pick), ['Rock Mix', '"Rock Mix"', 'Chill Mix', 20, 8, 48, '40px', '999px', 'blur(12px) saturate(1.4)', '44px', 'blur(12px) saturate(1.4)', '36px', 'rgba(255, 255, 255, 0.12)', 'none',
+      true, 'rgb(255, 255, 255)', '40px', 'none', true, true, 'blur(12px) saturate(1.4)']);
+  });
+
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
     // Spotify's page for a mix: no artwork container, an empty slot before the text, the photo in .before-scroll-node,
     // and "About recommendations" as a button under the creator line. The cover comes from the playlist's metadata.
@@ -3578,6 +3697,20 @@ try {
     await page.evaluate(back => Spicetify.Platform.History.push(back), back);
   });
 
+  await check('Liked Songs: Music\'s Favourite Songs cover, and a star for Recents\' "added" check', async () => {
+    const r = await page.evaluate(async () => {
+      const host = document.createElement('div'); host.id = 'mock-liked'; host.style.cssText = 'position:fixed;left:0;top:0;width:120px';
+      host.innerHTML = '<img src="https://misc.scdn.co/liked-songs/liked-songs-300.png" width="64" height="64"><div><svg data-encore-id="icon" role="img" viewBox="0 0 16 16" width="16" height="16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m11.748-1.97a.75.75 0 0 0-1.06-1.06l-4.47 4.47-1.405-1.406a.75.75 0 1 0-1.061 1.06l2.466 2.467 5.53-5.53z"/></svg></div><button><svg data-encore-id="icon" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m11.748-1.97z"/></svg></button>';
+      document.body.append(host);
+      const img = host.querySelector('img'), [badge, inButton] = host.querySelectorAll('svg'), cs = n => getComputedStyle(n);
+      const out = { content: cs(img).content, mask: cs(badge).maskImage, path: cs(badge.firstChild).display, buttonMask: cs(inButton).maskImage };
+      host.remove(); return out;
+    });
+    assert.match(r.content, /^url\("data:image\/svg\+xml.*fa233b/, 'the cover is the star tile');
+    assert.match(r.mask, /svg/, 'the check circle is masked to a star');
+    assert.equal(r.path, 'none', "Spotify's check is not drawn");
+    assert.equal(r.buttonMask, 'none', 'a save button keeps its own rules');
+  });
   await check('no runtime errors', async () => assert.deepEqual(errors, []));
 } finally {
   await browser.close();

@@ -1111,11 +1111,12 @@
     },{root,rootMargin}):null;
   }
   // Artwork that loaded before is set at once and decoded at paint, so a page drawn again (going back) has it in its
-  // first frame; left to the observer or to async decoding it pops in a frame or three later. The last 200 are held by
-  // an Image each: released sources otherwise drop out of the memory cache and load asynchronously again.
+  // first frame (so does Playing Next, opened again in the Now Playing pane); left to the observer or to async decoding
+  // it pops in a frame or three later. The last 200 are held by an Image each: released sources otherwise drop out of the
+  // memory cache and load asynchronously again.
   const seenArtwork=new Map();
   document.addEventListener('load',event=>{
-    const img=event.target,src=img.tagName==='IMG'&&img.closest?.('#am-library,#am-artist,#am-search')&&img.getAttribute('src');if(!src||seenArtwork.has(src))return;
+    const img=event.target,src=img.tagName==='IMG'&&img.closest?.('#am-library,#am-artist,#am-search,.am-np-queue')&&img.getAttribute('src');if(!src||seenArtwork.has(src))return;
     const hold=new Image();hold.src=src;seenArtwork.set(src,hold);if(seenArtwork.size>200)seenArtwork.delete(seenArtwork.keys().next().value);
   },true);
   function observeLazy(observer,img) {
@@ -1466,6 +1467,8 @@
   });
   playerButton(lyricsButton,'lyrics',T('Sözler','Lyrics'));playerButton(popupLyricsButton,'popup-lyrics',T('Sözler penceresi','Lyrics popup'));playerButton(connectButton,'connect',T('Cihazlar','Devices'));
   const queueButton=button(T('Çalma sırası','Playing Next'),'queue',()=>{
+    // With the Now Playing pane open, Playing Next shows inside it (npQueueShow, #182), unless settings.npQueue keeps Spotify's panel.
+    const b=document.body.classList;if(settings.npQueue!=='spotify'&&b.contains('am-np-open')&&!b.contains('am-np-full'))return npQueueShow(!npQueueOn);
     const native=root.querySelector('[data-testid="control-button-queue"]');
     if(native)native.click();
     else notify(T('Çalma sırası bu Spotify sürümünde kullanılamıyor.','The queue is not available in this version of Spotify.'));
@@ -2786,7 +2789,7 @@
   const npOnSpicyPage=()=>document.body.classList.contains('am-spicy-route');
   const npOpenFor=mode=>mode==='only'||mode==='beside';
   const npSpicyWanted=mode=>mode==='beside'&&!npOnSpicyPage()&&!npFullOn&&settings.npLyricsSource==='spicy'&&(settings.npLyricsPlace==='below'||settings.npBg==='plain')
-    &&!document.body.classList.contains('am-panel-open')&&!!npSpicyCard();
+    &&!document.body.classList.contains('am-panel-open')&&!npQueueOn&&!!npSpicyCard();
   function npSpicyFill() {
     const card=npSpicyCard(),right=card?.closest('.am-native-right');if(!card)return;
     for(let n=card.closest('aside');n&&n!==right;n=n.parentElement)if(!n.hasAttribute('data-am-np-fill'))n.setAttribute('data-am-np-fill','');
@@ -2855,6 +2858,39 @@
     return [{label:open?T('Şimdi Çalan\'ı Gizle','Hide Now Playing'):T('Şimdi Çalan\'ı Göster','Show Now Playing'),action:()=>npOpen(!open)}];
   }
 
+  // Playing Next (#182): the queue button shows the queue inside the open pane instead of Spotify's queue panel beside
+  // it, as Music on macOS switches its one right panel between Lyrics and Playing Next; the cover shrinks beside the title.
+  const npQueue=el('div','am-np-queue'),npQueueHead=el('div','am-np-queue-head',T('Sıradaki','Playing Next')),npQueueList=el('div','am-np-queue-list');
+  npQueueList.setAttribute('role','list');npQueue.append(npQueueHead,npQueueList);npBody.insertBefore(npQueue,npLyricsBox);
+  const npQueueArt=lazyObserver(npQueueList,'200px 0px');
+  let npQueueOn=false,npQueueKey=null,npQueueTimer=0;
+  // Spicetify keeps the queue in Spicetify.Queue; delimiters and the like are left out.
+  const npQueueItems=()=>(S.Queue?.nextTracks||[]).map(t=>t?.contextTrack||t).filter(t=>/^spotify:(track|episode|local):/.test(t?.uri||'')).slice(0,50);
+  function npQueueRender() {
+    const items=npQueueItems(),key=items.map(t=>t.uid||t.uri).join();if(key===npQueueKey)return;npQueueKey=key;
+    releaseLazy(npQueueArt,npQueueList);
+    npQueueList.replaceChildren(...items.map(t=>{
+      const m=t.metadata||{},row=el('button','am-np-queue-row'),img=el('img',''),text=el('span','am-np-queue-text');
+      row.type='button';row.setAttribute('role','listitem');img.alt='';img.decoding='async';
+      const src=spotifyImage(m.image_url||m.image_small_url||'');if(src)img.dataset.src=src;
+      text.append(el('span','am-np-queue-title',m.title||''),el('span','am-np-queue-artist',m.artist_name||''));
+      row.append(img,text);row.addEventListener('click',()=>S.Platform?.PlayerAPI?.skipTo?.({uri:t.uri,uid:t.uid}));
+      return row;
+    }));
+    if(!items.length)npQueueList.append(el('div','am-np-queue-empty',T('Sırada şarkı yok','Nothing playing next')));
+    for(const img of npQueueList.querySelectorAll('img[data-src]'))observeLazy(npQueueArt,img);
+  }
+  function npQueueShow(on,inApply) {
+    npQueueOn=on;document.body.classList.toggle('am-np-queue-open',on);
+    queueButton.classList.toggle('am-active',on);setAttributeIfChanged(queueButton,'aria-pressed',String(on));
+    clearInterval(npQueueTimer);
+    // While it shows, the list is read again each second (Spicetify fires nothing when the queue changes); unchanged, it is left alone.
+    if(on){npQueueKey=null;npQueueRender();npQueueTimer=setInterval(()=>{if(!document.hidden)npQueueRender();},1000);}
+    else releaseLazy(npQueueArt,npQueueList);
+    // Spicy Lyrics' card steps aside while the list shows (it stays mounted in Spotify's view) and comes back after.
+    if(!inApply)npApply();
+  }
+
   // The player's optional buttons, named for the settings window's button picker (kept if it named them first).
   for(const [b,id] of [[shuffle,'shuffle'],[back,'previous'],[next,'next'],[repeat,'repeat'],[star,'love'],[more,'more'],[popupLyricsButton,'popup-lyrics'],[lyricsButton,'lyrics'],[connectButton,'connect'],[queueButton,'queue'],[volumeWrap,'volume']])b.dataset.amButton??=id;
   // 'only' mode moves the player's own controls in, and back out of it.
@@ -2873,7 +2909,7 @@
   const npBlend=()=>settings.npArtSize==='blend'&&(settings.npBg==='artwork'||settings.npBg==='spicy');
   function npApply() {
     if(!npReady)return;
-    const mode=npWant??settings.nowPlaying,b=document.body.classList,open=npOpenFor(mode),spicy=npSpicyWanted(mode);
+    const mode=npWant??settings.nowPlaying,b=document.body.classList,open=npOpenFor(mode),spicy=npSpicyWanted(mode),fromSpicy=npSpicyOn&&!spicy;
     // The pane's own content is rebuilt when it comes back from Spicy's (its lyrics were not loaded meanwhile).
     if(spicy!==npSpicyOn){npSpicyOn=spicy;b.toggle('am-np-spicy',spicy);npTrackKey='';npLyricUri=null;}
     const split=spicy&&settings.npBg!=='plain';
@@ -2891,7 +2927,9 @@
     if(shown){
       np.hidden=false;
       if(npLeaveTimer){clearTimeout(npLeaveTimer);npLeaveTimer=0;npAnim?.cancel();npAnim=null;}
-      if(opening)npAnimate(true);
+      // Back in the place of Spicy's column (Playing Next, #182, or the card gone), which leaves at the same moment: no slide,
+      // which faded the pane in over the bare page.
+      if(opening&&!fromSpicy)npAnimate(true);
     }
     npToggle.classList.toggle('am-active',on);setAttributeIfChanged(npToggle,'aria-pressed',String(on));
     setAttributeIfChanged(npToggle,'title',on?T('Şimdi Çalan\'ı gizle','Hide Now Playing'):T('Şimdi Çalan\'ı göster','Show Now Playing'));
@@ -2900,7 +2938,7 @@
     const content=[settings.npBg,settings.npLyricsPlace,settings.npArt,npOnSpicyPage(),npCompact()].join();if(content!==npContent){npContent=content;npTrackKey='';npLyricUri=null;}
     if(!npLyricsShown()){npLyricsBox.replaceChildren();npLyrics=null;npLyricUri=null;}
     if(!shown){
-      npStopVideo();clearTimeout(npLyricTimer);
+      npStopVideo();clearTimeout(npLyricTimer);if(npQueueOn)npQueueShow(false,true);
       if(closing){
         // Spicy's own column takes the pane's place at the same moment: no slide there.
         if(spicy||reducedMotion.matches||typeof np.animate!=='function')np.hidden=true;
@@ -3103,6 +3141,9 @@
     options:[['spotify','Spotify'],['spicy','Spicy Lyrics']],
     note:T('Spicy Lyrics yoksa Spotify’ın sözleri gelir.','Without Spicy Lyrics, Spotify’s lyrics show.'),
     apply:npSpicySource,when:()=>(npWant??settings.nowPlaying)==='beside'&&(settings.npLyricsPlace==='below'||settings.npBg==='plain')&&!!document.getElementById('SpicyLyrics_PageButton')});
+  // Playing Next in the pane (#182) or, for those who prefer it, Spotify's own queue panel beside it; switching closes an open list.
+  npSetting({key:'npQueue',group:'nowplaying',section:T('Sözler ve sıra','Lyrics and queue'),rank:7,type:'choice',style:'segmented',default:'pane',label:T('Sıra','Queue'),context:['np'],
+    options:[['pane',T('Panelin içinde','In the pane')],['spotify',T('Ayrı panel (Spotify)','Separate panel (Spotify)')]],apply:v=>{if(v==='spotify'&&npQueueOn)npQueueShow(false);},dim:npOff});
   npReady=true;npApply();
   // The fallback menu is registered after the mcloud one, which the IIFE's end registers.
   if(typeof defineSetting!=='function'&&S.Menu?.SubMenu&&S.Menu?.Item)setTimeout(()=>{
@@ -4201,6 +4242,14 @@
     style.setProperty('--am-mix-to',`hsl(${(hue+330)%360} ${Math.min(90,sat+10)}% ${Math.round((mid-.14)*100)}%)`);
     box.classList.toggle('am-mix-plain',!cover.photo);box.classList.add('am-mix-ready');
   }
+  // The name drawn into the band: a card's title, a playlist page's h1, else the nearest link with text around the image
+  // (Home's big "Made for you" cards and the shortcuts at the top have neither; their band was drawn empty, #194).
+  function mixName(img) {
+    const card=img.closest('[data-encore-id="card"]'),page=!card&&img.closest('[data-testid="playlist-page"]');
+    if(card||page)return (card?card.querySelector('[data-encore-id="cardTitle"]'):page.querySelector('h1'))?.textContent.trim()||'';
+    for(let node=img.parentElement,i=0;node&&i<5;node=node.parentElement,i++)for(const a of node.querySelectorAll('a[href]')){const text=(a.title||a.textContent).trim();if(text)return text;}
+    return '';
+  }
   // Apple's own pairing: radios as its stations (the photo in a circle), the other mixes as Essentials (the band).
   const mixStyle=url=>settings.mixCovers!=='apple'?settings.mixCovers:/\/img\/radio\//.test(url)?'station':'band';
   function markMix(img,radius) {
@@ -4209,9 +4258,8 @@
     const box=img.closest('[data-encore-id="card"]')?img.parentElement?.parentElement:img.parentElement,url=img.getAttribute('src')||'';if(!box||!img.closest('.am-native-main'))return;
     if(!mixUrl.test(url)||settings.mixCovers==='spotify'){if(box.classList.contains('am-mix'))box.classList.remove('am-mix','am-mix-ready','am-mix-plain');delete box.dataset.amMixSrc;return;}
     box.dataset.amMixStyle=mixStyle(url);
+    const name=mixName(img);if(box.dataset.amMix!==name)box.dataset.amMix=name;
     if(box.dataset.amMixSrc===url&&box.classList.contains('am-mix-ready'))return;
-    const card=img.closest('[data-encore-id="card"]');
-    box.dataset.amMix=(card?card.querySelector('[data-encore-id="cardTitle"]')?.textContent:img.closest('[data-testid="playlist-page"]')?.querySelector('h1')?.textContent)?.trim()||'';
     box.dataset.amMixSrc=url;box.classList.add('am-mix');box.style.setProperty('--am-mix-radius',radius??getComputedStyle(img).borderRadius);
     const known=mixCovers.get(url);
     if(known){drawMix(box,known);return;}

@@ -873,6 +873,12 @@ body.am-solid > [data-tippy-root] > div > div:has(> #hover-or-focus-tooltip),bod
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-am-icon] {flex:0 0 14px!important;width:14px!important;height:18px!important;display:inline-flex!important;align-items:center;justify-content:center}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) :is(svg,img)[data-am-icon] {flex-basis:12px!important;width:12px!important;height:12px!important;margin:0 1px!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-am-icon] :is(svg,img) {width:12px!important;height:12px!important}
+/* Liked Songs' cover is Music's Favourite Songs one, fitted to Music's (macOS 27): a light grey square and Apple's red rounded
+   star (53% of the width, inner radius .47, area 12%), wherever Spotify draws its purple heart tile (Home, library, page, search). */
+img[src*="/liked-songs/"] {content:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23edeef0'/%3E%3Cpath d='M50.00 26.98L56.00 44.43L74.44 44.74L59.70 55.83L65.11 73.47L50.00 62.88L34.89 73.47L40.30 55.83L25.56 44.74L44.00 44.43Z' fill='%23fa233b' stroke='%23fa233b' stroke-width='4.5' stroke-linejoin='round'/%3E%3C/svg%3E")}
+/* "1 song added" / "Album added" under a Recents card: Spotify's filled check circle becomes the theme's filled star. */
+svg[data-encore-id="icon"]:not(button svg):has(> path[d^="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m11.748"]) {background:currentColor;-webkit-mask:var(--am-star-fill) center/contain no-repeat;mask:var(--am-star-fill) center/contain no-repeat}
+svg[data-encore-id="icon"]:not(button svg):has(> path[d^="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m11.748"]) > path {display:none}
 /* Liked Songs rows: the theme's star from the player for Spotify's purple tile, filled when the song is liked; drawn a
    little heavier than the player's, to sit with Spotify's icons at 12px. */
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-am-liked] > img {display:none!important}
@@ -1783,10 +1789,12 @@ body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(
 body.am-np-open.am-np-docked {--am-right:var(--am-np-w)}
 body.am-ready.am-np-open .am-layout {grid-template-columns:var(--am-side) minmax(0,1fr) var(--am-right)!important}
 body.am-np-anim .am-layout {transition:grid-template-columns .24s cubic-bezier(.32,.72,0,1)}
+/* overflow:clip, not hidden: a pane that cannot scroll keeps its content in place when a control is focused or scrolled
+   into view while the pane slides in (it was left 200px out of place). */
 #am-nowplaying {
  --am-np-text:var(--am-text);--am-np-sub:var(--am-sub);--am-np-track:rgb(var(--am-ink,255 255 255) / .2);--am-np-chip:rgb(var(--am-ink,255 255 255) / .12);
  --am-np-fill:var(--am-panel-fill,color-mix(in srgb,#262626 74%,transparent));--am-np-base:var(--am-bg);--am-np-scrim:#0000008c;
- position:fixed;z-index:50;top:var(--am-header);right:16px;bottom:96px;width:var(--am-np-w);box-sizing:border-box;border-radius:18px;overflow:hidden;isolation:isolate;
+ position:fixed;z-index:50;top:var(--am-header);right:16px;bottom:96px;width:var(--am-np-w);box-sizing:border-box;border-radius:18px;overflow:clip;isolation:isolate;
  color:var(--am-np-text);font-family:var(--encore-body-font-stack);-webkit-font-smoothing:antialiased;letter-spacing:-.01em;-webkit-app-region:no-drag;
  background:var(--am-np-fill);backdrop-filter:blur(20px) saturate(1.6);-webkit-backdrop-filter:blur(20px) saturate(1.6);box-shadow:inset 0 1px 0 rgb(var(--am-rim,255 255 255)/.149),inset 0 0 0 1px rgb(var(--am-rim,255 255 255)/.071),0 18px 50px #0007;
 }
@@ -1918,6 +1926,32 @@ body:not(.am-np-only) #am-nowplaying .am-np-actions {margin-top:auto}
 #am-nowplaying .am-np-actions svg {width:21px;height:21px}
 #am-nowplaying .am-np-actions .am-active {color:var(--am-np-text);background:var(--am-np-chip)}
 #am-player .am-np-toggle.am-active {color:var(--am-accent-focus)}
+/* #182: with the lyrics only in full screen, the artwork stays at the top and the title and controls sit at the bottom,
+   spaced as iOS's Now Playing, instead of following the artwork down the middle. */
+body:not(.am-np-lyrics-below,.am-np-full,.am-np-plain):not(.am-np-blend) #am-nowplaying .am-np-art {flex:0 1 calc(var(--am-np-w) - 44px);place-items:start center}
+body:not(.am-np-lyrics-below,.am-np-full,.am-np-plain) #am-nowplaying .am-np-meta {margin-top:auto}
+body:not(.am-np-lyrics-below,.am-np-full,.am-np-plain):not(.am-np-only) #am-nowplaying .am-np-actions {margin-top:4px}
+body.am-np-only:not(.am-np-lyrics-below,.am-np-full,.am-np-plain) #am-nowplaying .am-np-controls {gap:16px;margin-top:4px}
+body.am-np-only:not(.am-np-lyrics-below,.am-np-full,.am-np-plain) #am-nowplaying .am-np-actions {margin-top:8px}
+/* Playing Next inside the pane (the queue button, theme.js npQueueShow), as Music on iOS: the cover shrinks
+   beside the title at the top and the list takes the artwork's and the lyrics' room. */
+.am-np-queue {display:none;flex:1 1 0;min-height:0;flex-direction:column;margin:0 -22px}
+body.am-np-queue-open:not(.am-np-full) #am-nowplaying .am-np-queue {display:flex}
+body.am-np-queue-open:not(.am-np-full) #am-nowplaying :is(.am-np-art,.am-np-lyrics) {display:none!important}
+body.am-np-queue-open:not(.am-np-full) #am-nowplaying .am-np-thumb {display:block}
+body.am-np-queue-open.am-np-blend:not(.am-np-full) #am-nowplaying .am-np-body {padding-top:22px}
+body.am-np-queue-open.am-np-blend.am-np-beside:not(.am-np-full) #am-nowplaying .am-np-body {padding-top:42px}
+.am-np-queue-head {padding:6px 22px 8px;font-size:15px;font-weight:700;color:var(--am-np-text)}
+.am-np-queue-list {flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:0 12px 16px;-webkit-mask-image:linear-gradient(#000 85%,#0000);mask-image:linear-gradient(#000 85%,#0000)}
+#am-nowplaying .am-np-queue-row {display:flex;align-items:center;gap:12px;width:100%;padding:6px 10px;border-radius:8px;text-align:left;color:inherit}
+#am-nowplaying .am-np-queue-row:hover {background:var(--am-np-chip)}
+.am-np-queue-row img {flex:0 0 auto;width:42px;height:42px;border-radius:5px;object-fit:cover;background:var(--am-np-chip)}
+.am-np-queue-row img:not([src]) {visibility:visible}
+.am-np-queue-text {display:flex;flex-direction:column;min-width:0;gap:1px}
+.am-np-queue-title,.am-np-queue-artist {overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.am-np-queue-title {font-size:14px;font-weight:600;color:var(--am-np-text)}
+.am-np-queue-artist {font-size:13px;color:var(--am-np-sub)}
+.am-np-queue-empty {padding:24px 10px;text-align:center;font-size:14px;color:var(--am-np-sub)}
 /* Beside the player the pane has its own close button, at the top left as macOS's (Windows' caption buttons sit at the top right). */
 #am-nowplaying .am-np-close {display:none;position:absolute;z-index:2;top:10px;left:12px;width:24px;height:24px;border-radius:50%;background:var(--am-np-chip);color:var(--am-np-sub)}
 #am-nowplaying .am-np-close svg {width:12px;height:12px;stroke-width:2.4}
@@ -1925,13 +1959,14 @@ body:not(.am-np-only) #am-nowplaying .am-np-actions {margin-top:auto}
 body.am-np-beside #am-nowplaying .am-np-close {display:grid}
 body.am-np-beside .am-np-body {padding-top:42px}
 /* Docked (#182): the artwork starts as far from the window's top as from the sides, and the close button sits on its
-   corner instead of in a strip of its own above it. On Windows the caption buttons keep the window's top 44px. */
-body.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact) #am-nowplaying .am-np-close {top:30px;left:30px;background:rgb(0 0 0/.35);color:#fff;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-body.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact) .am-np-body {padding-top:22px}
-body.am-windows.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact) #am-nowplaying .am-np-close {top:52px}
-body.am-windows.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact) #am-nowplaying .am-np-body {padding-top:44px}
-body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact) #am-nowplaying .am-np-close {top:44px}
-body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact) #am-nowplaying .am-np-body {padding-top:76px}
+   corner instead of in a strip of its own above it (Plain, Compact and Playing Next keep the strip: no cover there). On
+   Windows the caption buttons keep the window's top 44px. */
+body.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:30px;left:30px;background:rgb(0 0 0/.35);color:#fff;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+body.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact,.am-np-queue-open) .am-np-body {padding-top:22px}
+body.am-windows.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:52px}
+body.am-windows.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:44px}
+body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:44px}
+body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:76px}
 /* Full screen without Spicy Lyrics (with it, Spicy's page; theme.js npFullscreen): the pane fills the window as
    Apple Music's full-screen player, the artwork and title on the left and the lyrics large on the right. The floating
    player stays above it. Its button moves to the top right corner. */
@@ -2072,6 +2107,33 @@ body.am-home-apple .am-native-main [data-encore-id="card"] button[data-encore-id
 body.am-home-apple .am-card-more {position:absolute;right:8px;bottom:8px;z-index:2;pointer-events:auto;display:grid;place-items:center;border:0;cursor:pointer;opacity:0;transition:opacity .15s}
 body.am-home-apple .am-card-more svg {width:14px;height:14px;stroke:none}
 body.am-home-apple [data-encore-id="card"]:is(:hover,:focus-within) .am-card-more {opacity:1}
+/* Home's big cards (the "Made for you" grid at the end, #194). Spotify reserves four lines for the description, so one
+   line stood 60px above the buttons; it now sits on them (the footer still rises by Spotify's 56px, the 8px gap and
+   the 48px row, on hover). The buttons take the song previews' frosted glass over the card's video: no displacement
+   filter (menuGlass's map left seams on circles this small), and plain fills in Eco. */
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer {height:auto!important;--am-bc-fill:#ffffff1f;--am-bc-fill-hover:#ffffff33;--am-bc-rim:inset 0 1px #ffffff2e,inset 0 -1px #ffffff14,inset 0 0 0 .5px #ffffff1a,0 4px 14px #0000002e}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer > div:first-child {height:auto!important;max-height:80px;-webkit-line-clamp:4!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer > div:last-child {flex:none!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer :is(button:is([data-encore-id="buttonSecondary"],[data-encore-id="buttonTertiary"]),button[data-encore-id="buttonPrimary"] > span) {box-sizing:border-box;min-block-size:0!important;border:0!important;border-radius:999px!important;color:#fff!important;background:var(--am-bc-fill)!important;box-shadow:var(--am-bc-rim)!important;-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);transition:background-color .15s,transform .12s!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer :is(button:is([data-encore-id="buttonSecondary"],[data-encore-id="buttonTertiary"]):hover,button[data-encore-id="buttonPrimary"]:hover > span) {background-color:var(--am-bc-fill-hover)!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer :is(button:is([data-encore-id="buttonSecondary"],[data-encore-id="buttonTertiary"]),button[data-encore-id="buttonPrimary"]):active {transform:scale(.94)!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonSecondary"] {height:36px!important;padding:0 16px 0 38px!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonSecondary"] > span:first-child {top:10px!important;bottom:auto!important;left:14px!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"] {width:40px!important;height:40px!important;padding:0!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"] > span {width:auto!important;height:auto!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"] svg {width:20px!important;height:20px!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"]:not([aria-checked]) svg {fill:#fff!important}
+/* Save (the aria-checked one: "Save to Your Library", "Add to Your Episodes") is Apple's star, as on album pages: outlined,
+   filled in the accent once saved. Spotify's + / tick Lottie box draws the star while a save plays. */
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"][aria-checked] :is(svg,div[style*="pointer-events: none"]) {background:currentColor;-webkit-mask:var(--am-star-line) center/20px no-repeat;mask:var(--am-star-line) center/20px no-repeat}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"][aria-checked] svg path {display:none}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"][aria-checked] div[style*="pointer-events: none"] > div {opacity:0;filter:none}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"][aria-checked="true"] {color:var(--am-star-color,var(--am-accent))!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"][aria-checked="true"] :is(svg,div[style*="pointer-events: none"]) {-webkit-mask-image:var(--am-star-fill);mask-image:var(--am-star-fill)}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer div:has(> button[data-encore-id="buttonPrimary"]) {box-shadow:none!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonPrimary"] > span {inline-size:44px!important;block-size:44px!important;padding:0!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonPrimary"] svg {width:18px!important;height:18px!important;fill:#fff!important}
+body.am-solid.am-home-apple .am-native-main [data-encore-id="box"] > footer :is(button,button > span) {-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 /* What's New (#128): the reporter's reference (a frosted card: the cover on the left, "Album • 2026", the title in bold and
    a subtitle, a round "+" on the right), in a grid (theme.js sets body.am-feed on /content-feed, settings.feedStyle). The rows
    stay Spotify's and only change their layout. Its item wrappers give way (display:contents) so the "New" / "Earlier"
