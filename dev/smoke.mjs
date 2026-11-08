@@ -2722,6 +2722,22 @@ try {
       assert.ok(await page.evaluate(() => document.querySelector('#am-nowplaying .am-np-close').getBoundingClientRect().bottom <= document.querySelector('#am-nowplaying .am-np-thumb').getBoundingClientRect().top), 'the × clears the small cover');
       await page.click(queueButton);
       await pick('npLayout', 'Cam kart');
+      // npQueue 'spotify' keeps Spotify's own queue panel beside the pane, as before #182: picking it closes an open list,
+      // the button then opens Spotify's panel and nothing of the list shows; back on 'pane', the list again.
+      await page.click(queueButton);
+      await page.waitForSelector('#am-nowplaying .am-np-queue-row');
+      await pick('npQueue', 'Ayrı panel (Spotify)');
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
+      await page.click(queueButton);
+      await page.waitForFunction(() => document.body.classList.contains('am-panel-open') && !document.getElementById('am-nowplaying').hidden);
+      assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-np-queue-open'), !!document.querySelector('#am-nowplaying .am-np-queue').getClientRects().length]), [false, false], 'no list in the pane');
+      await page.click(queueButton);
+      await page.waitForFunction(() => !document.body.classList.contains('am-panel-open'));
+      await pick('npQueue', 'Panelin içinde');
+      await page.click(queueButton);
+      await page.waitForFunction(() => document.body.classList.contains('am-np-queue-open') && !document.body.classList.contains('am-panel-open'));
+      await page.click(queueButton);
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
       // Closing the pane closes the list with it.
       await page.click(queueButton);
       await page.click('#am-nowplaying .am-np-close');

@@ -1357,8 +1357,8 @@
   });
   playerButton(lyricsButton,'lyrics',T('Sözler','Lyrics'));playerButton(popupLyricsButton,'popup-lyrics',T('Sözler penceresi','Lyrics popup'));playerButton(connectButton,'connect',T('Cihazlar','Devices'));
   const queueButton=button(T('Çalma sırası','Playing Next'),'queue',()=>{
-    // With the Now Playing pane open, Playing Next shows inside it (npQueueShow, #182).
-    const b=document.body.classList;if(b.contains('am-np-open')&&!b.contains('am-np-full'))return npQueueShow(!npQueueOn);
+    // With the Now Playing pane open, Playing Next shows inside it (npQueueShow, #182), unless settings.npQueue keeps Spotify's panel.
+    const b=document.body.classList;if(settings.npQueue!=='spotify'&&b.contains('am-np-open')&&!b.contains('am-np-full'))return npQueueShow(!npQueueOn);
     const native=root.querySelector('[data-testid="control-button-queue"]');
     if(native)native.click();
     else notify(T('Çalma sırası bu Spotify sürümünde kullanılamıyor.','The queue is not available in this version of Spotify.'));
@@ -3022,6 +3022,9 @@
     options:[['spotify','Spotify'],['spicy','Spicy Lyrics']],
     note:T('Spicy Lyrics sözlerini kendi görünümüyle kapağın altında gösterir, “Sade” arka planda panelin tamamında. Spicy yoksa Spotify’ın sözleri gelir.','Spicy Lyrics shows its own lyrics view under the artwork, or across the whole sidebar with the Plain background. Without Spicy, Spotify’s lyrics show.'),
     apply:npSpicySource,when:()=>(npWant??settings.nowPlaying)==='beside'&&(settings.npLyricsPlace==='below'||settings.npBg==='plain')&&!!document.getElementById('SpicyLyrics_PageButton')});
+  // Playing Next in the pane (#182) or, for those who prefer it, Spotify's own queue panel beside it; switching closes an open list.
+  npSetting({key:'npQueue',group:'nowplaying',type:'choice',style:'segmented',default:'pane',label:T('Sıra','Queue'),context:['np'],
+    options:[['pane',T('Panelin içinde','In the pane')],['spotify',T('Ayrı panel (Spotify)','Separate panel (Spotify)')]],apply:v=>{if(v==='spotify'&&npQueueOn)npQueueShow(false);},when:()=>(npWant??settings.nowPlaying)!=='off'});
   npReady=true;npApply();
   // The fallback menu is registered after the mcloud one, which the IIFE's end registers.
   if(typeof defineSetting!=='function'&&S.Menu?.SubMenu&&S.Menu?.Item)setTimeout(()=>{
