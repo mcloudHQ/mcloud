@@ -1849,8 +1849,14 @@ body:not(.am-np-only) #am-nowplaying .am-np-actions {margin-top:auto}
 #am-nowplaying .am-np-close:hover {color:var(--am-np-text)}
 body.am-np-beside #am-nowplaying .am-np-close {display:grid}
 body.am-np-beside .am-np-body {padding-top:42px}
-body.am-windows.am-np-beside.am-np-docked #am-nowplaying .am-np-close {top:44px}
-body.am-windows.am-np-beside.am-np-docked #am-nowplaying .am-np-body {padding-top:76px}
+/* Docked (#182): the artwork starts as far from the window's top as from the sides, and the close button sits on its
+   corner instead of in a strip of its own above it. On Windows the caption buttons keep the window's top 44px. */
+body.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact) #am-nowplaying .am-np-close {top:30px;left:30px;background:rgb(0 0 0/.35);color:#fff;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+body.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact) .am-np-body {padding-top:22px}
+body.am-windows.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact) #am-nowplaying .am-np-close {top:52px}
+body.am-windows.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact) #am-nowplaying .am-np-body {padding-top:44px}
+body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact) #am-nowplaying .am-np-close {top:44px}
+body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact) #am-nowplaying .am-np-body {padding-top:76px}
 /* Full screen without Spicy Lyrics (with it, Spicy's page; theme.js npFullscreen): the pane fills the window as
    Apple Music's full-screen player, the artwork and title on the left and the lyrics large on the right. The floating
    player stays above it. Its button moves to the top right corner. */
