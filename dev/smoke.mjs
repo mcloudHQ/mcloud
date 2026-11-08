@@ -2704,6 +2704,29 @@ try {
     assert.equal(await page.getAttribute('#am-lyrics-toggle', 'aria-label'), 'Spicy Lyrics sözlerini aç / kapat', 'off again: the lyrics button drives Spicy Lyrics');
   });
 
+  await check('the search field\'s live results draw over the Now Playing pane, which stays over the page (#181)', async () => {
+    await page.click('#am-player .am-np-toggle');
+    await page.waitForFunction(() => !document.getElementById('am-nowplaying').hidden && !document.querySelector('#am-nowplaying').getAnimations().length);
+    try {
+      await page.fill('#global-nav-bar input', 'sena');
+      await page.waitForSelector('#search-dropdown [role="row"]');
+      assert.deepEqual(await page.evaluate(() => {
+        const d = document.querySelector('#search-dropdown > :first-child').getBoundingClientRect(), p = document.getElementById('am-nowplaying').getBoundingClientRect();
+        const x = (Math.max(d.left, p.left) + Math.min(d.right, p.right)) / 2, y = (Math.max(d.top, p.top) + Math.min(d.bottom, p.bottom)) / 2;
+        return [x > Math.max(d.left, p.left) && y > Math.max(d.top, p.top), !!document.elementFromPoint(x, y)?.closest('#search-dropdown'), getComputedStyle(document.getElementById('main')).zIndex];
+      }), [true, true, 'auto']);
+      await page.fill('#global-nav-bar input', '');
+      await page.keyboard.press('Escape');
+      await page.evaluate(() => document.activeElement?.blur());
+      await page.waitForFunction(() => !document.getElementById('search-dropdown'));
+      // Closed, #main isolates again and the pane is back over the page.
+      assert.deepEqual(await page.evaluate(() => { const p = document.getElementById('am-nowplaying').getBoundingClientRect(); return [getComputedStyle(document.getElementById('main')).isolation, !!document.elementFromPoint(p.left + p.width / 2, p.top + p.height / 2)?.closest('#am-nowplaying')]; }), ['isolate', true]);
+    } finally {
+      await page.click('#am-player .am-np-toggle');
+      await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden, null, { timeout: 3000 }).catch(() => {});
+    }
+  });
+
   await check('English when Spotify is not in Turkish; the menu switches the language and reloads', async () => {
     const english = await browser.newPage({ viewport: { width: 1440, height: 900 } }), englishErrors = [];
     english.on('pageerror', e => englishErrors.push(e.message));

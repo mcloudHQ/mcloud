@@ -1239,6 +1239,12 @@ body.am-panel-open :is(#main,.Root,.am-layout),body.am-np-spicy :is(#main,.Root,
 body:is(.am-library-open,.am-search-results) #main {z-index:30!important;pointer-events:none}
 body:is(.am-library-open,.am-search-results) #global-nav-bar {pointer-events:auto}
 body:is(.am-library-open,.am-search-results) :is(#main,.Root,.am-layout) {background:transparent!important;transition:none!important}
+/* The search field's live results stay over the Now Playing pane (#181). #main isolates Spotify's app, so the toolbar's
+   56 counted only inside it and the pane (50, on body) drew over the results. While they are open #main gives up its
+   stacking context and the toolbar ranks on body: over the pane, under the player. Spotify's panels inside #main (55,
+   and a song preview's 100) step down to 49 meanwhile, so they stay under the pane and the player as before. */
+body.am-ready #main:has(:is(#search-dropdown,#search-suggestions-loading-dropdown)) {z-index:auto!important;isolation:auto!important}
+body.am-ready #main:has(:is(#search-dropdown,#search-suggestions-loading-dropdown)) :is(.am-native-panel-open,.am-native-right,[data-am-preview]) {z-index:49!important}
 /* The feed fills the sheet in normal flow; its own backgrounds give way to the glass. Marked by attributes, not classes:
    React rewrites the panel's class as it closes, which dropped it back to Spotify's layout while it faded out. */
 body.am-ready [data-am-sheet] {position:relative!important;inset:auto!important;width:100%!important;max-width:100%!important;height:100%!important;border:0!important;box-shadow:none;box-sizing:border-box;overflow:auto;background:transparent!important;--background-base:transparent}
