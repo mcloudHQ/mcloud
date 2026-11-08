@@ -2120,6 +2120,16 @@ try {
     assert.ok(r > g && g > b && r < 120, 'a deep gold from the gold cover: ' + appleDark);
     assert.equal(await pageBg(), `rgb(${r}, ${g}, ${b})`, 'the page is that colour, flat');
     assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), 'rgba(255, 255, 255, 0.92)', "Apple's white play button");
+    // A page whose colour is not known yet (#183): play and shuffle wait unseen instead of showing the accent first,
+    // and appear once the colour is there.
+    await page.evaluate(() => { window.__apiDelay = 400; window.__mockPlaylistMeta['spotify:playlist:p183'] = { images: [{ url: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#3050c0"/></svg>'), label: 'standard' }] }; });
+    await mount('playlist', 'p183');
+    assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-pending')), true);
+    assert.deepEqual([await css('[data-encore-id="buttonPrimary"]', 'visibility'), await css('.e-1-button-tertiary--condensed-all', 'visibility')], ['hidden', 'hidden']);
+    await page.waitForFunction(() => !document.body.classList.contains('am-album-pending') && document.body.classList.contains('am-album-tinted'));
+    assert.deepEqual([await css('[data-encore-id="buttonPrimary"]', 'visibility'), await css('.e-1-button-tertiary--condensed-all', 'visibility')], ['visible', 'visible']);
+    assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), 'rgba(255, 255, 255, 0.92)');
+    await page.evaluate(() => { window.__apiDelay = 0; });
     await settingsWindow.pick('albumTintFill', 'Geçişli');
     assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-solid') || document.body.classList.contains('am-album-fill-apple')), false);
     // Other pages have no colour level.
