@@ -2156,6 +2156,19 @@ try {
     assert.deepEqual(bad, []);
   });
 
+  await check('no class-attribute selector left of a subject in user.css (#137)', async () => {
+    // Blink keys such a selector's invalidation on the class attribute: any class change in the window restyled the
+    // element's whole subtree, ~11,000 elements for a body class (30–60ms, measured in the client). Inside
+    // :nth-child(n of …) or :has() it stays off that path; :where(:nth-child(n of [class…])):not(.am-none) keeps the match and specificity.
+    const css = fs.readFileSync(path.join(here, '..', 'user.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\("?data:[^)]*\)/g, 'url()');
+    const split = (text, seps) => { const parts = []; let depth = 0, cur = '', quote = null; for (const ch of text) { if (quote) { cur += ch; if (ch === quote) quote = null; continue; } if (ch === '"' || ch === "'") { quote = ch; cur += ch; continue; } if ('(['.includes(ch)) depth++; if (')]'.includes(ch)) depth--; if (!depth && seps.includes(ch)) { parts.push(cur); cur = ''; } else cur += ch; } parts.push(cur); return parts.map(p => p.trim()).filter(Boolean); };
+    const strip = c => { let out = '', i = 0; while (i < c.length) { const m = /^:(has|nth-child|nth-last-child)\(/.exec(c.slice(i)); if (m) { let d = 0, j = i + m[0].length - 1; do { if (c[j] === '(') d++; if (c[j] === ')') d--; j++; } while (d && j < c.length); i = j; continue; } out += c[i++]; } return out; };
+    const bad = [];
+    for (const m of css.matchAll(/([^{}@;]+)\{/g)) for (const selector of split(m[1], [','])) { const compounds = split(selector, [' ', '>', '+', '~']); if (compounds.slice(0, -1).some(c => /\[class\s*[*^$~|]?=/.test(strip(c)))) bad.push(selector.slice(-110)); }
+    assert.ok(css.includes(':where(:nth-child(n of [class*='), 'the rewritten form is there');
+    assert.deepEqual(bad, []);
+  });
+
   await check('no :has() in user.css tests inline style', async () => {
     // Spicy Lyrics writes inline styles every frame. With `style` inside a :has() argument each write re-matched the
     // writer's ancestors up to <html>, ~1700 elements restyled per frame instead of a few (issue #53).
