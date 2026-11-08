@@ -4,6 +4,8 @@
   window.__appleMusicMac = true;
   // Marketplace loads theme.js and user.css from GitHub Pages. Its deploy (.github/workflows/pages.yml) writes the
   // commit here and on both files' first line; jsDelivr and local copies keep 'dev'.
+  // VERSION follows the comment on the first line (bump both); the settings window shows it.
+  const VERSION = '2.9';
   const BUILD = 'dev', REPO = 'mcloudHQ/mcloud', PAGES = 'https://mcloudhq.github.io/mcloud/';
   const pages = window.__amPages = { build: BUILD };
   // Installs made before Pages stored jsDelivr @main URLs (or raw ones Marketplace sends to jsDelivr). Marketplace
@@ -256,23 +258,25 @@
   // definitions, so a feature adds its setting here (or next to its code) and nothing else:
   //   defineSetting({key, group, label, type:'toggle'|'choice', default, options:[[value,label(,colour)],…],
   //     section?, note?, help?, style?:'menu'|'segmented'|'swatches'|'tiles', apply?(value), change?(value), reload?, when?(), value?(),
-  //     which?, context?, here?(), rank?})
+  //     which?, context?, here?(), rank?, dim?()})
   // note is one short line under the label; help, the longer story, opens from a "?" beside it. style 'tiles' draws each
   // option as a small picture (user.css, by data-key and data-value). which: an "Apple Music or Spotify" choice, Apple's
   // way first; the window gathers them under one heading. context: where else the setting is changed (the in-place menus,
   // contextEntries: 'player', 'np', 'sidebar', 'list', 'view', 'home'); here(): whether it applies to the page shown, for
-  // those menus. rank orders a pane (lower first).
+  // those menus. rank orders a pane (lower first); a section named ' ' is a card of its own without a heading. dim(): the
+  // row stays, greyed and unusable, while it returns true (and leaves the in-place menus).
   // type:'custom' draws its own control: render(def) → {node, sync}, valid(value), menu() → [{name, checked(), toggle()}]
   // for the fallback submenu, wide: the control under the label.
   // The value lives in settings[key] (saved in localStorage['mcloud:settings']); a saved value is kept when its type
   // matches the default and, for a choice, it is one of the options. apply runs now and after every change, change only
   // after the user's; every change also runs applySettings, which fires 'am-settings'. reload: Spotify reloads after it
   // (strings built once). when: shown only while it returns true. value: the value in effect when it can differ.
-  // label/section/note are T('Türkçe','English'). Groups are the window's tabs, in this order; settingGroup adds one.
+  // label/section/note are T('Türkçe','English'). Groups are the window's panes, in this order; settingGroup adds
+  // one (gap: a gap before it in the sidebar, as System Settings groups its panes).
   const settingDefs=[],settingGroups=[];
-  function settingGroup(id,label,icon){let g=settingGroups.find(g=>g.id===id);if(!g)settingGroups.push(g={id});Object.assign(g,{label,icon});return g;}
-  settingGroup('general',T('Genel','General'),'gear');settingGroup('appearance',T('Görünüm','Appearance'),'paint');settingGroup('player',T('Oynatıcı','Player'),'play');
-  settingGroup('nowplaying',T('Şimdi Çalan','Now Playing'),'nowPlaying');settingGroup('sidebar',T('Kenar Çubuğu','Sidebar'),'sidebar');settingGroup('pages',T('Albümler ve Listeler','Albums & Playlists'),'disc');
+  function settingGroup(id,label,icon,gap){let g=settingGroups.find(g=>g.id===id);if(!g)settingGroups.push(g={id});Object.assign(g,{label,icon},gap===undefined?{}:{gap});return g;}
+  settingGroup('general',T('Genel','General'),'gear');settingGroup('sidebar',T('Kenar Çubuğu','Sidebar'),'sidebar',true);settingGroup('player',T('Oynatıcı','Player'),'play');
+  settingGroup('nowplaying',T('Şimdi Çalan','Now Playing'),'nowPlaying');settingGroup('home',T('Ana Sayfa ve Arama','Home & Search'),'home',true);settingGroup('pages',T('Albümler ve Listeler','Albums & Playlists'),'disc');
   function defineSetting(def) {
     const {key}=def,ok=v=>def.valid?def.valid(v):typeof v===typeof def.default&&(def.type!=='choice'||def.options.some(o=>o[0]===v));
     if(!ok(settings[key]))settings[key]=ok(savedSettings[key])?savedSettings[key]:def.default;
@@ -288,16 +292,16 @@
     applySettings();def?.change?.(value);if(def?.reload)location.reload();
   }
   function setAccent(key){setSetting('accent',key);}
-  defineSetting({key:'lang',group:'general',label:T('Dil','Language'),type:'choice',default:'auto',reload:true,
+  defineSetting({key:'lang',group:'general',section:' ',label:T('Dil','Language'),type:'choice',default:'auto',reload:true,
     options:[['auto',T('Spotify ile aynı','Same as Spotify')],['en','English'],['tr','Türkçe']],note:T('Değişince Spotify yeniden yüklenir.','Spotify reloads when this changes.')});
-  defineSetting({key:'accent',group:'appearance',rank:-2,label:T('Vurgu rengi','Accent colour'),type:'choice',default:'red',style:'swatches',options:Object.entries(accents).map(([key,[label,color]])=>[key,label,color])});
+  defineSetting({key:'accent',group:'general',rank:-2,label:T('Vurgu rengi','Accent colour'),type:'choice',default:'red',style:'swatches',options:Object.entries(accents).map(([key,[label,color]])=>[key,label,color])});
   // The value shown is the mode in effect: reduced transparency in the OS keeps Eco whatever is picked.
-  defineSetting({key:'glass',group:'appearance',rank:-1,label:T('Cam efekti','Glass effect'),type:'choice',default:'balanced',style:'segmented',
+  defineSetting({key:'glass',group:'general',rank:-1,label:T('Cam efekti','Glass effect'),type:'choice',default:'balanced',style:'segmented',
     options:[['full',T('Tam','Full')],['balanced',T('Dengeli','Balanced')],['eco',T('Eko','Eco')]],value:()=>reducedTransparency.matches?'eco':settings.glass,
-    note:T('Eko camı kapatır.','Eco turns the glass off.'),help:T('Dengeli, her karesi yeniden çizilen sayfalarda (Spicy Lyrics) camı sadeleştirir; Eko camı tamamen kapatır ve pili korur.','Balanced simplifies the glass over pages that redraw every frame (Spicy Lyrics); Eco turns the glass off and saves battery.'),
+    note:T('Eko camı kapatır ve pili korur.','Eco turns the glass off and saves battery.'),
     change:v=>{if(v!=='eco'&&reducedTransparency.matches)notify(T('Sistem ayarlarında saydamlık kapalı olduğu için cam efekti açılamıyor.','Transparency is reduced in your system settings, so the glass effect stays off.'));}});
-  defineSetting({key:'artwork',group:'player',label:T('Albüm kapağı','Artwork'),type:'toggle',default:true,context:['player']});
-  defineSetting({key:'liquid',group:'player',label:'Liquid Glass',note:T('Kapalıyken oynatıcı düz buzlu cam olur.','Off, the player is plain frosted glass.'),type:'toggle',default:true,context:['player']});
+  defineSetting({key:'artwork',group:'player',rank:0,label:T('Albüm kapağı','Artwork'),type:'toggle',default:true,context:['player']});
+  defineSetting({key:'liquid',group:'player',rank:1,label:'Liquid Glass',note:T('Kapalıyken oynatıcı düz buzlu cam olur.','Off, the player is plain frosted glass.'),type:'toggle',default:true,context:['player']});
   // Apple Music opens the song's menu wherever the player is right-clicked, and its title and artist — album line ask
   // where to go; Spotify opens it over the song only and links each name (issue #85). Spotify's is the default.
   defineSetting({key:'playerMenu',group:'player',label:T('Oynatıcıda sağ tık','Right-click on the player'),type:'choice',style:'segmented',default:'track',which:true,
@@ -305,8 +309,8 @@
   defineSetting({key:'lcdLinks',group:'player',label:T('Şarkı adına tıklama','Clicking the song title'),type:'choice',style:'segmented',default:'spotify',which:true,
     options:[['apple',T('Nereye gideceğini sorar','Asks where to go')],['spotify',T('Sayfayı açar','Opens the page')]],
     apply:v=>document.body.classList.toggle('am-lcd-links',v==='spotify'),change:()=>syncPlayer()});
-  defineSetting({key:'numbers',group:'pages',section:T('Parça listeleri','Track lists'),label:T('Çalma listelerinde numaralar','Numbers in playlists'),type:'toggle',default:true,context:['list'],here:()=>/^\/(playlist|collection)\//.test(routePath())});
-  defineSetting({key:'tracklistHeader',group:'pages',section:T('Parça listeleri','Track lists'),label:T('Sütun başlıkları','Column headings'),note:T('#, Başlık, Albüm, Eklenme ve süre satırı.','The #, Title, Album, Date added and time row.'),type:'toggle',default:true,context:['list','view'],apply:v=>document.body.classList.toggle('am-no-tracklist-header',!v)});
+  defineSetting({key:'numbers',group:'pages',section:T('Parça listeleri','Track lists'),rank:4,label:T('Çalma listelerinde numaralar','Numbers in playlists'),type:'toggle',default:true,context:['list'],here:()=>/^\/(playlist|collection)\//.test(routePath())});
+  defineSetting({key:'tracklistHeader',group:'pages',section:T('Parça listeleri','Track lists'),rank:5,label:T('Sütun başlıkları','Column headings'),note:T('#, Başlık, Albüm, Eklenme ve süre satırı.','The #, Title, Album, Date added and time row.'),type:'toggle',default:true,context:['list','view'],apply:v=>document.body.classList.toggle('am-no-tracklist-header',!v)});
   // Appearance (issue #74): dark or light (Apple Music's light appearance); no "follow the system" choice (#179), a saved
   // 'system' becomes the mode the OS shows at that moment. user.css keeps every colour
   // in --am-* tokens; light mode is body.am-light (and :root.am-light) swapping their values. The glass filters carry
@@ -1122,9 +1126,9 @@
   const listSorts=[['name',T('Başlık','Title'),(a,b)=>(a.name||'').localeCompare(b.name||'','tr',{sensitivity:'base'})],
     ['added',T('Son Eklenenler','Recently Added'),(a,b)=>b.added-a.added],['played',T('Son Çalınanlar','Recently Played'),(a,b)=>b.played-a.played],
     ['type',T('Çalma Listesi Türü','Playlist Type'),(a,b)=>listRank(a)-listRank(b)]];
-  defineSetting({key:'listFilters',group:'pages',label:T('Tüm Listeler’in filtresi','All Playlists filter'),type:'choice',style:'segmented',default:'menu',which:true,
+  defineSetting({key:'listFilters',group:'sidebar',label:T('Tüm Listeler’in filtresi','All Playlists filter'),type:'choice',style:'segmented',default:'menu',which:true,
     options:[['menu',T('Menüde','In a menu')],['pills',T('Düğmeler','Buttons')]],
-    help:T('Tüm Listeler’i listeyi kimin yaptığına göre süzer.','Filters All Playlists by who made each playlist.'),
+    note:T('Listeleri kimin yaptığına göre süzer.','Filters playlists by who made them.'),
     change:()=>{if(libraryKind==='playlists'&&document.body.classList.contains('am-library-open'))renderLibrary(libraryKind,libraryFolder,false);}});
   // Keep only the fields rendered by this theme; release them when the page closes.
   async function loadLibrary(folder, request, kind) {
@@ -1423,7 +1427,7 @@
     })).filter(b=>!seen.has(b.id)&&seen.add(b.id));
   }
   const toggleButton=id=>setSetting('playerHidden',settings.playerHidden.includes(id)?settings.playerHidden.filter(x=>x!==id):[...settings.playerHidden,id]);
-  defineSetting({key:'playerHidden',group:'player',label:T('Düğmeler','Buttons'),type:'custom',default:[],wide:true,
+  defineSetting({key:'playerHidden',group:'player',rank:2,label:T('Düğmeler','Buttons'),type:'custom',default:[],wide:true,
     note:T('Gizlemek ya da göstermek için dokun. Çal, şarkı adı ve ilerleme çubuğu hep kalır.','Tap to hide or show. Play, the title and the scrubber always stay.'),
     valid:v=>Array.isArray(v)&&v.every(id=>typeof id==='string'),
     apply:v=>{hiddenButtons.textContent=v.length?v.map(id=>'[data-am-button="'+CSS.escape(id)+'"]').join(',')+'{display:none!important}':'';},
@@ -2997,27 +3001,28 @@
   }
   if(typeof settingGroup==='function'&&!settingGroups.some(g=>g.id==='nowplaying'))settingGroup('nowplaying',T('Şimdi Çalan','Now Playing'),'nowPlaying');
   const npApplyAll=()=>npApply();
-  npSetting({key:'nowPlaying',group:'nowplaying',type:'choice',style:'segmented',default:'off',label:T('Şimdi Çalan paneli','Now Playing sidebar'),context:['np','player'],
+  // The pane's own rows stay in the window while it is off, dimmed, as System Settings keeps a row whose switch is off.
+  const npOff=()=>(npWant??settings.nowPlaying)==='off';
+  npSetting({key:'nowPlaying',group:'nowplaying',rank:0,type:'choice',style:'segmented',default:'off',label:T('Şimdi Çalan paneli','Now Playing sidebar'),context:['np','player'],
     options:[['off',T('Kapalı','Off')],['beside',T('Oynatıcıyla','With the player')],['only',T('Oynatıcı yerine','Instead of the player')]],
-    note:T('“Oynatıcı yerine”: tüm kontroller panele geçer.','“Instead of the player”: every control moves into the sidebar.'),apply:()=>{npWant=null;npApply();}});
-  npSetting({key:'npLayout',group:'nowplaying',type:'choice',style:'tiles',default:'card',label:T('Yerleşim','Layout'),context:['np'],
-    options:[['card',T('Yüzen kart','Floating')],['docked',T('Kenarda','Docked')]],apply:npApplyAll,when:()=>(npWant??settings.nowPlaying)!=='off'});
-  npSetting({key:'npBg',group:'nowplaying',type:'choice',style:'tiles',default:'spicy',label:T('Arka plan','Background'),context:['np'],
+    note:T('Oynatıcı yerine: tüm kontroller panele geçer.','Instead of the player: every control moves into the sidebar.'),apply:()=>{npWant=null;npApply();}});
+  npSetting({key:'npLayout',group:'nowplaying',section:T('Görünüm','Look'),rank:1,type:'choice',style:'tiles',default:'card',label:T('Yerleşim','Layout'),context:['np'],
+    options:[['card',T('Yüzen kart','Floating')],['docked',T('Kenarda','Docked')]],apply:npApplyAll,dim:npOff});
+  npSetting({key:'npBg',group:'nowplaying',section:T('Görünüm','Look'),rank:2,type:'choice',style:'tiles',default:'spicy',label:T('Arka plan','Background'),context:['np'],
     options:[['spicy','Spicy Lyrics'],['artwork',T('Kapak renkleri','Artwork colours')],['glass',T('Cam','Glass')],['plain',T('Sade','Plain')]],
-    help:T('“Spicy Lyrics”: Spicy’nin hareketli arka planı. Bunun için Spicy Lyrics ayarlarında Background → Now Playing Sidebar → “Animated Background”ı açın; kapalıyken kapak renkleri görünür. “Sade”: Apple Music’in Mac’teki söz paneli gibi; kapak ve başlık yok, yalnızca sözler.','“Spicy Lyrics”: Spicy’s moving background. Turn on “Animated Background” in Spicy Lyrics’ settings (Background → Now Playing Sidebar); while it is off, the artwork’s colours show. “Plain”: like Apple Music’s lyrics pane on the Mac: no artwork or header, only the lyrics.'),apply:npApplyAll,when:()=>(npWant??settings.nowPlaying)!=='off'});
-  npSetting({key:'npArtSize',group:'nowplaying',type:'choice',style:'tiles',default:'large',label:T('Kapak','Artwork'),context:['np'],
+    help:T('“Spicy Lyrics”: Spicy’nin hareketli arka planı. Bunun için Spicy Lyrics ayarlarında Background → Now Playing Sidebar → “Animated Background”ı açın; kapalıyken kapak renkleri görünür. “Sade”: Apple Music’in Mac’teki söz paneli gibi; kapak ve başlık yok, yalnızca sözler.','“Spicy Lyrics”: Spicy’s moving background. Turn on “Animated Background” in Spicy Lyrics’ settings (Background → Now Playing Sidebar); while it is off, the artwork’s colours show. “Plain”: like Apple Music’s lyrics pane on the Mac: no artwork or header, only the lyrics.'),apply:npApplyAll,dim:npOff});
+  npSetting({key:'npArtSize',group:'nowplaying',section:T('Görünüm','Look'),rank:3,dim:npOff,type:'choice',style:'tiles',default:'large',label:T('Kapak','Artwork'),context:['np'],
     options:[['large',T('Büyük','Large')],['blend',T('Kenara eriyen','Edge to edge')],['compact',T('Küçük','Small')]],
-    help:T('“Kenara eriyen”: kapak panelin kenarlarına kadar uzanır ve arka plana karışır (Spicy Lyrics ve kapak renkleri arka planlarında). “Küçük”: üstte başlığın yanında küçük kapak, panelin geri kalanında sözler.','“Edge to edge”: the cover runs to the sidebar’s edges and fades into the background (with the Spicy Lyrics and artwork colours backgrounds). “Small”: a small cover beside the title at the top, and the lyrics in the rest of the sidebar.'),
-    apply:npApplyAll,when:()=>(npWant??settings.nowPlaying)!=='off'&&settings.npBg!=='plain'&&(settings.npLyricsPlace==='below'||settings.npArtSize==='blend')});
-  npSetting({key:'npArt',group:'nowplaying',type:'choice',default:'cover',label:T('Hareketli kapak','Animated artwork'),context:['np'],
+    apply:npApplyAll,when:()=>settings.npBg!=='plain'&&(settings.npLyricsPlace==='below'||settings.npArtSize==='blend')});
+  npSetting({key:'npArt',group:'nowplaying',section:T('Görünüm','Look'),rank:4,dim:npOff,type:'choice',default:'cover',label:T('Hareketli kapak','Animated artwork'),context:['np'],
     options:[['cover',T('Kapalı (sabit kapak)','Off (still artwork)')],...(h264?[['apple',T('Apple Music (kare)','Apple Music (square)')],['appleTall',T('Apple Music (tam boy)','Apple Music (full height)')]]:[]),['canvas','Spotify Canvas']],
     note:h264?T('Apple Music hareketli kapakları m8tec’in dizininden gelir (github.com/m8tec/apple-music-animated-artworks).','Apple Music animated artwork comes from m8tec’s index (github.com/m8tec/apple-music-animated-artworks).'):undefined,
-    apply:()=>{npTrackKey='';npTick();},when:()=>(npWant??settings.nowPlaying)!=='off'&&!npCompact()});
-  npSetting({key:'npLyricsPlace',group:'nowplaying',type:'choice',style:'segmented',default:'below',label:T('Sözler','Lyrics'),context:['np'],
-    options:[['below',T('Kapağın altında','Under the artwork')],['full',T('Yalnız tam ekranda','Full screen only')]],apply:npApplyAll,when:()=>(npWant??settings.nowPlaying)!=='off'});
-  npSetting({key:'npLyricsSource',group:'nowplaying',type:'choice',style:'segmented',default:'spicy',label:T('Söz kaynağı','Lyrics from'),context:['np'],
+    apply:()=>{npTrackKey='';npTick();},when:()=>!npCompact()});
+  npSetting({key:'npLyricsPlace',group:'nowplaying',section:T('Sözler ve sıra','Lyrics and queue'),rank:5,type:'choice',style:'segmented',default:'below',label:T('Sözler','Lyrics'),context:['np'],
+    options:[['below',T('Kapağın altında','Under the artwork')],['full',T('Yalnız tam ekranda','Full screen only')]],apply:npApplyAll,dim:npOff});
+  npSetting({key:'npLyricsSource',group:'nowplaying',section:T('Sözler ve sıra','Lyrics and queue'),rank:6,type:'choice',style:'segmented',default:'spicy',label:T('Söz kaynağı','Lyrics from'),context:['np'],
     options:[['spotify','Spotify'],['spicy','Spicy Lyrics']],
-    help:T('Spicy Lyrics sözlerini kendi görünümüyle kapağın altında gösterir, “Sade” arka planda panelin tamamında. Spicy yoksa Spotify’ın sözleri gelir.','Spicy Lyrics shows its own lyrics view under the artwork, or across the whole sidebar with the Plain background. Without Spicy, Spotify’s lyrics show.'),
+    note:T('Spicy Lyrics yoksa Spotify’ın sözleri gelir.','Without Spicy Lyrics, Spotify’s lyrics show.'),
     apply:npSpicySource,when:()=>(npWant??settings.nowPlaying)==='beside'&&(settings.npLyricsPlace==='below'||settings.npBg==='plain')&&!!document.getElementById('SpicyLyrics_PageButton')});
   npReady=true;npApply();
   // The fallback menu is registered after the mcloud one, which the IIFE's end registers.
@@ -4007,11 +4012,10 @@
   });
   // Home as Apple Music's (issue #84): square cards without a plate, play and "…" on the artwork, bold shelf titles
   // without "Show all" (homeStyle, body.am-home-apple). The cards stay Spotify's; "…" opens Spotify's own card menu.
-  settingGroup('home',T('Ana Sayfa ve Arama','Home & Search'),'home');
-  defineSetting({key:'homeStyle',group:'home',label:T('Ana Sayfa kartları','Home cards'),type:'choice',default:'apple',style:'segmented',which:true,context:['home'],
-    options:[['apple','Apple Music'],['spotify','Spotify']],help:T('Ana sayfadaki ve aramadaki kart rafları.','The card shelves on Home and in search.'),
+  defineSetting({key:'homeStyle',group:'home',label:T('Kartlar','Cards'),type:'choice',default:'apple',style:'segmented',which:true,context:['home'],
+    options:[['apple','Apple Music'],['spotify','Spotify']],note:T('Ana Sayfa’daki ve aramadaki raflar.','The shelves on Home and in search.'),
     apply:v=>document.body.classList.toggle('am-home-apple',v==='apple')});
-  defineSetting({key:'homeShortcuts',group:'home',label:T('Üstteki kısayollar','Shortcuts at the top'),type:'toggle',default:true,context:['home'],
+  defineSetting({key:'homeShortcuts',group:'home',rank:0,label:T('Üstteki kısayollar','Shortcuts at the top'),type:'toggle',default:true,context:['home'],
     apply:v=>document.body.classList.toggle('am-home-no-shortcuts',!v)});
   // What's New (#128): Spotify's feed (/content-feed) is a column of wide rows; the reporter's reference is a grid of frosted
   // cards (cover, "Album • 2026", title, subtitle, a round "+"). The rows stay Spotify's (user.css lays them out as cards) and
@@ -4046,7 +4050,7 @@
   H.listen(()=>syncFeed());syncFeed();
   // Also run once here: it draws search results when Spotify starts on them.
   defineSetting({key:'searchStyle',group:'home',label:T('Arama sonuçları','Search results'),type:'choice',default:'apple',style:'segmented',which:true,
-    options:[['apple','Apple Music'],['spotify','Spotify']],help:T('Apple Music: bölümler halinde; Spotify: Spotify\'ın sekmeli listesi.','Apple Music: in sections; Spotify: Spotify\'s tabbed list.'),
+    options:[['apple','Apple Music'],['spotify','Spotify']],note:T('Apple Music: bölümler halinde. Spotify: sekmeli liste.','Apple Music: in sections. Spotify: a tabbed list.'),
     apply:()=>{const search=searchRoute();if(!search)return;if(canSearch(search.term,search.kind))renderSearch(search);else if(document.body.classList.contains('am-search-results')){closeSearch();currentMode='native';}}});
   // One "…" per card, added the first time the card is hovered; a shortcut at the top gets one at its end, as a row of
   // Apple's lists (#125). Spotify's menu opens from the shortcut's click layer.
@@ -4161,9 +4165,9 @@
     isPlaceholderArt(src).then(flat=>{if(img.isConnected&&(img.currentSrc||img.src)===src)box.toggleAttribute('data-am-no-photo',flat);});
   },true);
   mixReady=true;
-  defineSetting({key:'mixCovers',group:'home',label:T('Mix kapakları','Mix covers'),type:'choice',default:'apple',context:['home'],
+  defineSetting({key:'mixCovers',group:'home',rank:1,label:T('Mix kapakları','Mix covers'),type:'choice',default:'apple',context:['home'],
     options:[['apple',T('Apple Music gibi','As Apple Music')],['band',T('Şerit (Essentials)','Band (Essentials)')],['gradient',T('Renk geçişi (kişisel mix)','Gradient (personal mix)')],['station',T('Yuvarlak fotoğraf (istasyon)','Round photo (station)')],['photo',T('Yalnız fotoğraf','Photo only')],['spotify','Spotify']],
-    note:T('Daily Mix, … Mix, radyo ve This Is.','Daily Mix, … Mix, radio and This Is.'),help:T('Fotoğraf Spotify\'ın kendi görselinden gelir.','The photo comes from Spotify\'s own image.'),
+    note:T('Daily Mix, … Mix, radyo ve This Is.','Daily Mix, … Mix, radio and This Is.'),
     apply:()=>{document.body.classList.toggle('am-mix-titles',settings.mixCovers!=='spotify');for(const img of document.querySelectorAll(mixImages))markMix(img);for(const box of document.querySelectorAll('.am-photo-art'))delete box.dataset.amMixSrc;syncPhotoArt();}});
   // Song previews: Spotify's watch feed ("Explore" on album, playlist and artist pages, Home's preview shelf) opens as
   // an overlay in .Root, a card with the song's info, a column of canvas cards and a column of buttons. The theme marks
@@ -4247,7 +4251,7 @@
     for(const tile of grid.querySelectorAll(':scope > [role="listitem"] > a > div[style*="background-color"]'))duoObserver?.observe(tile);
   }
   const pvMaterials=['artwork','glass','color'];
-  defineSetting({key:'previewMaterial',group:'pages',section:T('Şarkı önizlemesi','Song previews'),label:T('Zemin','Background'),type:'choice',style:'tiles',default:'artwork',
+  defineSetting({key:'previewMaterial',group:'home',section:T('Şarkı önizlemesi','Song previews'),rank:2,label:T('Önizleme zemini','Preview background'),note:T('Ana Sayfa’daki ve albümlerdeki “Keşfet” önizlemeleri.','Previews on Home and under “Explore” on albums.'),type:'choice',style:'tiles',default:'artwork',
     options:[['artwork',T('Bulanık kapak','Blurred artwork')],['glass',T('Cam','Glass')],['color',T('Kapak rengi','Artwork colour')]],apply:v=>pvMaterials.forEach(k=>document.body.classList.toggle('am-pv-'+k,k===v))});
   let previewView=null,previewWatch=null,previewFrame=0;
   function previewArt() {
@@ -4455,22 +4459,22 @@
   if(!saveLabels.length)saveLabels.push('Save to Your Library','Remove from Your Library');
   const saveButton=`.am-native-main [data-testid="action-bar-row"] button:is(${saveLabels.map(label=>`[aria-label=${JSON.stringify(label)}]`).join(',')}):not(#am-none)`;
   starStyle.textContent=`${saveButton}{color:var(--am-star-color,var(--am-accent))!important}${saveButton} :is(svg,div[style*="pointer-events: none"]){background:currentColor;-webkit-mask:var(--am-star-line) center/contain no-repeat;mask:var(--am-star-line) center/contain no-repeat}${saveButton} svg path{display:none}${saveButton} div[style*="pointer-events: none"] > div{opacity:0;filter:none}${saveButton}[aria-checked="true"] :is(svg,div[style*="pointer-events: none"]){-webkit-mask-image:var(--am-star-fill);mask-image:var(--am-star-fill)}`;
-  pageSetting({key:'numbersAlbum',group:'pages',section:T('Parça listeleri','Track lists'),label:T('Albümlerde numaralar','Numbers on albums'),type:'toggle',default:true,context:['list'],here:()=>!!albumId(),apply:syncNumbers});
+  pageSetting({key:'numbersAlbum',group:'pages',section:T('Parça listeleri','Track lists'),rank:3,label:T('Albümlerde numaralar','Numbers on albums'),type:'toggle',default:true,context:['list'],here:()=>!!albumId(),apply:syncNumbers});
   // Albums list the artist on a track only when it is not the album's own (a guest, a compilation), as Apple Music does.
-  pageSetting({key:'albumClean',group:'pages',section:T('Albümler','Albums'),label:T('Sanatçıyı yalnız konuklarda göster','Artist only on guest tracks'),note:T('Albümün kendi sanatçısı şarkılarda yazmaz.','The album’s own artist is left off its tracks.'),type:'toggle',default:true,context:['list','view'],here:()=>!!albumId(),apply:value=>{document.body.classList.toggle('am-album-clean',value);syncAlbum();}});
+  pageSetting({key:'albumClean',group:'pages',section:T('Albümlerde sanatçılar','Artists on albums'),rank:6,label:T('Sanatçıyı yalnız konuklarda göster','Artist only on guest tracks'),note:T('Albümün kendi sanatçısı şarkılarda yazmaz.','The album’s own artist is left off its tracks.'),type:'toggle',default:true,context:['list','view'],here:()=>!!albumId(),apply:value=>{document.body.classList.toggle('am-album-clean',value);syncAlbum();}});
   // A guest's artist line on a clean album (#187): shown, hidden, or Apple Music's way, the guests in the title as "(feat. …)".
-  pageSetting({key:'albumFeatures',group:'pages',section:T('Albümler','Albums'),label:T('Konuk sanatçılar','Featured artists'),type:'choice',default:'show',when:()=>settings.albumClean,context:['list','view'],here:()=>!!albumId(),
+  pageSetting({key:'albumFeatures',group:'pages',section:T('Albümlerde sanatçılar','Artists on albums'),rank:7,label:T('Konuk sanatçılar','Featured artists'),type:'choice',default:'show',when:()=>settings.albumClean,context:['list','view'],here:()=>!!albumId(),
     options:[['show',T('Satırda göster','Show the artist line')],['hide',T('Gizle','Hide it')],['apple',T('Apple Music gibi','Apple Music\'s way')]],
     note:T('Apple Music gibi: konuklar başlığa "(feat. …)" olarak eklenir, sanatçı satırı kalkar.','Apple Music\'s way: the guests go into the title as "(feat. …)", and the artist line goes.'),
     apply:value=>{document.body.classList.toggle('am-album-feat',value==='apple');syncAlbum();}});
   // Album and playlist pages can take their colour from the artwork, like artist pages: a wash at the top, or the whole page.
   const tintOptions=[['off',T('Kapalı','Off')],['subtle',T('Hafif','Subtle')],['full',T('Tam','Full')]];
-  pageSetting({key:'photoHeaders',group:'pages',section:T('Çalma listeleri','Playlists'),label:T('Fotoğraflı listeler kapakla açılsın','Open photo playlists with artwork'),note:T('Daily Mix, … Mix, Today\'s Top Hits.','Daily Mix, … Mix, Today\'s Top Hits.'),help:T('Bu listeler de solda kapakla açılır, Apple Music\'teki gibi.','These open with their artwork on the left too, as in Apple Music.'),type:'toggle',default:true,context:['view'],here:()=>!!playlistId(),apply:()=>{photoReady=true;watchHeader();}});
-  pageSetting({key:'albumTint',group:'pages',section:T('Albümler','Albums'),label:T('Sayfa rengi','Page colour'),note:T('Albüm ve çalma listesi sayfaları kapağın rengini alır.','Album and playlist pages take the artwork’s colour.'),type:'choice',style:'tiles',default:'off',options:tintOptions,context:['view'],here:()=>!!(albumId()||playlistId()),apply:syncAlbum});
+  pageSetting({key:'photoHeaders',group:'pages',section:T('Sayfa','Page'),rank:2,label:T('Fotoğraflı listeler kapakla açılsın','Open photo playlists with artwork'),note:T('Daily Mix, … Mix, Today\'s Top Hits.','Daily Mix, … Mix, Today\'s Top Hits.'),type:'toggle',default:true,context:['view'],here:()=>!!playlistId(),apply:()=>{photoReady=true;watchHeader();}});
+  pageSetting({key:'albumTint',group:'pages',section:T('Sayfa','Page'),rank:0,label:T('Sayfa rengi','Page colour'),note:T('Albüm ve çalma listesi sayfaları kapağın rengini alır.','Album and playlist pages take the artwork’s colour.'),type:'choice',style:'tiles',default:'off',options:tintOptions,context:['view'],here:()=>!!(albumId()||playlistId()),apply:syncAlbum});
   // Full colours the page with a light-to-deep wash, one flat colour, or Apple Music's own colour, flat (#175).
-  pageSetting({key:'albumTintFill',group:'pages',section:T('Albümler','Albums'),label:T('Tam renk','Full colour'),type:'choice',style:'tiles',default:'gradient',context:['view'],here:()=>!!(albumId()||playlistId()),
+  pageSetting({key:'albumTintFill',group:'pages',section:T('Sayfa','Page'),rank:1,label:T('Tam renk','Full colour'),type:'choice',style:'tiles',default:'gradient',context:['view'],here:()=>!!(albumId()||playlistId()),
     options:[['gradient',T('Geçişli','Gradient')],['solid',T('Tek renk','Solid')],['apple','Apple Music']],when:()=>settings.albumTint==='full',
-    help:T('Apple Music: kapağın kenarında en çok yer kaplayan renk, Apple Music web gibi; koyu temada koyulaştırılır.','Apple Music: the colour that covers most of the cover\'s edge, as Apple Music on the web picks it; darkened in dark mode.'),
+    note:T('Apple Music: kapağın kenarındaki baskın renk.','Apple Music: the main colour at the cover’s edge.'),
     apply:value=>{document.body.classList.toggle('am-album-solid',value==='solid');document.body.classList.toggle('am-album-fill-apple',value==='apple');syncAlbum();}});
   // Track numbers can be hidden (settings.numbers, numbersAlbum on albums; body.am-no-numbers). Spotify's "Change visible columns" menu is
   // where columns are picked, so it gets a "Track number" row of the theme's own, built from its items' classes and
@@ -4506,7 +4510,7 @@
   // pages it applies to; the last row opens the window at it. Places: 'player' (right-click away from the song), 'np' (the
   // pane's options button, right-click away from the song), 'list' (the column headings), 'view' and 'home' (⌘J).
   function contextEntries(...places) {
-    const defs=settingDefs.filter(d=>!d.hidden&&d.context?.some(c=>places.includes(c))&&(()=>{try{return (!d.when||d.when())&&(!d.here||d.here());}catch{return false;}})());
+    const defs=settingDefs.filter(d=>!d.hidden&&d.context?.some(c=>places.includes(c))&&(()=>{try{return (!d.when||d.when())&&!d.dim?.()&&(!d.here||d.here());}catch{return false;}})());
     const rows=defs.flatMap(def=>{
       const now=()=>def.value?def.value():settings[def.key];
       if(def.type==='toggle')return [{label:def.label,checked:!!now(),action:()=>setSetting(def.key,!settings[def.key])}];
@@ -4532,44 +4536,26 @@
     viewAnchor.x=innerWidth;viewAnchor.y=(document.getElementById('global-nav-bar')?.getBoundingClientRect().bottom||56)+4;togglePopover(viewAnchor,()=>contextEntries(...places));
   },true);
   // Settings window (#am-settings), drawn from settingDefs whenever it opens or changes, so a feature's defineSetting shows
-  // here with no change below. Three layouts on trial (#179, settings.settingsLayout) until the maintainer picks one:
-  // a, System Settings: a sidebar of panes with a search field, the pane's rows on the right; b, Apple Music's own Settings
-  // window: four toolbar tabs, the "Apple Music or Spotify" choices on a tab of their own, OK to close; c, iOS Settings: one
-  // list, a page per area to tap into, choices of three or more as checkmark lists. All draw the same rows (label and note
-  // on the left, the control on the right, in rounded cards), frosted in Apple's dark Settings colours (user.css). It is
-  // not modal: the page stays usable and its top bar moves it.
-  defineSetting({key:'settingsLayout',group:'general',rank:5,label:T('Ayar düzeni (deneme)','Settings layout (trial)'),type:'choice',style:'segmented',default:'a',menu:false,
-    options:[['a',T('Kenar çubuğu','Sidebar')],['b',T('Sekmeler','Tabs')],['c',T('Liste','List')]],note:T('Biri seçilince bu satır kalkar.','This row goes once one is chosen.')});
+  // here with no change below. Laid out as macOS System Settings (#179): a sidebar with a search field and a pane per
+  // settingGroup (named after the part of the window it changes, groups apart by a gap), the pane's rows on the right
+  // (label and note on the left, the control on the right, in rounded cards), frosted in Apple's dark Settings colours
+  // (user.css). It is not modal: the page stays usable and its top bar moves it.
   const settingsBack=el('div','am-settings-back'),settingsBox=el('div','am-settings-box');settingsBack.id='am-settings';settingsBack.append(settingsBox);
   settingsBox.setAttribute('role','dialog');settingsBox.setAttribute('aria-modal','false');settingsBox.setAttribute('aria-labelledby','am-settings-title');settingsBox.tabIndex=-1;
-  let settingsReturn=null,settingsSyncs=[],settingsDrag=null,settingsShown='',settingsQuery='',settingsBody=null;
-  // The pane each layout shows (it reopens there, as macOS asks); c's '' is its first page.
-  const settingsPane={a:'general',b:'general',c:''};
-  const settingsLayouts={
-    a:[['general',['general','appearance']],['player',['player']],['nowplaying',['nowplaying']],['sidebar',['sidebar']],['pages',['pages']],['home',['home']]],
-    b:[['general',['general','appearance']],['player',['player','nowplaying']],['pages',['sidebar','pages','home']],['which',[]]],
-  };settingsLayouts.c=settingsLayouts.a;
-  const layoutOf=()=>settingsLayouts[settings.settingsLayout]?settings.settingsLayout:'a',modKey=/Mac/.test(navigator.platform)?'⌘':'Ctrl+';
+  // settingsPane: the pane shown; the window reopens on it, as macOS asks.
+  let settingsReturn=null,settingsSyncs=[],settingsDrag=null,settingsShown='',settingsQuery='',settingsBody=null,settingsPane='general';
   const whichLabel=T('Apple Music mı, Spotify mı?','Apple Music or Spotify?');
-  const contextHints={player:T('Oynatıcıya sağ tıklayarak da','Also by right-clicking the player'),np:T('Panelin seçenekler düğmesinde de','Also in the sidebar’s options button'),
-    sidebar:T('Listeler başlığına sağ tıklayarak da','Also by right-clicking the Playlists heading'),list:T('Sütun başlıklarına sağ tıklayarak da','Also by right-clicking the column headings'),
-    view:T('Sayfada '+modKey+'J ile de','Also with '+modKey+'J on the page'),home:T('Ana Sayfa’da '+modKey+'J ile de','Also with '+modKey+'J on Home')};
+  // Shown: a row whose when() holds; dim() keeps it in place but greyed while what it waits on is off.
   const shownDefs=()=>settingDefs.filter(d=>{if(d.hidden)return false;try{return !d.when||d.when();}catch{return false;}});
-  // The layout's panes, each with its rows; a group no layout names (a feature's own) gets a pane of its own.
-  function settingPanes(defs) {
-    const L=layoutOf(),named=settingsLayouts[L].flatMap(p=>p[1]);
-    return [...settingsLayouts[L],...settingGroups.filter(g=>!named.includes(g.id)).map(g=>[g.id,[g.id]])].map(([id,groups])=>{
-      const g=settingGroups.find(g=>g.id===id);
-      return {id,groups,label:id==='which'?'Apple ↔ Spotify':id==='pages'&&L==='b'?T('Sayfalar','Pages'):g?.label||id,icon:id==='which'?'swap':g?.icon||'gear',
-        defs:id==='which'?defs.filter(d=>d.which):defs.filter(d=>groups.includes(d.group)&&!(L==='b'&&d.which))};
-    }).filter(p=>p.defs.length);
-  }
-  // A pane's rows by section, in the order each first shows (rank first). Rows from a second group take its name; the
-  // "Apple Music or Spotify" ones come last.
-  function paneSections(pane,defs=pane.defs) {
+  const dimmed=d=>{try{return !!d.dim?.();}catch{return false;}};
+  // A pane per group with rows; a group added by a feature (settingGroup) gets its own, at the end.
+  const settingPanes=defs=>settingGroups.map(g=>({id:g.id,label:g.label||g.id,icon:g.icon||'gear',gap:g.gap,defs:defs.filter(d=>d.group===g.id)})).filter(p=>p.defs.length);
+  // A pane's rows by section, in the order each first shows (rank first); the "Apple Music or Spotify" ones come last.
+  // A section named ' ' is a card of its own without a heading.
+  function paneSections(pane) {
     const out=new Map();
-    for(const d of defs.map((d,i)=>[d,i]).sort((a,b)=>(a[0].rank||0)-(b[0].rank||0)||a[1]-b[1]).map(x=>x[0])){
-      const name=pane.id!=='which'&&d.which?whichLabel:d.section||(d.group!==pane.id&&pane.groups.length>1?settingGroups.find(g=>g.id===d.group)?.label:'')||'';
+    for(const d of pane.defs.map((d,i)=>[d,i]).sort((a,b)=>(a[0].rank||0)-(b[0].rank||0)||a[1]-b[1]).map(x=>x[0])){
+      const name=d.which?whichLabel:d.section||'';
       if(!out.has(name))out.set(name,[]);out.get(name).push(d);
     }
     const which=out.get(whichLabel);if(which){out.delete(whichLabel);out.set(whichLabel,which);}
@@ -4584,9 +4570,24 @@
   }
   function settingCards(target,sections,{heading=true}={}) {
     for(const [name,defs] of sections){
-      if(name&&heading)target.append(el('h4','am-settings-section',name));
+      if(name.trim()&&heading)target.append(el('h4','am-settings-section',name));
       const card=el('div','am-settings-card');for(const def of defs)card.append(settingRow(def));target.append(card);
     }
+  }
+  // General ends with the version and, last, Restore Defaults… (asks first; the theme's settings only, not the sidebar's
+  // width, sorting or other view state).
+  function settingsAbout(body) {
+    const card=el('div','am-settings-card am-settings-about'),about=el('div','am-settings-row'),reset=el('div','am-settings-row am-settings-actions');
+    const textButton=(text,fn,cls='')=>{const b=el('button','am-settings-button'+cls,text);b.type='button';b.onclick=fn;return b;};
+    about.append(el('div','am-settings-label','mcloud'),el('div','am-settings-value',VERSION+(BUILD==='dev'?'':' ('+BUILD.slice(0,7)+')')));
+    const ask=textButton(T('Varsayılanlara Dön…','Restore Defaults…'),()=>{
+      const no=textButton(T('Vazgeç','Cancel'),()=>{reset.replaceChildren(ask);ask.focus();}),yes=textButton(T('Varsayılanlara Dön','Restore Defaults'),()=>{
+        const keys=new Set(settingDefs.map(d=>d.key)),kept=Object.fromEntries(Object.entries(settings).filter(([k])=>!keys.has(k)));
+        try{localStorage.setItem('mcloud:settings',JSON.stringify(kept));}catch{}location.reload();
+      },' am-settings-destructive');
+      reset.replaceChildren(el('div','am-settings-note am-settings-confirm',T('mcloud’un bütün ayarları ilk haline döner ve Spotify yeniden yüklenir.','Every mcloud setting goes back to how it started, and Spotify reloads.')),no,yes);no.focus();
+    });
+    reset.append(ask);card.append(about,reset);body.append(card);
   }
   // The top bar moves the window.
   function settingsHandle(bar) {
@@ -4614,115 +4615,72 @@
     for(const pane of panes){const hits=pane.defs.filter(settingMatches);if(!hits.length)continue;any=true;body.append(el('h4','am-settings-section',pane.label));settingCards(body,[['',hits]],{heading:false});}
     if(!any)body.append(el('div','am-settings-empty',T('Sonuç yok','No results')));
   }
-  // Tabs (b's toolbar, a's sidebar): arrow keys move between them.
-  function settingsTabs(nav,panes,L,vertical) {
-    nav.setAttribute('role','tablist');if(vertical)nav.setAttribute('aria-orientation','vertical');
+  // The sidebar's panes: arrow keys move between them.
+  function settingsTabs(nav,panes) {
+    nav.setAttribute('role','tablist');nav.setAttribute('aria-orientation','vertical');
     for(const p of panes){
-      const on=!settingsQuery&&p.id===settingsPane[L],b=el('button','am-settings-tab'+(on?' am-selected':''));b.type='button';b.setAttribute('role','tab');b.dataset.group=p.id;
+      const on=!settingsQuery&&p.id===settingsPane,b=el('button','am-settings-tab'+(on?' am-selected':'')+(p.gap?' am-settings-gap':''));b.type='button';b.setAttribute('role','tab');b.dataset.group=p.id;
       b.setAttribute('aria-selected',String(on));b.tabIndex=on||settingsQuery&&p===panes[0]?0:-1;
       b.innerHTML=`<span class="am-settings-icon" data-pane="${p.id}">${svg(p.icon)}</span>`;b.append(el('span','am-settings-tab-label',p.label));
-      b.onclick=()=>{if(settingsPane[L]===p.id&&!settingsQuery)return;settingsPane[L]=p.id;settingsQuery='';renderSettings();settingsBox.querySelector('.am-settings-tab.am-selected')?.focus();};
+      b.onclick=()=>{if(settingsPane===p.id&&!settingsQuery)return;settingsPane=p.id;settingsQuery='';renderSettings();settingsBox.querySelector('.am-settings-tab.am-selected')?.focus();};
       nav.append(b);
     }
     nav.addEventListener('keydown',event=>{
       const step={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[event.key];if(!step)return;event.preventDefault();
-      const i=panes.findIndex(p=>p.id===settingsPane[L]);settingsPane[L]=panes[(i+step+panes.length)%panes.length].id;settingsQuery='';renderSettings();settingsBox.querySelector('.am-settings-tab.am-selected')?.focus();
+      const i=panes.findIndex(p=>p.id===settingsPane);settingsPane=panes[(i+step+panes.length)%panes.length].id;settingsQuery='';renderSettings();settingsBox.querySelector('.am-settings-tab.am-selected')?.focus();
     });
     return nav;
   }
+  const settingsState=defs=>defs.map(d=>d.key+(dimmed(d)?'~':'')).join();
   function renderSettings() {
-    const L=layoutOf(),defs=shownDefs(),panes=settingPanes(defs);
-    if((L!=='c'||settingsPane.c)&&!panes.some(p=>p.id===settingsPane[L]))settingsPane[L]=L==='c'?'':panes[0]?.id||'';
-    const pane=panes.find(p=>p.id===settingsPane[L]),scroll=settingsBox.querySelector('.am-settings-body')?.scrollTop||0,active=document.activeElement;
+    const defs=shownDefs(),panes=settingPanes(defs);
+    if(!panes.some(p=>p.id===settingsPane))settingsPane=panes[0]?.id||'';
+    const pane=panes.find(p=>p.id===settingsPane),scroll=settingsBox.querySelector('.am-settings-body')?.scrollTop||0,active=document.activeElement;
     const focusKey=settingsBox.contains(active)&&active.closest('.am-settings-row')?.dataset.key,searching=settingsBox.contains(active)&&active.matches('.am-settings-search-field');
-    settingsBox.replaceChildren();settingsShown=L+defs.map(d=>d.key).join();settingsBox.dataset.layout=L;
+    settingsBox.replaceChildren();settingsShown=settingsState(defs);
     const title=el('h2','am-settings-title');title.id='am-settings-title';
     const close=button(T('Kapat','Close'),'close',closeSettings,'am-settings-close'),body=el('div','am-settings-body');
-    if(L==='a'){
-      // System Settings: the search field and the panes in a sidebar; the title over the rows names the pane, or the search.
-      const side=el('div','am-settings-side'),main=el('div','am-settings-main'),head=settingsHandle(el('div','am-settings-titlebar'));
-      side.append(settingsHandle(el('div','am-settings-sidetop')),settingsSearch(T('Ara','Search')),settingsTabs(el('div','am-settings-nav'),panes,L,true));
-      side.firstChild.append(close);head.append(title);main.append(head,body);settingsBox.append(side,main);
-      settingsBody=()=>{
-        settingsSyncs=[];body.replaceChildren();title.textContent=settingsQuery.trim()?T('Arama sonuçları','Search results'):pane?.label||'mcloud';
-        for(const b of settingsBox.querySelectorAll('.am-settings-tab')){const on=!settingsQuery.trim()&&b.dataset.group===settingsPane.a;b.classList.toggle('am-selected',on);b.setAttribute('aria-selected',String(on));}
-        if(settingsQuery.trim())settingsSearchResults(body,panes);else if(pane)settingCards(body,paneSections(pane));
-      };
-    } else if(L==='b'){
-      // Apple Music's window: the tabs in the toolbar, the title over them, OK at the bottom.
-      const bar=settingsHandle(el('div','am-settings-titlebar')),foot=el('div','am-settings-footer'),ok=el('button','am-settings-ok','OK');ok.type='button';ok.onclick=closeSettings;
-      title.textContent=pane?.label||'mcloud';bar.append(close,title,settingsTabs(el('div','am-settings-nav'),panes,L));foot.append(ok);settingsBox.append(bar,body,foot);
-      settingsBody=()=>{
-        settingsSyncs=[];body.replaceChildren();if(!pane)return;
-        if(pane.id==='which'){
-          // One row sets them all, Apple's way or Spotify's.
-          body.append(el('div','am-settings-intro',T('mcloud bunları Apple Music gibi yapar. İstediğini Spotify’daki haline döndür.','mcloud does these the Apple Music way. Switch any back to Spotify’s.')));
-          const card=el('div','am-settings-card'),row=el('div','am-settings-row am-settings-all'),all=el('div','am-settings-segmented am-settings-control');
-          row.append(el('div','am-settings-text'),all);row.firstChild.append(el('div','am-settings-label',T('Hepsi','All')));
-          for(const [name,end] of [['Apple Music',0],['Spotify',1]]){const b=el('button','am-settings-option',name);b.type='button';b.onclick=()=>{for(const d of pane.defs)setSetting(d.key,d.options[end?d.options.length-1:0][0]);};all.append(b);}
-          card.append(row);body.append(card);settingCards(body,[['',pane.defs]]);return;
-        }
-        // The player tab keeps Now Playing's switch and lyrics; the rest of the sidebar's options fold under one disclosure,
-        // as they also live in the sidebar's own options button.
-        const sections=paneSections(pane),np=settingGroups.find(g=>g.id==='nowplaying')?.label,keep=['nowPlaying','npLyricsPlace'];
-        settingCards(body,sections.map(([name,list])=>[name,name===np?list.filter(d=>keep.includes(d.key)):list]));
-        const more=sections.find(([name])=>name===np)?.[1].filter(d=>!keep.includes(d.key));
-        if(more?.length){const details=el('details','am-settings-more');details.append(el('summary','',T('Tüm Şimdi Çalan seçenekleri','All Now Playing options')));settingCards(details,[['',more]]);body.append(details);}
-      };
-    } else {
-      // iOS Settings: a first page (search, the look, a row per area), and a page per area with a way back.
-      const bar=settingsHandle(el('div','am-settings-titlebar'));
-      if(pane){const back=el('button','am-settings-back-button','mcloud');back.type='button';back.insertAdjacentHTML('afterbegin',svg('left'));back.onclick=()=>{settingsPane.c='';renderSettings();settingsBox.querySelector(`.am-settings-tab[data-group="${pane.id}"]`)?.focus();};bar.append(back);}
-      else bar.append(close);
-      title.textContent=pane?(pane.id==='general'?T('Diğer','More'):pane.label):'mcloud';bar.append(title);settingsBox.append(bar,body);
-      // The first page's search field stays while its results are drawn again.
-      const first=['appearance','accent'],results=el('div','am-settings-results');
-      if(!pane)body.append(settingsSearch(T('Ayarlarda ara','Search settings')),results);
-      settingsBody=()=>{
-        settingsSyncs=[];
-        if(pane){body.replaceChildren();settingCards(body,paneSections(pane,pane.id==='general'?pane.defs.filter(d=>!first.includes(d.key)):pane.defs));return;}
-        results.replaceChildren();
-        if(settingsQuery.trim())return settingsSearchResults(results,panes);
-        settingCards(results,[['',defs.filter(d=>first.includes(d.key)).sort((a,b)=>(a.rank||0)-(b.rank||0))]]);
-        const list=el('div','am-settings-card am-settings-pages');list.setAttribute('role','list');
-        for(const p of [...panes.filter(p=>p.id!=='general'),...panes.filter(p=>p.id==='general'&&p.defs.some(d=>!first.includes(d.key)))]){
-          const b=el('button','am-settings-tab am-settings-page');b.type='button';b.dataset.group=p.id;b.setAttribute('role','listitem');
-          b.innerHTML=`<span class="am-settings-icon" data-pane="${p.id}">${svg(p.icon)}</span>`;b.append(el('span','am-settings-tab-label',p.id==='general'?T('Diğer','More'):p.label));
-          const now=p.id==='nowplaying'&&settingDefs.find(d=>d.key==='nowPlaying');if(now)b.append(el('span','am-settings-value',(now.options.find(o=>o[0]===settings.nowPlaying)||now.options[0])[1]));
-          b.onclick=()=>{settingsPane.c=p.id;settingsQuery='';renderSettings();settingsBox.querySelector('.am-settings-body')?.scrollTo(0,0);};list.append(b);
-        }
-        results.append(list);
-      };
-    }
+    const side=el('div','am-settings-side'),main=el('div','am-settings-main'),head=settingsHandle(el('div','am-settings-titlebar'));
+    side.append(settingsHandle(el('div','am-settings-sidetop')),settingsSearch(T('Ara','Search')),settingsTabs(el('div','am-settings-nav'),panes));
+    side.firstChild.append(close);head.append(title);main.append(head,body);settingsBox.append(side,main);
+    // The title over the rows names the pane, or the search.
+    settingsBody=()=>{
+      settingsSyncs=[];body.replaceChildren();title.textContent=settingsQuery.trim()?T('Arama sonuçları','Search results'):pane?.label||'mcloud';
+      for(const b of settingsBox.querySelectorAll('.am-settings-tab')){const on=!settingsQuery.trim()&&b.dataset.group===settingsPane;b.classList.toggle('am-selected',on);b.setAttribute('aria-selected',String(on));}
+      if(settingsQuery.trim())settingsSearchResults(body,panes);else if(pane){settingCards(body,paneSections(pane));if(pane.id==='general')settingsAbout(body);}
+    };
     settingsBody();body.scrollTop=scroll;
     if(searching){const input=settingsBox.querySelector('.am-settings-search-field');input?.focus({preventScroll:true});input?.setSelectionRange(input.value.length,input.value.length);}
     else if(focusKey){const c=body.querySelector('.am-settings-row[data-key="'+focusKey+'"] .am-settings-control');(c?.querySelector('[aria-checked="true"]')||c)?.focus({preventScroll:true});}
   }
-  // A row: the label (with a "?" when there is more to say), its one-line note, and in b where else it is set; the control.
-  // c lists a choice of three or more as a checkmark list under its label, as iOS does.
+  // "?" bubbles: one open at a time; a click elsewhere or Escape closes it.
+  let helpOpen=null;
+  function closeHelp() {if(!helpOpen)return;const [bubble,more]=helpOpen;helpOpen=null;bubble.classList.remove('am-open');more.setAttribute('aria-expanded','false');}
+  settingsBox.addEventListener('pointerdown',event=>{if(helpOpen&&!event.target.closest('.am-settings-help,.am-settings-help-button'))closeHelp();});
+  // A row: the label (with a "?" when there is more to say) and its one-line note; the control.
   function settingRow(def) {
-    const L=layoutOf(),checklist=L==='c'&&def.type==='choice'&&def.style!=='tiles'&&def.style!=='swatches'&&def.options.length>2;
-    const wide=def.wide||checklist||def.style==='tiles'||def.style==='segmented'&&def.options.length>3;
-    const row=el('div','am-settings-row am-settings-'+def.type+(wide?' am-settings-wide':'')+(checklist?' am-settings-checklist':'')),text=el('div','am-settings-text'),id='am-setting-'+def.key;
+    const wide=def.wide||def.style==='tiles'||def.style==='segmented'&&def.options.length>3,dim=dimmed(def);
+    const row=el('div','am-settings-row am-settings-'+def.type+(wide?' am-settings-wide':'')+(dim?' am-settings-dim':'')),text=el('div','am-settings-text'),id='am-setting-'+def.key;
     const line=el('div','am-settings-label-line'),label=el('div','am-settings-label',def.label);label.id=id+'-label';line.append(label);text.append(line);row.dataset.key=def.key;
+    if(dim){row.inert=true;row.setAttribute('aria-disabled','true');}
     if(def.note)text.append(el('div','am-settings-note',def.note));
     if(def.help){
-      const help=el('div','am-settings-help',def.help),more=el('button','am-settings-help-button','?');help.id=id+'-help';help.hidden=true;more.type='button';
+      const help=el('div','am-settings-help',def.help),more=el('button','am-settings-help-button','?');help.id=id+'-help';help.setAttribute('role','note');more.type='button';
       more.setAttribute('aria-label',T('Daha fazla bilgi: ','More about ')+def.label);more.setAttribute('aria-expanded','false');more.setAttribute('aria-controls',help.id);
-      more.onclick=()=>{help.hidden=!help.hidden;more.setAttribute('aria-expanded',String(!help.hidden));};line.append(more);text.append(help);
+      more.onclick=()=>{const was=helpOpen?.[0]===help;closeHelp();if(was)return;help.style.setProperty('--am-help-x',more.offsetLeft+8+'px');help.classList.add('am-open');more.setAttribute('aria-expanded','true');helpOpen=[help,more];};
+      line.append(more,help);
     }
-    const hint=L==='b'&&def.context?.length&&contextHints[def.context[0]];if(hint)text.append(el('div','am-settings-hint',hint));
     const now=()=>def.value?def.value():settings[def.key];let control;
     if(def.type==='custom'){const r=def.render(def);control=r.node;settingsSyncs.push(r.sync);}
     else if(def.type==='toggle'){
       control=el('button','am-settings-switch');control.type='button';control.setAttribute('role','switch');
       control.onclick=()=>setSetting(def.key,!settings[def.key]);settingsSyncs.push(()=>control.setAttribute('aria-checked',String(!!now())));
-    } else if(checklist||def.style==='segmented'||def.style==='swatches'||def.style==='tiles'){
-      control=el('div','am-settings-'+(checklist?'list':def.style));control.setAttribute('role','radiogroup');
+    } else if(def.style==='segmented'||def.style==='swatches'||def.style==='tiles'){
+      control=el('div','am-settings-'+def.style);control.setAttribute('role','radiogroup');
       const options=def.options.map(([value,name,color])=>{
         const b=el('button','am-settings-option',def.style==='swatches'||def.style==='tiles'?'':name);b.type='button';b.setAttribute('role','radio');b.dataset.value=String(value);
         if(color){b.style.setProperty('--am-swatch',color);b.title=name;b.setAttribute('aria-label',name);}
-        if(def.style==='tiles'&&!checklist)b.append(el('span','am-settings-tile'),el('span','am-settings-tile-label',name));
+        if(def.style==='tiles')b.append(el('span','am-settings-tile'),el('span','am-settings-tile-label',name));
         b.onclick=()=>setSetting(def.key,value);return [value,b];
       });
       control.append(...options.map(o=>o[1]));
@@ -4737,25 +4695,24 @@
     control.classList.add('am-settings-control');control.setAttribute('aria-labelledby',label.id+(control.dataset.amPopup===''?' '+id:''));control.id=id;
     row.append(text,control);settingsSyncs[settingsSyncs.length-1]();return row;
   }
-  // Rows with a when() come and go as other settings change, and the layout can change: then the window is drawn again,
+  // Rows with a when() come and go, and dim() ones grey out, as other settings change: then the window is drawn again,
   // else its controls follow.
-  document.addEventListener('am-settings',()=>{if(!settingsBack.isConnected)return;if(layoutOf()+shownDefs().map(d=>d.key).join()!==settingsShown)renderSettings();else settingsSyncs.forEach(fn=>fn());});
+  document.addEventListener('am-settings',()=>{if(!settingsBack.isConnected)return;if(settingsState(shownDefs())!==settingsShown)renderSettings();else settingsSyncs.forEach(fn=>fn());});
   // group: a settings group, or a setting's key, to open the pane that holds it.
   function openSettings(group) {
-    const L=layoutOf(),def=settingDefs.find(d=>d.key===group);
-    if(def){group=def.group;if(L==='b'&&def.which)group='which';}
-    if(group){settingsQuery='';const pane=settingsLayouts[L].find(([id,groups])=>id===group||groups.includes(group));settingsPane[L]=pane?pane[0]:group;}
+    const def=settingDefs.find(d=>d.key===group);if(def)group=def.group;
+    if(group){settingsQuery='';settingsPane=group;}
     if(!settingsBack.isConnected){settingsReturn=document.activeElement;closePopover();settingsBox.style.cssText='';document.body.append(settingsBack);}
     renderSettings();
     if(def)settingsBox.querySelector(`.am-settings-row[data-key="${def.key}"]`)?.scrollIntoView({block:'nearest'});
     if(!settingsBox.contains(document.activeElement))settingsBox.focus({preventScroll:true});
-    return settingsBack.isConnected&&!!settingsBox.querySelector('.am-settings-row,.am-settings-page');
+    return settingsBack.isConnected&&!!settingsBox.querySelector('.am-settings-row');
   }
   function closeSettings() {
     if(!settingsBack.isConnected)return;settingsBack.remove();
     if(settingsReturn?.isConnected)settingsReturn.focus?.({preventScroll:true});settingsReturn=null;
   }
-  settingsBox.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();closeSettings();}});
+  settingsBox.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();if(helpOpen)closeHelp();else closeSettings();}});
   // ⌘⌥, (Ctrl+Alt+, on Windows) opens and closes it: ⌘, is Spotify's own Settings.
   document.addEventListener('keydown',event=>{
     if(event.code!=='Comma'||!event.altKey||!(event.metaKey||event.ctrlKey)||event.shiftKey)return;
@@ -4788,7 +4745,7 @@
   }
   // The appearance setting: in the settings window when it is there (issue #76's defineSetting), otherwise its own submenu.
   {const [label,names]=appearanceLabels().appearance;
-    if(typeof defineSetting==='function')defineSetting({key:'appearance',group:'appearance',rank:-3,label,type:'choice',default:'dark',style:'tiles',options:appearanceModes.map(m=>[m,names[m]]),apply:v=>{settings.appearance=v;applyAppearance();}});
+    if(typeof defineSetting==='function')defineSetting({key:'appearance',group:'general',rank:-3,label,type:'choice',default:'dark',style:'tiles',options:appearanceModes.map(m=>[m,names[m]]),apply:v=>{settings.appearance=v;applyAppearance();}});
     else if(S.Menu?.SubMenu&&S.Menu?.Item){
       const items=appearanceModes.map(m=>new S.Menu.Item(label+': '+names[m],settings.appearance===m,()=>{setAppearance('appearance',m);items.forEach((item,i)=>item.setState(appearanceModes[i]===m));}));
       new S.Menu.SubMenu(T('mcloud görünüm','mcloud appearance'),items).register();

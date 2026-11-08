@@ -1679,12 +1679,15 @@ try {
     // The profile menu holds one "mcloud Settings" entry; the old submenu is only the fallback.
     assert.deepEqual(await page.evaluate(() => [window.__menuItems.map(i => i.name), window.__menus.length]), [['mcloud Ayarları'], 0]);
     await page.evaluate(() => window.__menuItems.find(i => i.name === 'mcloud Ayarları').onClick());
-    // Layout a (the default): System Settings' sidebar of panes with a search field.
-    await page.waitForSelector('#am-settings .am-settings-box[role="dialog"][data-layout="a"]');
+    // System Settings' sidebar of panes with a search field: a pane per part of the window, groups apart by a gap; Now
+    // Playing's icon is the player's Now Playing button, not a lyrics bubble (Spicy Lyrics has that one).
+    await page.waitForSelector('#am-settings .am-settings-box[role="dialog"]');
     const tabs = () => page.locator('#am-settings .am-settings-tab').allTextContents();
-    assert.deepEqual(await tabs(), ['Genel', 'Oynatıcı', 'Şimdi Çalan', 'Kenar Çubuğu', 'Albümler ve Listeler', 'Ana Sayfa ve Arama']);
-    // It reopens on the last pane (Albums & Playlists, from the track numbers check), as macOS does; the title names it.
-    assert.equal(await page.textContent('#am-settings .am-settings-title'), 'Albümler ve Listeler');
+    assert.deepEqual(await tabs(), ['Genel', 'Kenar Çubuğu', 'Oynatıcı', 'Şimdi Çalan', 'Ana Sayfa ve Arama', 'Albümler ve Listeler']);
+    assert.deepEqual(await page.locator('#am-settings .am-settings-tab.am-settings-gap').evaluateAll(t => t.map(n => n.dataset.group)), ['sidebar', 'home']);
+    assert.equal(await page.evaluate(() => document.querySelector('#am-settings .am-settings-icon[data-pane="nowplaying"] svg').innerHTML.includes('M14.5 4v16')), true);
+    // It reopens on the last pane (Sidebar, where the All Playlists filter check left it), as macOS does; the title names it.
+    assert.equal(await page.textContent('#am-settings .am-settings-title'), 'Kenar Çubuğu');
     // Rows: the label on the left, the control at the right; the "Apple Music or Spotify" choices last, under their heading.
     await page.click('#am-settings .am-settings-tab:has-text("Oynatıcı")');
     assert.deepEqual(await page.locator('#am-settings .am-settings-label').allTextContents(), ['Albüm kapağı', 'Liquid Glass', 'Düğmeler', 'Oynatıcıda sağ tık', 'Şarkı adına tıklama']);
@@ -1702,14 +1705,19 @@ try {
       return [getComputedStyle(box).backdropFilter.split('(')[0], getComputedStyle(tab).backgroundColor === getComputedStyle(document.documentElement).getPropertyValue('--am-accent').trim().replace(/^#(..)(..)(..)$/, (_, r, g, b) => `rgb(${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)})`)];
     }), ['blur', true]);
     await shot('settings-window');
-    // General: the look in pictures, the accent, glass with its "?" help.
+    // General: the look in pictures, the accent, glass with a one-line note (no "?"), the language on a card of its own,
+    // and last the version and Restore Defaults…, which asks in place first.
     await page.click('#am-settings .am-settings-tab:has-text("Genel")');
+    assert.deepEqual(await page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key)), ['appearance', 'accent', 'glass', 'lang']);
+    assert.deepEqual([await page.locator('#am-settings .am-settings-card').count(), await page.locator('#am-settings .am-settings-section').count(), await page.locator('#am-settings .am-settings-help-button').count()], [3, 0, 0]);
     assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-tile-label').allTextContents(), ['Koyu', 'Açık']);
     await page.click('#am-settings [data-key="accent"] [aria-label="Mavi"]');
     assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--am-accent')), '#0a84ff');
-    assert.equal(await page.isVisible('#am-settings [data-key="glass"] .am-settings-help'), false);
-    await page.click('#am-settings [data-key="glass"] .am-settings-help-button');
-    assert.equal(await page.isVisible('#am-settings [data-key="glass"] .am-settings-help'), true);
+    assert.equal(await page.textContent('#am-settings .am-settings-about .am-settings-value'), '2.9');
+    await page.click('#am-settings .am-settings-about .am-settings-button:has-text("Varsayılanlara Dön…")');
+    assert.deepEqual(await page.locator('#am-settings .am-settings-about .am-settings-button').allTextContents(), ['Vazgeç', 'Varsayılanlara Dön']);
+    await page.click('#am-settings .am-settings-about .am-settings-button:has-text("Vazgeç")');
+    assert.deepEqual(await page.locator('#am-settings .am-settings-about .am-settings-button').allTextContents(), ['Varsayılanlara Dön…']);
     // Search: options from every pane, case aside; nothing found says so; Escape empties the field, not the window.
     const field = '#am-settings .am-settings-search-field';
     await page.fill(field, 'KAPAK');
@@ -1725,7 +1733,7 @@ try {
     // Arrow keys move between panes.
     await page.focus('#am-settings .am-settings-tab.am-selected');
     await page.keyboard.press('ArrowDown');
-    assert.equal(await page.textContent('#am-settings .am-settings-title'), 'Oynatıcı');
+    assert.equal(await page.textContent('#am-settings .am-settings-title'), 'Kenar Çubuğu');
     // Not modal: no dimming, the page stays usable, and the top bar moves the window.
     assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('am-settings')).pointerEvents), 'none');
     await page.evaluate(() => document.querySelector('#am-settings .am-settings-box').getAnimations().forEach(a => a.finish()));
@@ -1748,59 +1756,28 @@ try {
     assert.deepEqual([saved.accent, saved.artwork, saved.sort], ['blue', false, 'name']);
   });
 
-  await check('settings layouts b and c: Apple Music\'s four tabs with Apple ↔ Spotify; iOS\'s list with pages (#179)', async () => {
-    const tabs = () => page.locator('#am-settings .am-settings-tab').allTextContents(), saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('mcloud:settings')));
-    await settingsWindow.pick('settingsLayout', 'Sekmeler');
+  await check('settings: Now Playing\'s rows wait dimmed while the pane is off; "?" opens a bubble (#179)', async () => {
     await page.keyboard.press('Meta+Alt+Comma');
-    await page.waitForSelector('#am-settings .am-settings-box[data-layout="b"]');
-    assert.deepEqual(await tabs(), ['Genel', 'Oynatıcı', 'Sayfalar', 'Apple ↔ Spotify']);
-    // The player tab: the rows say where else they are set; Now Playing's details fold away.
-    await page.click('#am-settings .am-settings-tab:has-text("Oynatıcı")');
-    assert.equal(await page.textContent('#am-settings [data-key="artwork"] .am-settings-hint'), 'Oynatıcıya sağ tıklayarak da');
-    assert.ok(await page.locator('#am-settings [data-key="nowPlaying"]').count());
-    // One tab for the "which way" choices, and a row that sets them all.
-    await page.click('#am-settings .am-settings-tab:has-text("Apple")');
-    assert.deepEqual(await page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key)), ['playerMenu', 'lcdLinks', 'listFilters', 'homeStyle', 'feedStyle', 'searchStyle']);
-    await page.click('#am-settings .am-settings-all .am-settings-option:has-text("Spotify")');
-    let s = await saved();
-    assert.deepEqual([s.playerMenu, s.lcdLinks, s.listFilters, s.homeStyle, s.feedStyle, s.searchStyle], ['track', 'spotify', 'pills', 'spotify', 'spotify', 'spotify']);
-    await page.click('#am-settings .am-settings-all .am-settings-option:has-text("Apple Music")');
-    s = await saved();
-    assert.deepEqual([s.playerMenu, s.lcdLinks, s.listFilters, s.homeStyle, s.feedStyle, s.searchStyle], ['apple', 'apple', 'menu', 'apple', 'apple', 'apple']);
-    await shot('settings-layout-b');
-    await page.click('#am-settings .am-settings-ok');
-    await settingsWindow.pick('playerMenu', 'Şarkının üstünde');
-    await settingsWindow.pick('lcdLinks', 'Sayfayı açar');
-    // c: the first page holds the look and a row per area (Now Playing with its value); an area opens as a page.
-    await settingsWindow.pick('settingsLayout', 'Liste');
-    await page.keyboard.press('Meta+Alt+Comma');
-    await page.waitForSelector('#am-settings .am-settings-box[data-layout="c"]');
-    assert.equal(await page.textContent('#am-settings .am-settings-title'), 'mcloud');
-    assert.deepEqual(await page.locator('#am-settings .am-settings-row').evaluateAll(r => r.map(n => n.dataset.key)), ['appearance', 'accent']);
-    assert.deepEqual(await page.locator('#am-settings .am-settings-page .am-settings-tab-label').allTextContents(), ['Oynatıcı', 'Şimdi Çalan', 'Kenar Çubuğu', 'Albümler ve Listeler', 'Ana Sayfa ve Arama', 'Diğer']);
-    assert.equal(await page.textContent('#am-settings .am-settings-page[data-group="nowplaying"] .am-settings-value'), 'Kapalı');
-    await shot('settings-layout-c');
-    // A choice of three or more is a checkmark list there.
-    const recent = (await saved()).recent;
-    await page.click('#am-settings .am-settings-page[data-group="sidebar"]');
-    assert.equal(await page.textContent('#am-settings .am-settings-title'), 'Kenar Çubuğu');
-    assert.deepEqual(await page.locator('#am-settings [data-key="recent"].am-settings-checklist .am-settings-option').allTextContents(), ['Yok', '3', '5', '10', '20']);
-    await page.click('#am-settings [data-key="recent"] .am-settings-option:has-text("10")');
-    assert.equal((await saved()).recent, 10);
-    await page.click(`#am-settings [data-key="recent"] .am-settings-option >> text="${recent || 'Yok'}"`);
-    assert.equal((await saved()).recent, recent);
-    // Back to the first page, its search.
-    await page.click('#am-settings .am-settings-back-button');
-    await page.fill('#am-settings .am-settings-search-field', 'liquid');
-    assert.deepEqual(await page.locator('#am-settings .am-settings-row').evaluateAll(r => r.map(n => n.dataset.key)), ['liquid']);
-    assert.equal(await page.evaluate(() => document.activeElement.matches('.am-settings-search-field')), true);
-    await page.fill('#am-settings .am-settings-search-field', '');
-    // Back to a: More → layout.
-    await page.click('#am-settings .am-settings-page[data-group="general"]');
-    await page.click('#am-settings [data-key="settingsLayout"] .am-settings-option:has-text("Kenar çubuğu")');
-    await page.waitForSelector('#am-settings .am-settings-box[data-layout="a"]');
+    await page.click('#am-settings .am-settings-tab:has-text("Şimdi Çalan")');
+    const rows = () => page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key + (n.classList.contains('am-settings-dim') && n.inert ? '~' : '')));
+    assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('mcloud:settings')))).nowPlaying ?? 'off', 'off');
+    assert.deepEqual(await rows(), ['nowPlaying', 'npLayout~', 'npBg~', 'npArtSize~', 'npArt~', 'npLyricsPlace~']);
+    assert.deepEqual(await page.locator('#am-settings .am-settings-section').allTextContents(), ['Görünüm', 'Sözler ve sıra']);
+    // On, the same rows wake up; the background's "?" opens over the rows below and closes on Escape, the window stays.
+    await page.click('#am-settings [data-key="nowPlaying"] .am-settings-option:has-text("Oynatıcıyla")');
+    await page.waitForFunction(() => !document.querySelector('#am-settings [data-key="npBg"]').inert);
+    const help = '#am-settings [data-key="npBg"] .am-settings-help';
+    assert.equal(await page.isVisible(help), false);
+    const below = await page.locator('#am-settings [data-key="npArtSize"]').boundingBox();
+    await page.click('#am-settings [data-key="npBg"] .am-settings-help-button');
+    await page.waitForFunction(h => getComputedStyle(document.querySelector(h)).opacity === '1', help);
+    assert.deepEqual([await page.isVisible(help), await page.getAttribute('#am-settings [data-key="npBg"] .am-settings-help-button', 'aria-expanded')], [true, 'true']);
+    assert.equal((await page.locator('#am-settings [data-key="npArtSize"]').boundingBox()).y, below.y);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(h => getComputedStyle(document.querySelector(h)).visibility === 'hidden', help);
+    assert.equal(await page.locator('#am-settings').count(), 1);
+    await page.click('#am-settings [data-key="nowPlaying"] .am-settings-option:has-text("Kapalı")');
     await page.click('#am-settings .am-settings-close');
-    assert.equal((await saved()).settingsLayout, 'a');
   });
 
   await check('in-place settings: the player, Now Playing, the Playlists heading, column headings and ⌘J View Options (#179)', async () => {
@@ -1838,17 +1815,17 @@ try {
     await page.evaluate(() => Spicetify.Platform.History.push('/album/0'));
     await page.evaluate(() => { const h = document.createElement('div'); h.className = 'main-trackList-trackListHeaderRow mock-header-row'; h.textContent = '# Başlık'; document.querySelector('.am-native-main').append(h); });
     await rightClick('.mock-header-row');
-    assert.deepEqual(await items(), ['Sütun başlıkları', 'Albümlerde numaralar', 'Sanatçıyı yalnız konuklarda göster', 'Tüm Ayarlar…']);
+    assert.deepEqual(await items(), ['Sütun başlıkları', 'Albümlerde numaralar', 'Sanatçıyı yalnız konuklarda göster', 'Konuk sanatçılar', 'Tüm Ayarlar…']);
     await page.keyboard.press('Escape');
     await page.evaluate(() => document.querySelector('.mock-header-row').remove());
     // ⌘J: View Options for the page; again closes it. Home has its own.
     await page.keyboard.press('Meta+J');
-    assert.deepEqual(await items(), ['Sütun başlıkları', 'Albümlerde numaralar', 'Sanatçıyı yalnız konuklarda göster', 'Sayfa rengi', 'Tüm Ayarlar…']);
+    assert.deepEqual(await items(), ['Sütun başlıkları', 'Albümlerde numaralar', 'Sanatçıyı yalnız konuklarda göster', 'Konuk sanatçılar', 'Sayfa rengi', 'Tüm Ayarlar…']);
     await page.keyboard.press('Meta+J');
     assert.equal(await items(), null);
     await page.evaluate(() => Spicetify.Platform.History.push('/'));
     await page.keyboard.press('Meta+J');
-    assert.deepEqual(await items(), ['Ana Sayfa kartları', 'Üstteki kısayollar', 'Mix kapakları', 'Tüm Ayarlar…']);
+    assert.deepEqual(await items(), ['Kartlar', 'Üstteki kısayollar', 'Mix kapakları', 'Tüm Ayarlar…']);
     await page.keyboard.press('Escape');
   });
 
@@ -2964,7 +2941,7 @@ try {
       assert.deepEqual(await english.evaluate(() => window.__menuItems.map(i => i.name)), ['mcloud Settings']);
       const englishSettings = settingsOf(english);
       assert.equal(await englishSettings.state('lang'), 'Same as Spotify');
-      assert.deepEqual(await english.locator('#am-settings .am-settings-tab').allTextContents(), ['General', 'Player', 'Now Playing', 'Sidebar', 'Albums & Playlists', 'Home & Search']);
+      assert.deepEqual(await english.locator('#am-settings .am-settings-tab').allTextContents(), ['General', 'Sidebar', 'Player', 'Now Playing', 'Home & Search', 'Albums & Playlists']);
       await Promise.all([english.waitForEvent('load'), englishSettings.pick('lang', 'Türkçe', true)]);
       await english.waitForSelector('body.am-ready #am-sidebar');
       assert.equal(await english.textContent('#am-sidebar .am-nav-row >> nth=1'), 'Ana Sayfa');

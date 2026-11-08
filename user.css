@@ -49,7 +49,7 @@
  --am-rim-lines:inset 0 1px #ffffff99,inset 0 1.5px #ffffff66,inset 0 -1px #ffffff4d,inset 0 -1.5px #ffffff33,inset 1px 0 #ffffff33,inset -1px 0 #ffffff33;
  --am-hero-name:#1d1d1f; --am-hero-play:var(--am-tint-text,#333); --am-hero-play-icon:#fff;
  /* The settings window (#76): its base and the line under its toolbar (Apple's light Settings: white, #e5e5e5). */
- --am-settings-window:#fff; --am-settings-hairline:rgb(0 0 0/.1);
+ --am-settings-window:#fff; --am-settings-hairline:rgb(0 0 0/.1); --am-settings-popover:#fff;
  /* #73's plain Now Playing pane: Music's lyrics pane in light is opaque #eeedec. */
  --am-np-plain:#eeedec;
  --am-settings-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 12' fill='none' stroke='%23000000b3' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1.5 4.5 2.5-2.5 2.5 2.5M1.5 7.5 4 10l2.5-2.5'/%3E%3C/svg%3E");
@@ -1637,12 +1637,12 @@ body.am-solid .am-toast,body.am-solid.am-liquid .am-toast {background:var(--am-s
 body.am-solid.am-ready .am-native-main :is([style*="--background-base"][style*="opacity"],[data-am-glass]),body.am-solid.am-ready .am-native-main [role="grid"] > [role="presentation"][style*="top"] {background:var(--am-bg)!important;backdrop-filter:none;-webkit-backdrop-filter:none}
 body.am-solid.am-ready .am-native-panel-open::before {background:var(--am-panel-solid);backdrop-filter:none;-webkit-backdrop-filter:none}
 
-/* Settings window (#am-settings, theme.js), drawn from the settings definitions in one of three layouts (#179, below).
+/* Settings window (#am-settings, theme.js), drawn from the settings definitions (#179, below).
    Frosted; Eco (and Balanced over Spicy Lyrics) solid.
    Colours: Apple's dark Settings window measured focused (window #302d2c, band #373534, selected tile #4f4f4f, pop-ups and
    empty boxes #424242, separators #444), kept neutral as the theme's base is: Apple's warmth comes from the wallpaper. The
    steps over the window are ink overlays, so a light appearance only sets --am-settings-window (and the hairline). */
-:root {--am-settings-window:#2c2c2c;--am-settings-fill:color-mix(in srgb,var(--am-settings-window) 92%,transparent);--am-settings-band:rgb(var(--am-ink,255 255 255)/.035);--am-settings-hairline:rgb(0 0 0/.4);
+:root {--am-settings-window:#2c2c2c;--am-settings-popover:#3a3a3c;--am-settings-fill:color-mix(in srgb,var(--am-settings-window) 92%,transparent);--am-settings-band:rgb(var(--am-ink,255 255 255)/.035);--am-settings-hairline:rgb(0 0 0/.4);
  --am-settings-tile:rgb(var(--am-ink,255 255 255)/.13);--am-settings-control:rgb(var(--am-ink,255 255 255)/.1);--am-settings-control-on:rgb(var(--am-ink,255 255 255)/.24);--am-settings-line:rgb(var(--am-ink,255 255 255)/.1);
  --am-settings-card:rgb(var(--am-ink,255 255 255)/.05);--am-settings-tab-text:rgb(var(--am-ink,255 255 255)/.7);
  --am-settings-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 12' fill='none' stroke='%23ffffffb3' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1.5 4.5 2.5-2.5 2.5 2.5M1.5 7.5 4 10l2.5-2.5'/%3E%3C/svg%3E")}
@@ -1657,12 +1657,9 @@ body.am-solid.am-ready .am-native-panel-open::before {background:var(--am-panel-
 /* Balanced over a page that redraws every frame (Spicy Lyrics): solid, as the sidebar there, so no blur reruns per frame. */
 body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(.am-spicy-fullscreen) #am-settings .am-settings-box {background:var(--am-settings-window);backdrop-filter:none;-webkit-backdrop-filter:none}
 .am-settings-box :focus-visible {outline:2px solid var(--am-accent-focus);outline-offset:2px}
-/* Three layouts on trial (#179, data-layout): a, System Settings (sidebar of panes with search, rows on the right; a fixed
-   size, as its panes switch in place); b, Apple Music's own window (toolbar tabs, OK; follows its pane's height); c, iOS
-   Settings (one narrow list, pages to tap into). */
-.am-settings-box[data-layout="a"] {--am-settings-w:760px;grid-template-rows:none;grid-template-columns:212px minmax(0,1fr);height:min(560px,calc(100vh - var(--am-settings-top) - 86px))}
-.am-settings-box[data-layout="b"] {--am-settings-w:640px}
-.am-settings-box[data-layout="c"] {--am-settings-w:460px;grid-template-rows:auto minmax(0,1fr);height:min(600px,calc(100vh - var(--am-settings-top) - 86px))}
+/* System Settings' layout (#179): a sidebar of panes with search, the pane's rows on the right. A fixed size, as its panes
+   switch in place, as tall as the window allows up to 720px. */
+.am-settings-box {--am-settings-w:760px;grid-template-rows:none;grid-template-columns:212px minmax(0,1fr);height:min(720px,calc(100vh - var(--am-settings-top) - 86px))}
 .am-settings-titlebar {display:grid;grid-template-columns:28px minmax(0,1fr) 28px;align-items:center;padding:10px 12px 0;background:var(--am-settings-band);box-shadow:0 1px var(--am-settings-hairline);position:relative;z-index:1;user-select:none;cursor:default}
 .am-settings-title {grid-column:2;grid-row:1;margin:0;text-align:center;font-size:13px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .am-settings-close {grid-column:1;grid-row:1;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:var(--am-settings-control);color:var(--am-text);cursor:pointer;transition:background-color .15s}
@@ -1674,7 +1671,7 @@ body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(
 /* Rows, as System Settings and iOS Settings draw them: rounded cards, the label (and a one-line note) on the left, the
    control on the right, hairlines between rows; a section's name over its card. */
 .am-settings-section {margin:18px 6px 6px;font-size:11px;font-weight:600;color:var(--am-sub)}
-.am-settings-body > .am-settings-section:first-child,.am-settings-results > .am-settings-section:first-child {margin-top:0}
+.am-settings-body > .am-settings-section:first-child {margin-top:0}
 .am-settings-card {border-radius:10px;background:var(--am-settings-card);box-shadow:inset 0 0 0 .5px rgb(var(--am-ink,255 255 255)/.07)}
 .am-settings-card + .am-settings-card {margin-top:12px}
 .am-settings-row {display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:40px;padding:7px 12px;box-sizing:border-box}
@@ -1682,12 +1679,18 @@ body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(
 .am-settings-text {min-width:0;flex:1}
 .am-settings-label-line {display:flex;align-items:center;gap:6px}
 .am-settings-label {font-size:13px}
-.am-settings-note,.am-settings-hint,.am-settings-help {margin-top:2px;font-size:11px;line-height:1.35;color:var(--am-sub)}
-.am-settings-hint {color:rgb(var(--am-ink,255 255 255)/.42)}
-.am-settings-help {margin-top:6px;padding:7px 9px;border-radius:7px;background:var(--am-settings-control);color:var(--am-text);max-width:420px}
+.am-settings-note {margin-top:2px;font-size:11px;line-height:1.35;color:var(--am-sub)}
+/* "?": a bubble under the label that grows from the button (transform and opacity only, so it costs a composite for the
+   moment it moves) and fades on close; it covers the rows below rather than pushing them. Opaque: no blur behind it. */
+.am-settings-label-line {position:relative}
+.am-settings-help {position:absolute;z-index:3;top:calc(100% + 7px);left:-4px;width:max-content;max-width:min(340px,100%);padding:8px 10px;border-radius:9px;background:var(--am-settings-popover);box-shadow:0 0 0 .5px rgb(var(--am-ink,255 255 255)/.14),0 8px 24px #00000059;color:var(--am-text);font-size:11.5px;line-height:1.4;
+ transform-origin:var(--am-help-x,8px) -6px;opacity:0;scale:.92;translate:0 -4px;visibility:hidden;transition:opacity .12s ease-out,scale .12s ease-out,translate .12s ease-out,visibility 0s .12s}
+.am-settings-help.am-open {opacity:1;scale:1;translate:0;visibility:visible;transition:opacity .18s cubic-bezier(.2,.8,.2,1),scale .2s cubic-bezier(.2,.8,.2,1),translate .2s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .am-settings-help-button {display:grid;place-items:center;flex:none;width:16px;height:16px;padding:0;border:0;border-radius:50%;background:var(--am-settings-control);color:var(--am-sub);font:600 10px var(--encore-body-font-stack);cursor:pointer}
 .am-settings-help-button[aria-expanded="true"],.am-settings-help-button:hover {background:var(--am-settings-control-on);color:var(--am-text)}
 .am-settings-control {flex:none}
+/* A row whose setting waits on another (Now Playing's, while the pane is off): shown, dimmed, not usable. */
+.am-settings-row.am-settings-dim {opacity:.4}
 /* Wide rows (pictures, the player's buttons, long choices): the control under the label. */
 .am-settings-row.am-settings-wide {display:block;padding:10px 12px 12px}
 .am-settings-wide > .am-settings-control {margin-top:10px}
@@ -1735,59 +1738,38 @@ body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(
 [data-key="previewMaterial"] [data-value="artwork"] .am-settings-tile {background:radial-gradient(70% 80% at 50% 40%,#e2556f99,#1c1c1e)}
 [data-key="previewMaterial"] [data-value="glass"] .am-settings-tile {background:linear-gradient(#ffffff38,#ffffff12),#2c2c2e}
 [data-key="previewMaterial"] [data-value="color"] .am-settings-tile {background:#6b2d8f}
-/* c's checkmark lists: one option per row, a tick in the accent on the chosen one. */
-.am-settings-list {display:grid;margin:8px -12px -12px}
-.am-settings-list .am-settings-option {display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 12px;border:0;background:none;box-shadow:0 -1px var(--am-settings-line);color:var(--am-text);font:13px var(--encore-body-font-stack);text-align:left;cursor:pointer}
-.am-settings-list .am-settings-option[aria-checked="true"]::after {content:'';width:13px;height:13px;background:var(--am-accent);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 15 15' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8l3 3 6-7'/%3E%3C/svg%3E") center/contain no-repeat}
 .am-settings-empty {padding:40px 0;text-align:center;color:var(--am-sub)}
+/* General's last card: the version, and Restore Defaults… on the right, which asks in place before it resets. */
+.am-settings-about {margin-top:18px}
+.am-settings-value {color:var(--am-sub)}
+.am-settings-actions {justify-content:flex-end}
+.am-settings-confirm {flex:1;margin:0}
+.am-settings-button {flex:none;height:22px;padding:0 10px;border:0;border-radius:5px;background:var(--am-settings-control);box-shadow:0 .5px 1px #0003;color:var(--am-text);font:13px var(--encore-body-font-stack);white-space:nowrap;cursor:pointer}
+.am-settings-button:hover {background:var(--am-settings-control-on)}
+.am-settings-button.am-settings-destructive {background:#ff453a;color:#fff}
 /* Coloured icon tiles, as System Settings' sidebar (coloured again in macOS 27). */
 .am-settings-icon {display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:6px;background:#8e8e93;color:#fff}
 .am-settings-icon svg {width:15px;height:15px;stroke-width:1.9}
 .am-settings-icon[data-pane="player"] {background:#fa2d48}.am-settings-icon[data-pane="nowplaying"] {background:#bf5af2}.am-settings-icon[data-pane="sidebar"] {background:#0a84ff}
-.am-settings-icon[data-pane="pages"] {background:#ff9f0a}.am-settings-icon[data-pane="home"] {background:#30d158}.am-settings-icon[data-pane="which"] {background:#1ed760}
-/* a: the sidebar (search over the panes), the pane's title over its rows. */
+.am-settings-icon[data-pane="pages"] {background:#ff9f0a}.am-settings-icon[data-pane="home"] {background:#30d158}
+/* The sidebar (search over the panes, groups apart by a gap as System Settings' are), the pane's title over its rows. */
 .am-settings-side {display:flex;flex-direction:column;gap:10px;min-height:0;padding:10px 10px 12px;background:rgb(var(--am-ink,255 255 255)/.035);box-shadow:1px 0 var(--am-settings-hairline);user-select:none}
 .am-settings-sidetop {display:flex;align-items:center;min-height:28px;cursor:default}
 .am-settings-search {display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border-radius:8px;background:var(--am-settings-control);color:var(--am-sub);flex:none}
 .am-settings-search svg {width:14px;height:14px;flex:none}
 .am-settings-search-field {flex:1;min-width:0;height:100%;padding:0;border:0;background:none;color:var(--am-text);font:13px var(--encore-body-font-stack);outline:0}
 .am-settings-search-field::-webkit-search-cancel-button {filter:invert(1) opacity(.5)}
+.am-settings-search-field:focus-visible {outline:0}
 .am-settings-search:focus-within {box-shadow:0 0 0 2px var(--am-accent-focus)}
-.am-settings-box[data-layout="a"] .am-settings-nav {display:grid;gap:1px;overflow:auto}
-.am-settings-box[data-layout="a"] .am-settings-tab {display:flex;align-items:center;gap:8px;height:30px;padding:0 6px;border:0;border-radius:7px;background:none;color:var(--am-text);font:13px var(--encore-body-font-stack);text-align:left;cursor:pointer}
-.am-settings-box[data-layout="a"] .am-settings-tab:hover {background:rgb(var(--am-ink,255 255 255)/.06)}
-.am-settings-box[data-layout="a"] .am-settings-tab.am-selected {background:var(--am-accent);color:#fff}
+.am-settings-box .am-settings-nav {display:grid;gap:1px;overflow:auto}
+.am-settings-box .am-settings-tab {display:flex;align-items:center;gap:8px;height:30px;padding:0 6px;border:0;border-radius:7px;background:none;color:var(--am-text);font:13px var(--encore-body-font-stack);text-align:left;cursor:pointer}
+.am-settings-box .am-settings-tab:hover {background:rgb(var(--am-ink,255 255 255)/.06)}
+.am-settings-box .am-settings-tab.am-selected {background:var(--am-accent);color:#fff}
+.am-settings-tab.am-settings-gap {margin-top:12px}
 .am-settings-main {display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0}
-.am-settings-box[data-layout="a"] .am-settings-titlebar {display:flex;align-items:center;height:48px;padding:0 22px;background:none;box-shadow:none}
-.am-settings-box[data-layout="a"] .am-settings-title {font-size:15px;font-weight:700;text-align:left}
-.am-settings-box[data-layout="a"] .am-settings-body {padding-top:4px}
-/* b: Apple Music's toolbar tabs (icon over label, the selected one on a tile in the accent) and OK. */
-.am-settings-box[data-layout="b"] .am-settings-nav {grid-column:1 / -1;display:flex;justify-content:center;flex-wrap:wrap;gap:4px;padding:6px 0 7px}
-.am-settings-box[data-layout="b"] .am-settings-tab {display:grid;justify-items:center;gap:2px;min-width:76px;padding:5px 8px 4px;border:0;border-radius:7px;background:none;color:var(--am-settings-tab-text);font:11px var(--encore-body-font-stack);cursor:pointer;transition:background-color .15s,color .15s}
-.am-settings-box[data-layout="b"] .am-settings-icon {width:24px;height:24px;background:none;color:inherit}
-.am-settings-box[data-layout="b"] .am-settings-icon svg {width:22px;height:22px;stroke-width:1.65}
-.am-settings-box[data-layout="b"] .am-settings-tab:hover {color:var(--am-text)}
-.am-settings-box[data-layout="b"] .am-settings-tab.am-selected {background:var(--am-settings-tile);color:var(--am-accent)}
-.am-settings-intro {margin:0 6px 10px;font-size:12px;line-height:1.4;color:var(--am-sub)}
-.am-settings-all .am-settings-option {font-weight:600}
-.am-settings-more {margin-top:12px}
-.am-settings-more > summary {margin:0 6px 8px;font-size:12px;color:var(--am-sub);cursor:pointer}
-.am-settings-footer {display:flex;justify-content:flex-end;padding:10px 20px 12px;border-top:1px solid var(--am-settings-line)}
-.am-settings-ok {min-width:76px;height:24px;padding:0 14px;border:0;border-radius:6px;background:var(--am-accent);color:#fff;font:13px var(--encore-body-font-stack);cursor:pointer}
-.am-settings-ok:active {filter:brightness(.9)}
-/* c: a title bar with a way back, and the first page's list of areas (icon, name, value, chevron). */
-.am-settings-box[data-layout="c"] .am-settings-titlebar {grid-template-columns:96px minmax(0,1fr) 96px;height:46px;padding:0 12px}
-.am-settings-back-button {grid-column:1;grid-row:1;justify-self:start;display:flex;align-items:center;gap:2px;padding:0;border:0;background:none;color:var(--am-accent);font:13px var(--encore-body-font-stack);cursor:pointer}
-.am-settings-back-button svg {width:16px;height:16px;stroke-width:2.2}
-.am-settings-box[data-layout="c"] .am-settings-body > .am-settings-search {margin-bottom:14px}
-.am-settings-pages {margin-top:12px;display:grid}
-.am-settings-page {display:flex;align-items:center;gap:10px;min-height:42px;padding:0 12px;border:0;background:none;box-shadow:0 -1px var(--am-settings-line);color:var(--am-text);font:13px var(--encore-body-font-stack);text-align:left;cursor:pointer}
-.am-settings-page:first-child {box-shadow:none}
-.am-settings-page .am-settings-tab-label {flex:1}
-.am-settings-value {color:var(--am-sub)}
-.am-settings-page::after {content:'';width:7px;height:12px;background:var(--am-sub);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 12' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 5 5-5 5'/%3E%3C/svg%3E") center/contain no-repeat}
-.am-settings-page:hover {background:rgb(var(--am-ink,255 255 255)/.04)}
-.am-settings-card > .am-settings-page:first-child {border-radius:10px 10px 0 0}.am-settings-card > .am-settings-page:last-child {border-radius:0 0 10px 10px}
+.am-settings-box .am-settings-titlebar {display:flex;align-items:center;height:48px;padding:0 22px;background:none;box-shadow:none}
+.am-settings-box .am-settings-title {font-size:15px;font-weight:700;text-align:left}
+.am-settings-box .am-settings-body {padding-top:4px}
 /* Player buttons: a small bar drawn from the tagged buttons (placeholders for the track), hidden ones folding away,
    then a chip per button. */
 .am-pb {display:grid;gap:12px;margin-top:10px}
