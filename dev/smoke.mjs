@@ -178,8 +178,8 @@ try {
     assert.equal(await where(), '/album/0');
     assert.equal(await page.evaluate(() => document.getElementById('am-popover').hidden), true, 'links open no menu');
     // Apple Music: the song's menu anywhere on the player; the title and the subtitle ask where to go.
-    await settingsWindow.pick('playerMenu', 'Oynatıcının her yerinde (Apple Music)');
-    await settingsWindow.pick('lcdLinks', 'Gidilecek yeri sorar (Apple Music)');
+    await settingsWindow.pick('playerMenu', 'Her yerde');
+    await settingsWindow.pick('lcdLinks', 'Nereye gideceğini sorar');
     assert.equal(await right('#am-player .am-transport .am-dim'), true, 'apple: shuffle');
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('.am-track-subtitle .am-lcd-link').count(), 0);
@@ -188,8 +188,8 @@ try {
       assert.deepEqual(await items(), ['Albüme Git', 'Sanatçıya Git'], line);
       await page.keyboard.press('Escape');
     }
-    await settingsWindow.pick('lcdLinks', 'Bağlantı olur (Spotify)');
-    await settingsWindow.pick('playerMenu', 'Yalnızca şarkının üstünde (Spotify)');
+    await settingsWindow.pick('lcdLinks', 'Sayfayı açar');
+    await settingsWindow.pick('playerMenu', 'Şarkının üstünde');
     await page.evaluate(path => Spicetify.Platform.History.push(path), before);
   });
 
@@ -618,7 +618,7 @@ try {
     if (!viaMenu) await settingsWindow.pick(key, option);
   };
   const saved = key => page.evaluate(key => JSON.parse(localStorage.getItem('mcloud:settings'))[key], key);
-  const playlistNumbers = ['Parça numaraları', 'Çalma listelerinde parça numaraları'], albumNumbers = 'Albümlerde parça numaraları';
+  const playlistNumbers = ['Parça numaraları', 'Çalma listelerinde numaralar'], albumNumbers = 'Albümlerde numaralar';
 
   await check('track numbers: albums and playlists switch apart (#72)', async () => {
     const hidden = () => page.evaluate(() => document.body.classList.contains('am-no-numbers'));
@@ -1124,7 +1124,7 @@ try {
   await check('sidebar lists yours or Spotify\'s playlists, picked on the heading (#108)', async () => {
     const heading = '#am-sidebar .am-nav-heading:has(.am-nav-add)', rowCount = await page.locator('#am-sidebar .am-list-row').count();
     await page.click(heading, { button: 'right', position: { x: 10, y: 5 } });
-    assert.deepEqual(await page.locator('#am-popover .am-popover-item').allTextContents(), ['Yeni Çalma Listesi', 'Yeni Klasör', 'Tümü', 'Senin Listelerin', 'Spotify’ın Listeleri']);
+    assert.deepEqual(await page.locator('#am-popover .am-popover-item').allTextContents(), ['Yeni Çalma Listesi', 'Yeni Klasör', 'Tümü', 'Senin Listelerin', 'Spotify’ın Listeleri', 'Son listeler']);
     assert.equal(await page.textContent('#am-popover [aria-checked="true"]'), 'Tümü');
     await page.click('#am-popover .am-popover-item:has-text("Spotify’ın Listeleri")');
     // Spotify's own By Spotify filter, so the recent ones are the most recent of that kind; the heading names it. The
@@ -1181,7 +1181,7 @@ try {
     await page.waitForFunction(() => document.querySelector('.am-library-name')?.textContent === 'Yol Şarkıları');
     await shot('playlists-filter-menu');
     // Spotify's pills instead: the filter under the search field, the sort alone in the menu.
-    await settingsWindow.pick('listFilters', 'Düğme olarak (Spotify)');
+    await settingsWindow.pick('listFilters', 'Düğmeler');
     await page.waitForSelector('.am-library-pills');
     assert.deepEqual(await page.locator('.am-library-pill').allTextContents(), ['Tümü', 'Senin Listelerin', 'Spotify’ın Listeleri', 'Mix’li Listeler', 'Başkalarının Listeleri']);
     assert.equal(await page.textContent('.am-library-pill[aria-pressed="true"]'), 'Senin Listelerin');
@@ -1194,7 +1194,7 @@ try {
     await page.click('.am-library-pill:has-text("Tümü")');
     await page.waitForFunction(n => document.querySelectorAll('.am-library-card').length === n, all);
     assert.ok((await names()).includes('Ruh Hali'), 'all playlists keep the folders');
-    await settingsWindow.pick('listFilters', 'Menüde (Apple Music)');
+    await settingsWindow.pick('listFilters', 'Menüde');
     for (const option of ['Son Çalınanlar', 'Artan']) {
       await page.click('.am-library-menu');
       await page.hover('#am-popover .am-popover-item:has-text("Sıralama")');
@@ -1623,44 +1623,66 @@ try {
     }), [20, '20 öğe', true]);
   });
 
-  await check('settings window: the profile menu\'s mcloud opens Apple Music\'s Settings window, drawn from the definitions', async () => {
+  await check('settings window: the profile menu\'s mcloud opens the settings, drawn from the definitions (#76, #179)', async () => {
     // The profile menu holds one "mcloud Settings" entry; the old submenu is only the fallback.
     assert.deepEqual(await page.evaluate(() => [window.__menuItems.map(i => i.name), window.__menus.length]), [['mcloud Ayarları'], 0]);
     await page.evaluate(() => window.__menuItems.find(i => i.name === 'mcloud Ayarları').onClick());
-    await page.waitForSelector('#am-settings .am-settings-box[role="dialog"]');
+    // Layout a (the default): System Settings' sidebar of panes with a search field.
+    await page.waitForSelector('#am-settings .am-settings-box[role="dialog"][data-layout="a"]');
     const tabs = () => page.locator('#am-settings .am-settings-tab').allTextContents();
-    assert.deepEqual(await tabs(), ['Genel', 'Görünüm', 'Oynatıcı', 'Kenar Çubuğu', 'Albümler ve Listeler', 'Şimdi Çalan', 'Ana Sayfa']);
-    // It reopens on the last tab (Albums & Playlists, from the track numbers check), as macOS does; the title names it.
+    assert.deepEqual(await tabs(), ['Genel', 'Oynatıcı', 'Şimdi Çalan', 'Kenar Çubuğu', 'Albümler ve Listeler', 'Ana Sayfa ve Arama']);
+    // It reopens on the last pane (Albums & Playlists, from the track numbers check), as macOS does; the title names it.
     assert.equal(await page.textContent('#am-settings .am-settings-title'), 'Albümler ve Listeler');
-    // A form: labels right-aligned with a colon, toggles as checkboxes. Real clicks from here on.
+    // Rows: the label on the left, the control at the right; the "Apple Music or Spotify" choices last, under their heading.
     await page.click('#am-settings .am-settings-tab:has-text("Oynatıcı")');
-    assert.deepEqual(await page.locator('#am-settings .am-settings-label').allTextContents(), ['Oynatıcıda albüm kapağı', 'Liquid Glass oynatıcı', 'Sağ tık menüsü', 'Şarkı adı ve sanatçı', 'Oynatıcı düğmeleri']);
-    assert.deepEqual(await page.evaluate(() => { const l = getComputedStyle(document.querySelector('#am-settings [data-key="artwork"] .am-settings-label')); return [l.textAlign, getComputedStyle(document.querySelector('#am-settings [data-key="artwork"] .am-settings-label'), '::after').content]; }), ['right', '":"']);
+    assert.deepEqual(await page.locator('#am-settings .am-settings-label').allTextContents(), ['Albüm kapağı', 'Liquid Glass', 'Düğmeler', 'Oynatıcıda sağ tık', 'Şarkı adına tıklama']);
+    assert.deepEqual(await page.locator('#am-settings .am-settings-section').allTextContents(), ['Apple Music mı, Spotify mı?']);
+    assert.ok(await page.evaluate(() => {
+      const row = document.querySelector('#am-settings [data-key="artwork"]').getBoundingClientRect(), label = document.querySelector('#am-settings [data-key="artwork"] .am-settings-label').getBoundingClientRect(), sw = document.querySelector('#am-settings [data-key="artwork"] .am-settings-switch').getBoundingClientRect();
+      return label.left - row.left < 20 && row.right - sw.right < 20;
+    }));
     await page.click('#am-settings [data-key="artwork"] .am-settings-switch');
     assert.ok(await page.evaluate(() => document.body.classList.contains('am-no-artwork')));
     assert.equal(await page.getAttribute('#am-settings [data-key="artwork"] .am-settings-switch', 'aria-checked'), 'false');
-    // Apple's dark Settings colours, neutral: the window, a lighter toolbar band, the selected tab on a tile in the accent.
+    // Frosted; the selected pane in the accent.
     assert.deepEqual(await page.evaluate(() => {
       const box = document.querySelector('#am-settings .am-settings-box'), tab = document.querySelector('#am-settings .am-settings-tab.am-selected');
-      return [getComputedStyle(box).backdropFilter.split('(')[0], getComputedStyle(tab).color === getComputedStyle(document.documentElement).getPropertyValue('--am-accent').trim().replace(/^#(..)(..)(..)$/, (_, r, g, b) => `rgb(${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)})`)];
+      return [getComputedStyle(box).backdropFilter.split('(')[0], getComputedStyle(tab).backgroundColor === getComputedStyle(document.documentElement).getPropertyValue('--am-accent').trim().replace(/^#(..)(..)(..)$/, (_, r, g, b) => `rgb(${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)})`)];
     }), ['blur', true]);
     await shot('settings-window');
-    await page.click('#am-settings .am-settings-tab:has-text("Görünüm")');
+    // General: the look in pictures, the accent, glass with its "?" help.
+    await page.click('#am-settings .am-settings-tab:has-text("Genel")');
+    assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-tile-label').allTextContents(), ['Koyu', 'Açık', 'Otomatik']);
     await page.click('#am-settings [data-key="accent"] [aria-label="Mavi"]');
     assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--am-accent')), '#0a84ff');
-    // Arrow keys move between tabs.
+    assert.equal(await page.isVisible('#am-settings [data-key="glass"] .am-settings-help'), false);
+    await page.click('#am-settings [data-key="glass"] .am-settings-help-button');
+    assert.equal(await page.isVisible('#am-settings [data-key="glass"] .am-settings-help'), true);
+    // Search: options from every pane, case aside; nothing found says so; Escape empties the field, not the window.
+    const field = '#am-settings .am-settings-search-field';
+    await page.fill(field, 'KAPAK');
+    assert.equal(await page.textContent('#am-settings .am-settings-title'), 'Arama sonuçları');
+    const hits = await page.locator('#am-settings .am-settings-row').evaluateAll(rows => rows.map(r => r.dataset.key));
+    assert.ok(['artwork', 'mixCovers', 'albumTint'].every(k => hits.includes(k)), 'search hits: ' + hits);
+    assert.equal(await page.locator('#am-settings .am-settings-tab.am-selected').count(), 0);
+    await page.fill(field, 'zzzz');
+    assert.equal(await page.textContent('#am-settings .am-settings-empty'), 'Sonuç yok');
+    await page.focus(field);
+    await page.keyboard.press('Escape');
+    assert.deepEqual([await page.inputValue(field), await page.textContent('#am-settings .am-settings-title'), await page.locator('#am-settings').count()], ['', 'Genel', 1]);
+    // Arrow keys move between panes.
     await page.focus('#am-settings .am-settings-tab.am-selected');
-    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowDown');
     assert.equal(await page.textContent('#am-settings .am-settings-title'), 'Oynatıcı');
-    // Not modal: no dimming, the page stays usable, and the title bar moves the window.
+    // Not modal: no dimming, the page stays usable, and the top bar moves the window.
     assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('am-settings')).pointerEvents), 'none');
     await page.evaluate(() => document.querySelector('#am-settings .am-settings-box').getAnimations().forEach(a => a.finish()));
     const box = await page.locator('#am-settings .am-settings-box').boundingBox();
     await page.mouse.move(box.x + box.width / 2 + 60, box.y + 14);await page.mouse.down();await page.mouse.move(box.x + box.width / 2 + 160, box.y + 64);await page.mouse.up();
     const moved = await page.locator('#am-settings .am-settings-box').boundingBox();
     assert.deepEqual([Math.round(moved.x - box.x), Math.round(moved.y - box.y)], [100, 50]);
-    // OK closes; Escape closes; ⌘⌥, opens and closes it.
-    await page.click('#am-settings .am-settings-ok');
+    // The close button closes; Escape closes; ⌘⌥, opens and closes it.
+    await page.click('#am-settings .am-settings-close');
     assert.equal(await page.locator('#am-settings').count(), 0);
     await page.keyboard.press('Meta+Alt+Comma');
     assert.equal(await page.locator('#am-settings').count(), 1);
@@ -1674,11 +1696,115 @@ try {
     assert.deepEqual([saved.accent, saved.artwork, saved.sort], ['blue', false, 'name']);
   });
 
+  await check('settings layouts b and c: Apple Music\'s four tabs with Apple ↔ Spotify; iOS\'s list with pages (#179)', async () => {
+    const tabs = () => page.locator('#am-settings .am-settings-tab').allTextContents(), saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('mcloud:settings')));
+    await settingsWindow.pick('settingsLayout', 'Sekmeler');
+    await page.keyboard.press('Meta+Alt+Comma');
+    await page.waitForSelector('#am-settings .am-settings-box[data-layout="b"]');
+    assert.deepEqual(await tabs(), ['Genel', 'Oynatıcı', 'Sayfalar', 'Apple ↔ Spotify']);
+    // The player tab: the rows say where else they are set; Now Playing's details fold away.
+    await page.click('#am-settings .am-settings-tab:has-text("Oynatıcı")');
+    assert.equal(await page.textContent('#am-settings [data-key="artwork"] .am-settings-hint'), 'Oynatıcıya sağ tıklayarak da');
+    assert.ok(await page.locator('#am-settings [data-key="nowPlaying"]').count());
+    // One tab for the "which way" choices, and a row that sets them all.
+    await page.click('#am-settings .am-settings-tab:has-text("Apple")');
+    assert.deepEqual(await page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key)), ['playerMenu', 'lcdLinks', 'listFilters', 'homeStyle', 'feedStyle', 'searchStyle']);
+    await page.click('#am-settings .am-settings-all .am-settings-option:has-text("Spotify")');
+    let s = await saved();
+    assert.deepEqual([s.playerMenu, s.lcdLinks, s.listFilters, s.homeStyle, s.feedStyle, s.searchStyle], ['track', 'spotify', 'pills', 'spotify', 'spotify', 'spotify']);
+    await page.click('#am-settings .am-settings-all .am-settings-option:has-text("Apple Music")');
+    s = await saved();
+    assert.deepEqual([s.playerMenu, s.lcdLinks, s.listFilters, s.homeStyle, s.feedStyle, s.searchStyle], ['apple', 'apple', 'menu', 'apple', 'apple', 'apple']);
+    await shot('settings-layout-b');
+    await page.click('#am-settings .am-settings-ok');
+    await settingsWindow.pick('playerMenu', 'Şarkının üstünde');
+    await settingsWindow.pick('lcdLinks', 'Sayfayı açar');
+    // c: the first page holds the look and a row per area (Now Playing with its value); an area opens as a page.
+    await settingsWindow.pick('settingsLayout', 'Liste');
+    await page.keyboard.press('Meta+Alt+Comma');
+    await page.waitForSelector('#am-settings .am-settings-box[data-layout="c"]');
+    assert.equal(await page.textContent('#am-settings .am-settings-title'), 'mcloud');
+    assert.deepEqual(await page.locator('#am-settings .am-settings-row').evaluateAll(r => r.map(n => n.dataset.key)), ['appearance', 'accent']);
+    assert.deepEqual(await page.locator('#am-settings .am-settings-page .am-settings-tab-label').allTextContents(), ['Oynatıcı', 'Şimdi Çalan', 'Kenar Çubuğu', 'Albümler ve Listeler', 'Ana Sayfa ve Arama', 'Diğer']);
+    assert.equal(await page.textContent('#am-settings .am-settings-page[data-group="nowplaying"] .am-settings-value'), 'Kapalı');
+    await shot('settings-layout-c');
+    // A choice of three or more is a checkmark list there.
+    const recent = (await saved()).recent;
+    await page.click('#am-settings .am-settings-page[data-group="sidebar"]');
+    assert.equal(await page.textContent('#am-settings .am-settings-title'), 'Kenar Çubuğu');
+    assert.deepEqual(await page.locator('#am-settings [data-key="recent"].am-settings-checklist .am-settings-option').allTextContents(), ['Yok', '3', '5', '10', '20']);
+    await page.click('#am-settings [data-key="recent"] .am-settings-option:has-text("10")');
+    assert.equal((await saved()).recent, 10);
+    await page.click(`#am-settings [data-key="recent"] .am-settings-option >> text="${recent || 'Yok'}"`);
+    assert.equal((await saved()).recent, recent);
+    // Back to the first page, its search.
+    await page.click('#am-settings .am-settings-back-button');
+    await page.fill('#am-settings .am-settings-search-field', 'liquid');
+    assert.deepEqual(await page.locator('#am-settings .am-settings-row').evaluateAll(r => r.map(n => n.dataset.key)), ['liquid']);
+    assert.equal(await page.evaluate(() => document.activeElement.matches('.am-settings-search-field')), true);
+    await page.fill('#am-settings .am-settings-search-field', '');
+    // Back to a: More → layout.
+    await page.click('#am-settings .am-settings-page[data-group="general"]');
+    await page.click('#am-settings [data-key="settingsLayout"] .am-settings-option:has-text("Kenar çubuğu")');
+    await page.waitForSelector('#am-settings .am-settings-box[data-layout="a"]');
+    await page.click('#am-settings .am-settings-close');
+    assert.equal((await saved()).settingsLayout, 'a');
+  });
+
+  await check('in-place settings: the player, Now Playing, the Playlists heading, column headings and ⌘J View Options (#179)', async () => {
+    const items = sel => page.evaluate(sel => { const p = document.querySelector(sel); return p.hidden ? null : [...p.querySelectorAll('.am-popover-item')].map(i => i.textContent); }, sel || '#am-popover');
+    const rightClick = sel => page.evaluate(sel => { const n = document.querySelector(sel), r = n.getBoundingClientRect(); n.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: r.left + 4, clientY: r.top + 4 })); }, sel);
+    // The player, away from the song: its own options, then the window.
+    await rightClick('#am-player .am-transport');
+    assert.deepEqual(await items(), ['Albüm kapağı', 'Liquid Glass', 'Düğmeler', 'Şimdi Çalan paneli', 'Tüm Ayarlar…']);
+    await page.click('#am-popover .am-popover-item:has-text("Liquid Glass")');
+    assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('mcloud:settings')))).liquid, false);
+    await rightClick('#am-player .am-transport');
+    assert.equal(await page.getAttribute('#am-popover .am-popover-item:has-text("Liquid Glass")', 'aria-checked'), 'false');
+    await page.click('#am-popover .am-popover-item:has-text("Liquid Glass")');
+    await rightClick('#am-player .am-transport');
+    await page.click('#am-popover .am-popover-item:has-text("Düğmeler")');
+    assert.ok((await items('#am-popover-sub')).includes('Karıştır'));
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await rightClick('#am-player .am-transport');
+    await page.click('#am-popover .am-popover-item:has-text("Tüm Ayarlar")');
+    assert.equal(await page.textContent('#am-settings .am-settings-title'), 'Oynatıcı');
+    await page.click('#am-settings .am-settings-close');
+    // Now Playing's options button: the pane's settings (only its switch while it is off), each choice a submenu.
+    await page.evaluate(() => document.querySelector('#am-nowplaying .am-np-options').click());
+    assert.deepEqual(await items(), ['Şimdi Çalan paneli', 'Tüm Ayarlar…']);
+    await page.click('#am-popover .am-popover-item:has-text("Şimdi Çalan paneli")');
+    assert.deepEqual(await items('#am-popover-sub'), ['Kapalı', 'Oynatıcıyla', 'Oynatıcı yerine']);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    // The Playlists heading's menu has Recent Playlists.
+    await page.click('#am-sidebar .am-nav-heading:has(.am-nav-add)', { button: 'right', position: { x: 10, y: 5 } });
+    assert.equal((await items()).at(-1), 'Son listeler');
+    await page.keyboard.press('Escape');
+    // Column headings: the list's options (an album's here).
+    await page.evaluate(() => Spicetify.Platform.History.push('/album/0'));
+    await page.evaluate(() => { const h = document.createElement('div'); h.className = 'main-trackList-trackListHeaderRow mock-header-row'; h.textContent = '# Başlık'; document.querySelector('.am-native-main').append(h); });
+    await rightClick('.mock-header-row');
+    assert.deepEqual(await items(), ['Sütun başlıkları', 'Albümlerde numaralar', 'Sanatçıyı yalnız konuklarda göster', 'Tüm Ayarlar…']);
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => document.querySelector('.mock-header-row').remove());
+    // ⌘J: View Options for the page; again closes it. Home has its own.
+    await page.keyboard.press('Meta+J');
+    assert.deepEqual(await items(), ['Sütun başlıkları', 'Albümlerde numaralar', 'Sanatçıyı yalnız konuklarda göster', 'Sayfa rengi', 'Tüm Ayarlar…']);
+    await page.keyboard.press('Meta+J');
+    assert.equal(await items(), null);
+    await page.evaluate(() => Spicetify.Platform.History.push('/'));
+    await page.keyboard.press('Meta+J');
+    assert.deepEqual(await items(), ['Ana Sayfa kartları', 'Üstteki kısayollar', 'Mix kapakları', 'Tüm Ayarlar…']);
+    await page.keyboard.press('Escape');
+  });
+
   await check('settings pop-up buttons: the theme\'s menu, the chosen row over the button, keys as macOS (#102)', async () => {
     await page.evaluate(() => window.__menuItems.find(i => i.name === 'mcloud Ayarları').onClick());
-    await page.click('#am-settings .am-settings-tab:has-text("Oynatıcı")');
-    const button = '#am-settings [data-key="playerMenu"] .am-settings-control';
-    assert.deepEqual(await page.evaluate(b => { const c = document.querySelector(b); return [c.tagName, c.getAttribute('aria-haspopup'), c.textContent]; }, button), ['BUTTON', 'menu', 'Yalnızca şarkının üstünde (Spotify)']);
+    await page.click('#am-settings .am-settings-tab:has-text("Kenar Çubuğu")');
+    const button = '#am-settings [data-key="sideLists"] .am-settings-control';
+    assert.deepEqual(await page.evaluate(b => { const c = document.querySelector(b); return [c.tagName, c.getAttribute('aria-haspopup'), c.textContent]; }, button), ['BUTTON', 'menu', 'Tümü']);
     const menu = () => page.evaluate(b => {
       const pop = document.getElementById('am-popover'), c = document.querySelector(b), on = pop.querySelector('[aria-checked="true"]');
       if (pop.hidden) return null;
@@ -1686,19 +1812,19 @@ try {
       return { items: [...pop.querySelectorAll('[role="menuitemradio"]')].map(i => i.textContent), checked: on.textContent, focused: document.activeElement === on, above: +getComputedStyle(pop).zIndex > +getComputedStyle(document.getElementById('am-settings')).zIndex, centred: Math.abs((o.top + o.bottom) / 2 - (r.top + r.bottom) / 2) <= 1, expanded: c.getAttribute('aria-expanded') };
     }, button);
     await page.click(button);
-    assert.deepEqual(await menu(), { items: ['Oynatıcının her yerinde (Apple Music)', 'Yalnızca şarkının üstünde (Spotify)'], checked: 'Yalnızca şarkının üstünde (Spotify)', focused: true, above: true, centred: true, expanded: 'true' });
+    assert.deepEqual(await menu(), { items: ['Tümü', 'Senin Listelerin', 'Spotify’ın Listeleri'], checked: 'Tümü', focused: true, above: true, centred: true, expanded: 'true' });
     // Arrow keys move and Enter picks: the menu closes, focus returns to the button, which shows the choice.
-    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     assert.equal(await menu(), null);
-    assert.deepEqual(await page.evaluate(b => [document.activeElement === document.querySelector(b), document.querySelector(b).textContent, JSON.parse(localStorage.getItem('mcloud:settings')).playerMenu], button), [true, 'Oynatıcının her yerinde (Apple Music)', 'apple']);
+    assert.deepEqual(await page.evaluate(b => [document.activeElement === document.querySelector(b), document.querySelector(b).textContent, JSON.parse(localStorage.getItem('mcloud:settings')).sideLists], button), [true, 'Senin Listelerin', 'own']);
     // ArrowDown opens it from the keyboard; Escape closes it back to the button.
     await page.keyboard.press('ArrowDown');
-    assert.equal((await menu())?.checked, 'Oynatıcının her yerinde (Apple Music)');
+    assert.equal((await menu())?.checked, 'Senin Listelerin');
     await page.keyboard.press('Escape');
     assert.equal(await menu(), null);
     assert.equal(await page.evaluate(b => document.activeElement === document.querySelector(b), button), true);
-    await settingsWindow.pick('playerMenu', 'Yalnızca şarkının üstünde (Spotify)');
+    await settingsWindow.pick('sideLists', 'Tümü');
   });
 
   await check('player transport: laid out as Music\'s mini player (centres 23, 51, 83, 115, 143pt; play 36pt)', async () => {
@@ -1710,7 +1836,7 @@ try {
     // In the settings window (#76): Appearance tab, a segmented control.
     const pick = async name => {
       if (!await page.locator('#am-settings').count()) await page.evaluate(() => window.__menuItems.find(i => i.name === 'mcloud Ayarları').onClick());
-      await page.click('#am-settings .am-settings-tab:has-text("Görünüm")');
+      await page.click('#am-settings .am-settings-tab:has-text("Genel")');
       await page.click(`#am-settings [data-key="appearance"] .am-settings-option:has-text("${name.replace('Görünüm: ', '')}")`);
     };
     const state = () => page.evaluate(() => ({
@@ -1739,10 +1865,10 @@ try {
     shots && await page.screenshot({ path: path.join(shots, 'light-home.png') });
     // The artist page keeps its dark artist colours in light mode, as Music does; the submenu holds only the appearance.
     assert.ok(await page.evaluate(() => document.body.classList.contains('am-artist-stays-dark')));
-    assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-option').allTextContents(), ['Koyu', 'Açık', 'Sistem']);
+    assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-option').allTextContents(), ['Koyu', 'Açık', 'Otomatik']);
     // System: follows prefers-color-scheme as it changes.
     await page.emulateMedia({ colorScheme: 'dark' });
-    await pick('Görünüm: Sistem');
+    await pick('Görünüm: Otomatik');
     assert.equal((await state()).light, false);
     await page.emulateMedia({ colorScheme: 'light' });
     await page.waitForFunction(() => document.body.classList.contains('am-light'));
@@ -1752,7 +1878,7 @@ try {
     assert.deepEqual([back.light, back.bg, back.accent, back.steps], [false, 'rgb(31, 31, 31)', '#0a84ff', 0]);
     assert.ok((await rims()).every(dark => dark), 'hairlines back on the dark table');
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('mcloud:settings'))).appearance, 'dark');
-    await page.click('#am-settings .am-settings-ok');
+    await page.click('#am-settings .am-settings-close');
   });
 
   await check('Windows light mode: dark capsules under the native caption buttons and the "…"; none on macOS or in dark (#150)', async () => {
@@ -1939,7 +2065,7 @@ try {
       Spicetify.Platform.History.push('/album/' + id);
     }, id);
     const shown = () => page.$$eval('#mock-album72 .mock-artists', l => l.map(e => getComputedStyle(e).display !== 'none'));
-    const tint = option => flip('albumTint', 'Albüm ve çalma listesi rengi: ' + option, option);
+    const tint = option => flip('albumTint', 'Sayfa rengi: ' + option, option);
     // Spicetify 2.46.2 can skip its webpack bindings on a cold start: GraphQL keeps only Definitions, and Request (a getter
     // for Platform.GraphQLLoader) never comes. An album opened before the loader is there waits for it, then uses it.
     await page.evaluate(() => { Spicetify.GraphQL = { Definitions: Spicetify.GraphQL.Definitions }; window.__graphqlLoader = Spicetify.Platform.GraphQLLoader; delete Spicetify.Platform.GraphQLLoader; });
@@ -1974,11 +2100,11 @@ try {
     // The column header can be switched off (B6): it leaves the flow, the first row takes its place, and it comes back.
     const headerBox = () => page.evaluate(() => { const h = document.querySelector('#mock-album72 .main-trackList-trackListHeader'), r = document.querySelector('#mock-album72 .main-trackList-trackListRow'), l = document.querySelector('#mock-album72 .main-trackList-trackList'); return [getComputedStyle(h).display, Math.round(r.getBoundingClientRect().top - l.getBoundingClientRect().top)]; });
     const [, rowTop] = await headerBox();
-    await flip('tracklistHeader', ['Parça listesi sütun başlığı']);
+    await flip('tracklistHeader', ['Sütun başlıkları']);
     assert.equal(await saved('tracklistHeader'), false);
     assert.deepEqual(await headerBox(), ['none', 0]);
     assert.ok(rowTop >= 36);
-    await flip('tracklistHeader', ['Parça listesi sütun başlığı']);
+    await flip('tracklistHeader', ['Sütun başlıkları']);
     assert.deepEqual(await headerBox(), ['block', rowTop]);
     assert.equal(await page.$eval('#mock-album72 .main-trackList-rowSectionVariable', e => getComputedStyle(e).display), 'none');
     assert.equal(await page.$eval('#mock-album72 .main-trackList-trackListRow', e => getComputedStyle(e).gridTemplateColumns.match(/[\d.]+px/g).length), 3);
@@ -1988,10 +2114,10 @@ try {
     await page.waitForFunction(() => document.getElementById('am-album-style')?.textContent.includes('kanye'));
     assert.deepEqual(await shown(), [true, true, false]);
     // Switched off, Spotify's rows come back as they were.
-    await flip('albumClean', 'Sade albüm listesi');
+    await flip('albumClean', 'Sanatçıyı yalnız konuklarda göster');
     assert.deepEqual(await shown(), [true, true, true]);
     assert.equal(await saved('albumClean'), false);
-    await flip('albumClean', 'Sade albüm listesi');
+    await flip('albumClean', 'Sanatçıyı yalnız konuklarda göster');
     // Artwork colour: off by default; subtle washes the page top, full also colours the window.
     assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-tint-off') && !document.body.classList.contains('am-album-tinted')), true);
     await tint('Hafif');
@@ -2095,7 +2221,7 @@ try {
     // Album and playlist colour (albumTint): off by default; full colours the page and takes shuffle and the star with it.
     assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-tinted')), false);
     const shuffleBg = await css('.e-1-button-tertiary--condensed-all', 'backgroundColor');
-    await flip('albumTint', 'Albüm ve çalma listesi rengi: Tam', 'Tam');
+    await flip('albumTint', 'Sayfa rengi: Tam', 'Tam');
     await page.waitForFunction(() => document.body.classList.contains('am-album-tinted') && document.body.classList.contains('am-album-tint-full'));
     assert.match(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--am-album-tint')), /^hsl\(4\d /, 'the gold cover gives a gold hue');
     assert.notEqual(await css('.e-1-button-tertiary--condensed-all', 'backgroundColor'), shuffleBg, 'shuffle takes the colour');
@@ -2125,7 +2251,7 @@ try {
     // Other pages have no colour level.
     await page.evaluate(() => Spicetify.Platform.History.push('/'));
     await page.waitForFunction(() => document.body.classList.contains('am-album-tint-off') && !document.body.classList.contains('am-album-tinted'));
-    await flip('albumTint', 'Albüm ve çalma listesi rengi: Kapalı', 'Kapalı');
+    await flip('albumTint', 'Sayfa rengi: Kapalı', 'Kapalı');
     await page.evaluate(() => { document.getElementById('mock-97').remove(); delete window.__mockPlaylistMeta; document.querySelector('.mock-page').hidden = false; Spicetify.Platform.History.push('/'); });
     await page.waitForFunction(() => !document.body.classList.contains('am-list-info'));
   });
@@ -2426,15 +2552,15 @@ try {
       const npLook = () => page.evaluate(() => { const box = s => document.querySelector('#am-nowplaying ' + s).getBoundingClientRect(); return { compact: document.body.classList.contains('am-np-compact'), art: box('.am-np-art').height, thumb: box('.am-np-thumb').width, lyrics: box('.am-np-lyrics').height }; });
       const npLarge = await npLook();
       assert.deepEqual([npLarge.compact, npLarge.art > 100, npLarge.thumb], [false, true, 0]);
-      await pick('npArtSize', 'Kompakt');
+      await pick('npArtSize', 'Küçük');
       await page.waitForFunction(() => document.body.classList.contains('am-np-compact'));
       const npSmall = await npLook();
       assert.deepEqual([npSmall.art, npSmall.thumb, npSmall.lyrics > npLarge.lyrics + npLarge.art / 2], [0, 50, true], JSON.stringify([npLarge, npSmall]));
-      await pick('npBg', 'Sade (Apple)');
+      await pick('npBg', 'Sade');
       assert.equal((await npLook()).compact, false, 'Plain has no artwork to shrink');
       await pick('npBg', 'Spicy Lyrics');
       // #153: blended runs the cover to the pane's edges and fades it; only over the cover's own colours.
-      await pick('npArtSize', 'Zemine eriyen');
+      await pick('npArtSize', 'Kenara eriyen');
       await page.waitForFunction(() => document.body.classList.contains('am-np-blend'));
       assert.deepEqual(await page.evaluate(() => { const pane = document.getElementById('am-nowplaying').getBoundingClientRect(), art = document.querySelector('#am-nowplaying .am-np-art'), box = art.getBoundingClientRect(), cover = getComputedStyle(art.querySelector('.am-np-cover'));
         return [box.left === pane.left, box.top === pane.top, box.width === pane.width, cover.borderTopLeftRadius, getComputedStyle(art).webkitMaskImage.startsWith('linear-gradient'), document.querySelector('#am-nowplaying .am-np-meta').getBoundingClientRect().top < box.bottom]; }), [true, true, true, '0px', true, true]);
@@ -2466,7 +2592,7 @@ try {
 
       // Full screen without Spicy Lyrics: the pane fills the window, artwork left and lyrics right, the floating player
       // over it; lyrics kept for full screen only show there. Esc or the button again brings the card back as it was.
-      await pick('npLyricsPlace', 'Yalnızca tam ekranda');
+      await pick('npLyricsPlace', 'Yalnız tam ekranda');
       assert.ok(!(await page.isVisible('#am-nowplaying .am-np-lyrics')) && await page.isVisible('#am-nowplaying .am-np-art'));
       assert.equal(await page.getAttribute('#am-nowplaying .am-np-fullscreen', 'title'), 'Tam ekran sözler');
       await page.evaluate(() => { window.__mockState.progress = 125000; });
@@ -2489,7 +2615,7 @@ try {
 
       // Plain (Apple Music's lyrics pane): opaque, no artwork or header, only the lyrics; paused every line is grey, playing
       // the line being sung is bright; the pane's buttons show on hover.
-      await pick('npBg', 'Sade (Apple)');
+      await pick('npBg', 'Sade');
       await page.waitForSelector('#am-nowplaying .am-np-line.am-current');
       const plain = () => page.evaluate(() => { const np = document.getElementById('am-nowplaying'), shown = s => !!np.querySelector(s)?.getClientRects().length;
         return { bg: getComputedStyle(np).backgroundColor, art: shown('.am-np-art'), meta: shown('.am-np-meta'), lyrics: shown('.am-np-lyrics'), current: getComputedStyle(np.querySelector('.am-np-line.am-current')).opacity, other: getComputedStyle(np.querySelector('.am-np-line:not(.am-current)')).opacity }; });
@@ -2511,7 +2637,7 @@ try {
       const route = () => page.evaluate(() => Spicetify.Platform.History.location.pathname);
       const paneShown = () => page.evaluate(() => !document.getElementById('am-nowplaying').hidden && document.body.classList.contains('am-np-open'));
       const paneParts = () => page.evaluate(() => { const np = document.getElementById('am-nowplaying'), shown = s => !!np.querySelector(s)?.getClientRects().length; return [shown('.am-np-art'), shown('.am-np-meta'), shown('.am-np-lyrics')]; });
-      for (const layout of ['Cam kart', 'Kenara yapışık']) {
+      for (const layout of ['Yüzen kart', 'Kenarda']) {
         await pick('npLayout', layout);
         const before = await rect('#am-nowplaying');
         await page.waitForFunction(() => document.querySelector('#am-nowplaying .am-np-fullscreen').title === 'Spicy Lyrics\'te aç');
@@ -2529,7 +2655,7 @@ try {
         assert.deepEqual(await rect('#am-nowplaying'), before, 'the pane stays as it was: ' + layout);
       }
       assert.deepEqual(await page.evaluate(() => [window.__spicyClicks, window.__spicyFullClicks]), [4, 2]);
-      await pick('npBg', 'Sade (Apple)');
+      await pick('npBg', 'Sade');
       await page.click('#am-lyrics-toggle');
       await page.waitForFunction(() => document.body.classList.contains('am-spicy-route'));
       assert.deepEqual(await paneParts(), [true, true, false], 'Plain on Spicy\'s page: artwork and title, no lyrics');
@@ -2538,7 +2664,7 @@ try {
       assert.deepEqual(await paneParts(), [false, false, true], 'Plain off the page: lyrics only');
       await pick('npBg', 'Kapak renkleri');
       await page.evaluate(() => document.getElementById('SpicyLyrics_FullscreenButton').remove());
-      await pick('npLayout', 'Cam kart');
+      await pick('npLayout', 'Yüzen kart');
 
       // Spicy Lyrics as the lyrics source: Spicy's card lives in Spotify's own Now Playing view (the right column), so the
       // pane steps aside and that column takes its place and shape, the card expanded by its own button and its header
@@ -2569,7 +2695,7 @@ try {
       const asideTop = await page.evaluate(() => document.getElementById('SpicyLyricsNPVCard').getBoundingClientRect().top);
       assert.deepEqual([state.col, Math.abs(asideTop - lyricsTop) <= 1], [paneRect, true], 'one background in the pane\'s place; Spicy\'s view starts where the lyrics did');
       // #153: in compact Spicy's view moves up with them, into the big cover's room.
-      await pick('npArtSize', 'Kompakt');
+      await pick('npArtSize', 'Küçük');
       await page.waitForFunction(() => document.body.classList.contains('am-np-compact'));
       await page.waitForFunction(() => { const card = document.getElementById('SpicyLyricsNPVCard').getBoundingClientRect().top, lyrics = document.querySelector('#am-nowplaying .am-np-lyrics').getBoundingClientRect().top; return Math.abs(card - lyrics) <= 1; });
       assert.ok((await rect('#am-nowplaying .am-np-lyrics')).top < lyricsTop - 100, 'the lyrics start higher in compact');
@@ -2581,7 +2707,7 @@ try {
       await page.setViewportSize({ width: 1000, height: 620 });
       const cutAt = () => page.evaluate(() => [document.querySelector('#am-nowplaying .am-np-lyrics'), document.getElementById('SpicyLyricsNPVCard')].map(e => Math.round(e.getBoundingClientRect().top)));
       await page.waitForFunction(() => { const [l, c] = [document.querySelector('#am-nowplaying .am-np-lyrics'), document.getElementById('SpicyLyricsNPVCard')].map(e => e.getBoundingClientRect().top); return Math.abs(l - c) <= 1; });
-      for (const size of ['Zemine eriyen', 'Büyük']) { await pick('npArtSize', size); await page.waitForTimeout(300); const [l, c] = await cutAt(); assert.ok(Math.abs(l - c) <= 1, `Spicy's view starts where the lyrics do after ${size} in a short window (${l}, ${c})`); }
+      for (const size of ['Kenara eriyen', 'Büyük']) { await pick('npArtSize', size); await page.waitForTimeout(300); const [l, c] = await cutAt(); assert.ok(Math.abs(l - c) <= 1, `Spicy's view starts where the lyrics do after ${size} in a short window (${l}, ${c})`); }
       await page.setViewportSize(fullSize);
       await page.waitForFunction(top => Math.abs(document.getElementById('SpicyLyricsNPVCard').getBoundingClientRect().top - top) <= 1, lyricsTop);
       const topAt = (x, y) => page.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return e?.closest('.am-native-right') ? 'column' : e?.closest('#am-nowplaying') ? 'pane' : e?.tagName; }, [x, y]);
@@ -2596,16 +2722,16 @@ try {
       assert.ok(await page.evaluate(() => document.body.classList.contains('am-np-artbg')), 'the cover\'s colours stay under them');
       await pick('npBg', 'Kapak renkleri');
       // Plain: the column is the whole sidebar.
-      await pick('npBg', 'Sade (Apple)');
+      await pick('npBg', 'Sade');
       await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden);
       state = await spicyState();
       assert.deepEqual([state.pane, state.radius, state.col], [false, '18px', paneRect]);
       assert.ok(await page.evaluate(() => { const c = document.querySelector('.am-native-right'), r = c.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('.am-native-right') === c; }), 'Spicy\'s column is on top');
-      await pick('npLayout', 'Kenara yapışık');
+      await pick('npLayout', 'Kenarda');
       state = await spicyState();
       assert.deepEqual([state.col.top, state.col.right, state.radius], [0, await page.evaluate(() => innerWidth), '0px'], 'docked: full height at the edge, square corners');
       assert.ok(await page.evaluate(() => [...document.querySelectorAll('.am-native-right [data-am-np-fill]')].every(n => getComputedStyle(n).borderTopLeftRadius === '0px')), 'no rounded corner inside the column');
-      await pick('npLayout', 'Cam kart');
+      await pick('npLayout', 'Yüzen kart');
       await page.evaluate(() => document.querySelector('[data-testid="control-button-queue"]').click());
       const lastPanel = () => [...document.querySelectorAll('.right aside')].pop();
       await page.waitForFunction(`(${lastPanel})().getAttribute('aria-label') === 'Sıraya Ekle' && !document.getElementById('am-nowplaying').hidden && !document.body.classList.contains('am-np-spicy')`);
@@ -2632,7 +2758,7 @@ try {
       assert.ok(await page.isVisible('#am-nowplaying'));
 
       // Sidebar only: the floating player goes, its own controls move into the pane and still work.
-      await pick('nowPlaying', 'Yalnızca panel');
+      await pick('nowPlaying', 'Oynatıcı yerine');
       assert.ok(!(await page.isVisible('#am-player')));
       assert.equal(await page.locator('#am-nowplaying .am-np-controls .am-transport').count(), 1);
       assert.equal(await page.locator('#am-nowplaying .am-np-controls .am-scrub .am-seek').count(), 1);
@@ -2642,7 +2768,7 @@ try {
       await page.click('#am-nowplaying .am-transport .am-play');
       assert.equal(await page.evaluate(() => window.__mockState.playing), !playing);
       await page.click('#am-nowplaying .am-transport .am-play');
-      await pick('npLayout', 'Kenara yapışık');
+      await pick('npLayout', 'Kenarda');
       // The pane slides into place (npAnimate); measure where it lands, not a frame of the slide (a slow renderer
       // was still mid-way when the rect was read).
       await page.waitForFunction(() => !document.getElementById('am-nowplaying').getAnimations().length);
@@ -2693,7 +2819,7 @@ try {
       page.off('request', onRequest);
       await page.unrouteAll({ behavior: 'ignoreErrors' });
       // The rows below the first show only while the pane is on; a failure above may have left it off.
-      for (const [key, value] of [['nowPlaying', 'Oynatıcının yanında'], ['npArt', 'Kapalı (sabit kapak)'], ['npLayout', 'Cam kart'], ['nowPlaying', 'Kapalı']]) await pick(key, value).catch(() => {});
+      for (const [key, value] of [['nowPlaying', 'Oynatıcıyla'], ['npArt', 'Kapalı (sabit kapak)'], ['npLayout', 'Yüzen kart'], ['nowPlaying', 'Kapalı']]) await pick(key, value).catch(() => {});
     }
     // Back off: the controls are home in the floating player, the pane is gone.
     assert.ok(await page.isVisible('#am-player .am-transport'));
@@ -2818,12 +2944,12 @@ try {
       const names = () => other.evaluate(() => window.__menus[0]?.items.map(i => i.name));
       const list = await names();
       // Every definition but the window's own, in tab order (General first); a choice gives a row per option.
-      assert.equal(list[0], 'Dil: Otomatik');
-      assert.ok(['Dil: Türkçe', 'Renk: Spotify Yeşili', 'Oynatıcıda albüm kapağı', 'Düğme: Karıştır', 'Son listeler: 20', 'Çalma listelerinde parça numaraları'].every(n => list.includes(n)));
-      assert.ok(list.includes('Renk: Mavi') && list.includes('Cam efekti: Eko') && list.includes('Son listeler: Yok'));
-      await other.evaluate(() => window.__menus[0].items.find(i => i.name === 'Liquid Glass oynatıcı').onClick());
-      assert.ok(await other.evaluate(() => !document.body.classList.contains('am-liquid') && window.__menus[0].items.find(i => i.name === 'Liquid Glass oynatıcı').checked === false));
-      await other.evaluate(() => window.__menus[0].items.find(i => i.name === 'Liquid Glass oynatıcı').onClick());
+      assert.equal(list[0], 'Dil: Spotify ile aynı');
+      assert.ok(['Dil: Türkçe', 'Vurgu rengi: Spotify Yeşili', 'Albüm kapağı', 'Düğme: Karıştır', 'Son listeler: 20', 'Çalma listelerinde numaralar'].every(n => list.includes(n)));
+      assert.ok(list.includes('Vurgu rengi: Mavi') && list.includes('Cam efekti: Eko') && list.includes('Son listeler: Yok'));
+      await other.evaluate(() => window.__menus[0].items.find(i => i.name === 'Liquid Glass').onClick());
+      assert.ok(await other.evaluate(() => !document.body.classList.contains('am-liquid') && window.__menus[0].items.find(i => i.name === 'Liquid Glass').checked === false));
+      await other.evaluate(() => window.__menus[0].items.find(i => i.name === 'Liquid Glass').onClick());
       // Saved values of settings this build does not define are kept when it saves.
       await other.evaluate(() => localStorage.setItem('mcloud:settings', JSON.stringify({ ...JSON.parse(localStorage.getItem('mcloud:settings')), futureKey: 'kept' })));
       // A window that fails to open: the entry gives way to the submenu, and a toast says where the settings went.
@@ -2833,7 +2959,7 @@ try {
       assert.deepEqual(await other.evaluate(() => [window.__menuItems.length, window.__menus.length, document.getElementById('am-settings')]), [0, 1, null]);
       assert.match(await other.textContent('.am-toasts > :last-child'), /mcloud/);
       const artwork = await other.evaluate(() => JSON.parse(localStorage.getItem('mcloud:settings')).artwork);
-      await other.evaluate(() => window.__menus[0].items.find(i => i.name === 'Oynatıcıda albüm kapağı').onClick());
+      await other.evaluate(() => window.__menus[0].items.find(i => i.name === 'Albüm kapağı').onClick());
       assert.deepEqual(await other.evaluate(() => { const s = JSON.parse(localStorage.getItem('mcloud:settings')); return [s.futureKey, s.artwork]; }), ['kept', !artwork]);
       assert.deepEqual(otherErrors, []);
     } finally { await other.close(); }
@@ -2850,7 +2976,7 @@ try {
       await other.evaluate(() => window.__menuItems.find(i => i.name === 'mcloud Ayarları').onClick());
       await other.click('#am-settings .am-settings-tab:has-text("Oynatıcı")');
       await other.click('#am-settings [data-key="artwork"] .am-settings-switch');
-      await other.click('#am-settings .am-settings-ok');
+      await other.click('#am-settings .am-settings-close');
     };
     try {
       await other.goto(pathToFileURL(path.join(here, 'preview.html')).href);
@@ -3268,7 +3394,7 @@ try {
     assert.deepEqual([opening.hidden, opening.anims, opening.cls], [false, [240], true], 'the pane animates in');
     assert.equal(opening.easing, 'cubic-bezier(0.32, 0.72, 0, 1)');
     await page.waitForFunction(() => !document.body.classList.contains('am-np-anim'));
-    await settingsWindow.pick('npLayout', 'Kenara yapışık');
+    await settingsWindow.pick('npLayout', 'Kenarda');
     assert.notEqual(await column(), '0px', 'the page keeps a right column while the pane is open');
     // Closing: the pane stays mounted while it slides out, then goes; the column eases back to nothing.
     const closing = await toggle();
@@ -3280,7 +3406,7 @@ try {
     const still = await toggle();
     assert.deepEqual([still.hidden, still.anims, still.cls], [false, [], false], 'no animation with reduced motion');
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await settingsWindow.pick('npLayout', 'Cam kart');
+    await settingsWindow.pick('npLayout', 'Yüzen kart');
     await page.evaluate(() => document.querySelector('#am-player [data-am-button="nowplaying"]').click());
     await page.waitForFunction(() => document.querySelector('#am-nowplaying').hidden);
   });
