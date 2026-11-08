@@ -802,6 +802,12 @@ body > [data-tippy-root] > #context-menu > div:has(> span + [data-popper-arrow])
 body > [data-tippy-root] > #context-menu[data-placement^="top"] > div:has(> span + [data-popper-arrow]) {transform:translateY(12px)}
 body > [data-tippy-root] > #context-menu[data-placement^="bottom"] > div:has(> span + [data-popper-arrow]) {transform:translateY(-12px)}
 body.am-solid > [data-tippy-root] > div > div:has(> #hover-or-focus-tooltip),body.am-solid > [data-tippy-root] > #context-menu > div:has(> span + [data-popper-arrow]) {background:var(--am-menu-solid)!important;backdrop-filter:none;-webkit-backdrop-filter:none}
+/* Encore's own tooltip (role="tooltip", data-encore-id="tooltip"), which Home's "New release from …" card and Spotify's
+   promotion cards use (#199), renders inline after its button rather than in a [data-tippy-root], so it kept Spotify's
+   solid box. Same material and type; it keeps Spotify's delayed fade (the animation sets its opacity). */
+[data-encore-id="tooltip"][role="tooltip"] {padding:4px 9px!important;border-radius:8px!important;background:color-mix(in srgb,var(--am-menu-solid) 72%,transparent)!important;backdrop-filter:blur(20px) saturate(1.8);-webkit-backdrop-filter:blur(20px) saturate(1.8);box-shadow:inset 0 0 0 .5px rgb(var(--am-rim)/.149),inset 0 1px rgb(var(--am-rim)/.1),0 6px 16px #00000059!important;color:rgb(var(--am-ink)/.92)!important;max-width:300px!important;text-wrap:balance}
+:is([data-encore-id="tooltip"][role="tooltip"],[data-encore-id="tooltip"][role="tooltip"] *) {font:500 12px/16px var(--encore-body-font-stack)!important;letter-spacing:-.01em}
+body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-menu-solid)!important;backdrop-filter:none;-webkit-backdrop-filter:none}
 @keyframes am-tip-in {from{opacity:0}}
 /* Menus, ours and Spotify's (lists in [data-tippy-root]s, which its hashed classes draw as flat #1e1e1e boxes):
    macOS 27's menu (research/menus/REPORT.md §10-12). theme.js gives each menu a filter (data-am-glass) with the bend
