@@ -1691,7 +1691,9 @@ body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(
 [data-key="appearance"] [data-value="dark"] .am-settings-tile {background:linear-gradient(#1c1c1e 0 28%,#2c2c2e 28%)}
 [data-key="appearance"] [data-value="light"] .am-settings-tile {background:linear-gradient(#e5e5ea 0 28%,#fff 28%)}
 [data-key="appearance"] [data-value="system"] .am-settings-tile {background:linear-gradient(105deg,#fff 0 50%,#2c2c2e 50%)}
-[data-key="npLayout"] [data-value="card"] .am-settings-tile {background:linear-gradient(90deg,#0000 60%,var(--am-accent) 60% 94%,#0000 94%) 0 50%/100% 76% no-repeat,#2c2c2e}
+/* The floating card stands clear of the window's edges on every side, with a shadow, so it reads apart from "Docked". */
+[data-key="npLayout"] [data-value="card"] .am-settings-tile {position:relative;background:#2c2c2e}
+[data-key="npLayout"] [data-value="card"] .am-settings-tile::after {content:"";position:absolute;inset:7px 6px 7px auto;width:21px;border-radius:4px;background:var(--am-accent);box-shadow:0 3px 7px rgb(0 0 0/.6),0 0 0 .5px rgb(255 255 255/.3)}
 [data-key="npLayout"] [data-value="docked"] .am-settings-tile {background:linear-gradient(90deg,#2c2c2e 64%,var(--am-accent) 64%)}
 [data-key="npBg"] [data-value="spicy"] .am-settings-tile {background:radial-gradient(60% 75% at 30% 30%,#e2556f,#0000),radial-gradient(60% 75% at 80% 80%,#6b2d8f,#0000),#2a1830}
 [data-key="npBg"] [data-value="artwork"] .am-settings-tile {background:linear-gradient(160deg,#a0405a,#3a2040)}
