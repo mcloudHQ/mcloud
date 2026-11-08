@@ -165,8 +165,11 @@ try {
     const right = async sel => { await page.click(sel, { button: 'right' }); return page.evaluate(() => !document.getElementById('am-popover').hidden); };
     const where = () => page.evaluate(() => Spicetify.Platform.History.location.pathname), before = await where();
     const links = '.am-track-subtitle .am-marquee-inner > span:first-child .am-lcd-link';
-    // Spotify (the default): the menu opens over the song only; each name is a link, the title opens the album.
-    assert.equal(await right('#am-player .am-transport .am-dim'), false, 'spotify: shuffle');
+    // Spotify (the default): the song's menu opens over the song only (elsewhere the player's options, #179); each name
+    // is a link, the title opens the album.
+    assert.equal(await right('#am-player .am-transport .am-dim'), true, 'spotify: shuffle');
+    assert.equal((await items())[0], 'Albüm kapağı', 'spotify: shuffle opens the player options');
+    await page.keyboard.press('Escape');
     assert.equal(await right('.am-track-art'), true, 'spotify: artwork');
     await page.keyboard.press('Escape');
     assert.equal(await right('.am-track-subtitle'), true, 'spotify: subtitle');
