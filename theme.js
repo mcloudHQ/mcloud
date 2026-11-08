@@ -4231,9 +4231,10 @@
     previewWatch=new MutationObserver(previewArtSoon);previewWatch.observe(view,{subtree:true,childList:true,attributes:true,attributeFilter:['src']});
     view.addEventListener('scrollend',previewArtSoon,{capture:true,passive:true});previewArt();
   }
-  // The dimmed sidebar and player act as the backdrop: a click there closes the preview, as Spotify's backdrop does.
+  // The dimmed player acts as the backdrop: a click there closes the preview, as Spotify's backdrop (over the sidebar
+  // and the Now Playing pane, #195) does.
   document.addEventListener('click',event=>{
-    if(!previewView?.isConnected||!(event.target instanceof Element)||!event.target.closest('#am-sidebar,#am-player'))return;
+    if(!previewView?.isConnected||!(event.target instanceof Element)||!event.target.closest('#am-player'))return;
     event.preventDefault();event.stopPropagation();previewView.querySelector('[data-testid="watch-feed-close-button"]')?.click();
   },true);
   // Ignore feed cards, lyrics text and player progress mutations. Only host

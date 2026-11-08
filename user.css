@@ -550,10 +550,18 @@ body.am-ready .notistack-SnackbarContainer {visibility:hidden!important;pointer-
 body.am-ready .Root > div:has(> [data-testid="watch-feed-view"]) {padding:var(--am-page-top) 0 84px var(--am-side);container-type:size}
 body.am-ready .Root > div > [data-testid="watch-feed-view"] {width:min(85%,min(1680px,85cqh*var(--aspect-ratio)))}
 /* Song previews as an Apple sheet (theme.js marks the overlay data-am-preview; settings.previewMaterial picks its
-   background: artwork, glass, color). The theme's sidebar and player sit above the page, so they take a dim of their
-   own while it is open (a click there closes it, theme.js). Spotify's columns are found by structure and test ids:
+   background: artwork, glass, color). The theme's player sits above the page, so it takes a dim of its own while it is
+   open (a click there closes it, theme.js). Spotify's columns are found by structure and test ids:
    info (first), canvas cards (second), buttons (last: mute/close, actions, previous/next). */
-body.am-preview-open :is(#am-sidebar,#am-player)::after {content:'';position:absolute;inset:0;z-index:100;border-radius:inherit;background:var(--am-pv-dim,#00000080);animation:am-dim-in .24s ease-out}
+body.am-preview-open #am-player::after {content:'';position:absolute;inset:0;z-index:100;border-radius:inherit;background:var(--am-pv-dim,#00000080);animation:am-dim-in .24s ease-out}
+/* The sheet covers the Now Playing pane (#195). #main isolates Spotify's app, so the overlay's z-index counted only
+   inside it and the pane (50, on body) drew over the card and its close button; in Spicy's split only the pane's top
+   is the pane, so there it looked like the blended artwork alone. While the sheet is open #main gives up its stacking
+   context and the overlay ranks on body just over the pane: over the sidebar (40, dimmed by the overlay itself), under
+   the player (60). Spotify's panels inside #main (55) step down to 49 meanwhile, so they stay under the pane as before. */
+body.am-ready.am-preview-open #main {z-index:auto!important;isolation:auto!important}
+body.am-ready.am-preview-open #main :is(.am-native-panel-open,.am-native-right) {z-index:49!important}
+body.am-ready.am-preview-open [data-am-preview] {z-index:51!important}
 body.am-preview-open #am-toolbar-glass {opacity:.5}
 [data-am-preview] {--am-pv-dim:#00000080;--am-pv-base:#1c1c1e;--am-pv-sheet:#28282abf;--am-pv-fill:#ffffff1f;--am-pv-fill-hover:#ffffff33;--am-pv-text:#fff;--am-pv-sub:#ffffffa6;--am-pv-on-sub:#1c1c1e;--am-pv-r:26px;--am-pv-pad:clamp(20px,3cqi,28px);
   --am-pv-rim:inset 0 1px #ffffff2e,inset 0 -1px #ffffff14,inset 0 0 0 .5px #ffffff1a;--am-pv-sheet-rim:inset 0 0 0 .5px #000000d9,inset 0 1px #ffffff1f,inset 0 1.5px #ffffff33,inset 0 -1px #ffffff1f,inset 0 -1.5px #ffffff30,inset 1px 0 #ffffff0a,inset 1.5px 0 #ffffff12,inset -1px 0 #ffffff0a,inset -1.5px 0 #ffffff12}

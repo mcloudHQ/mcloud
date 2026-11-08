@@ -2195,7 +2195,7 @@ try {
     assert.deepEqual(colours, [true, 'rgb(39,39,39)', 'brightness(0)', '0.65']);
   });
 
-  await check('song preview: an Apple sheet, its background from settings, the sidebar closes it (#75)', async () => {
+  await check('song preview: an Apple sheet, its background from settings, the dimmed player closes it (#75)', async () => {
     // Spotify 1.3's watch feed, reduced to the structure user.css relies on: info column (feed title, song, artist,
     // cover + progress, artist row), canvas column, button column (mute/close, actions, previous/next).
     const cover = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#c33"/></svg>');
@@ -2219,14 +2219,14 @@ try {
       const close = document.querySelector('[data-testid="watch-feed-close-button"]'), pill = view.querySelector(':scope > div > div:first-child > div:first-child');
       return { marked: document.getElementById('mock-feed').hasAttribute('data-am-preview'), classes: ['am-pv-artwork'].map(c => document.body.classList.contains(c)),
         art: document.documentElement.style.getPropertyValue('--am-preview-art'), grid: cs(view.firstElementChild).display, pill: cs(pill).gridArea.split(' ')[0],
-        close: [cs(close).width, cs(close).borderRadius], radius: cs(view).borderTopLeftRadius, dim: cs(document.getElementById('am-sidebar'), '::after').content,
+        close: [cs(close).width, cs(close).borderRadius], radius: cs(view).borderTopLeftRadius, dim: cs(document.getElementById('am-player'), '::after').content,
         frost: cs(close).backdropFilter };
     });
     assert.ok(look.marked, 'the overlay is marked');
     assert.deepEqual(look.classes, [true], 'blurred artwork by default');
     assert.match(look.art, /^url\("data:image\/svg/, 'the cover feeds the artwork material');
     assert.deepEqual([look.grid, look.pill, look.close, look.radius], ['grid', 'pill', ['40px', '50%'], '26px']);
-    assert.notEqual(look.dim, 'none', 'the sidebar dims with the page');
+    assert.notEqual(look.dim, 'none', 'the player dims with the page');
     assert.match(look.frost, /^(blur\(12px\) saturate\(1\.4\)|none)$/, 'frosted buttons (plain in Eco)');
     await shot('song-preview');
     // #151: the first song has only Next, absolute in a 0×0 box, the others previous and next in the flow; the song's
@@ -2272,8 +2272,9 @@ try {
     await settingsWindow.pick('previewMaterial', 'Cam');
     assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-pv-glass'), document.body.classList.contains('am-pv-artwork'), getComputedStyle(document.querySelector('[data-testid="watch-feed-view"]'), '::before').content, JSON.parse(localStorage.getItem('mcloud:settings')).previewMaterial]), [true, false, 'none', 'glass']);
     await settingsWindow.pick('previewMaterial', 'Bulanık kapak');
-    // A click on the dimmed sidebar closes it, as one on Spotify's backdrop does.
-    await page.click('#am-sidebar', { position: { x: 100, y: 400 } });
+    // The overlay covers the sidebar (#195); a click on the dimmed player closes it, as one on Spotify's backdrop does.
+    assert.ok(await page.evaluate(() => !!document.elementFromPoint(100, 400)?.closest('#mock-feed')), 'the overlay is over the sidebar');
+    await page.click('#am-player', { position: { x: 4, y: 27 } });
     await page.waitForFunction(() => !document.getElementById('mock-feed') && !document.body.classList.contains('am-preview-open'));
     assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--am-preview-art')), '');
   });
@@ -2723,6 +2724,30 @@ try {
       assert.equal(JSON.parse(await english.evaluate(() => localStorage.getItem('mcloud:settings'))).lang, 'tr');
       assert.deepEqual(englishErrors, []);
     } finally { await english.close(); }
+  });
+
+  await check('a song preview covers the Now Playing pane, the player stays over it (#195)', async () => {
+    await page.click('#am-player .am-np-toggle');
+    await page.waitForFunction(() => !document.getElementById('am-nowplaying').hidden && !document.querySelector('#am-nowplaying').getAnimations().length);
+    try {
+      await page.evaluate(() => document.querySelector('.Root').insertAdjacentHTML('beforeend', `<div id="mock-feed-np" role="presentation" style="position:absolute;inset:0;display:flex;justify-content:center;align-items:center;z-index:6">
+        <div data-testid="watch-feed-view" style="--aspect-ratio:16 / 10;position:relative;aspect-ratio:var(--aspect-ratio)"><button data-testid="watch-feed-close-button" aria-label="Close" style="position:absolute;top:0;right:0">x</button></div></div>`));
+      await page.waitForFunction(() => document.body.classList.contains('am-preview-open'));
+      assert.deepEqual(await page.evaluate(() => {
+        const v = document.querySelector('#mock-feed-np [data-testid="watch-feed-view"]').getBoundingClientRect(), p = document.getElementById('am-nowplaying').getBoundingClientRect(), c = document.querySelector('#mock-feed-np [data-testid="watch-feed-close-button"]').getBoundingClientRect();
+        const at = (x, y) => document.elementFromPoint(x, y), pl = document.getElementById('am-player').getBoundingClientRect();
+        return [v.right > p.left, !!at((p.left + v.right) / 2, p.top + 100)?.closest('#mock-feed-np'), !!at(c.left + c.width / 2, c.top + c.height / 2)?.closest('[data-testid="watch-feed-close-button"]'),
+          !!at(pl.left + pl.width / 2, pl.top + pl.height / 2)?.closest('#am-player'), getComputedStyle(document.getElementById('main')).zIndex];
+      }), [true, true, true, true, 'auto'], 'the card and its close button over the pane, the player over the overlay');
+      await page.evaluate(() => document.getElementById('mock-feed-np').remove());
+      await page.waitForFunction(() => !document.body.classList.contains('am-preview-open'));
+      // Closed, #main isolates again and the pane is back over the page.
+      assert.deepEqual(await page.evaluate(() => { const p = document.getElementById('am-nowplaying').getBoundingClientRect(); return [getComputedStyle(document.getElementById('main')).isolation, !!document.elementFromPoint(p.left + p.width / 2, p.top + p.height / 2)?.closest('#am-nowplaying')]; }), ['isolate', true]);
+    } finally {
+      await page.evaluate(() => document.getElementById('mock-feed-np')?.remove());
+      await page.click('#am-player .am-np-toggle');
+      await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden, null, { timeout: 3000 }).catch(() => {});
+    }
   });
 
   await check('Spicetify without its webpack bindings (2.46.2 cold start): the player, CosmosAsync and Spotify labels still work', async () => {
