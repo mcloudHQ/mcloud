@@ -1003,11 +1003,12 @@
     },{root,rootMargin}):null;
   }
   // Artwork that loaded before is set at once and decoded at paint, so a page drawn again (going back) has it in its
-  // first frame; left to the observer or to async decoding it pops in a frame or three later. The last 200 are held by
-  // an Image each: released sources otherwise drop out of the memory cache and load asynchronously again.
+  // first frame (so does Playing Next, opened again in the Now Playing pane); left to the observer or to async decoding
+  // it pops in a frame or three later. The last 200 are held by an Image each: released sources otherwise drop out of the
+  // memory cache and load asynchronously again.
   const seenArtwork=new Map();
   document.addEventListener('load',event=>{
-    const img=event.target,src=img.tagName==='IMG'&&img.closest?.('#am-library,#am-artist,#am-search')&&img.getAttribute('src');if(!src||seenArtwork.has(src))return;
+    const img=event.target,src=img.tagName==='IMG'&&img.closest?.('#am-library,#am-artist,#am-search,.am-np-queue')&&img.getAttribute('src');if(!src||seenArtwork.has(src))return;
     const hold=new Image();hold.src=src;seenArtwork.set(src,hold);if(seenArtwork.size>200)seenArtwork.delete(seenArtwork.keys().next().value);
   },true);
   function observeLazy(observer,img) {
@@ -2793,7 +2794,7 @@
   const npBlend=()=>settings.npArtSize==='blend'&&(settings.npBg==='artwork'||settings.npBg==='spicy');
   function npApply() {
     if(!npReady)return;
-    const mode=npWant??settings.nowPlaying,b=document.body.classList,open=npOpenFor(mode),spicy=npSpicyWanted(mode);
+    const mode=npWant??settings.nowPlaying,b=document.body.classList,open=npOpenFor(mode),spicy=npSpicyWanted(mode),fromSpicy=npSpicyOn&&!spicy;
     // The pane's own content is rebuilt when it comes back from Spicy's (its lyrics were not loaded meanwhile).
     if(spicy!==npSpicyOn){npSpicyOn=spicy;b.toggle('am-np-spicy',spicy);npTrackKey='';npLyricUri=null;}
     const split=spicy&&settings.npBg!=='plain';
@@ -2811,7 +2812,9 @@
     if(shown){
       np.hidden=false;
       if(npLeaveTimer){clearTimeout(npLeaveTimer);npLeaveTimer=0;npAnim?.cancel();npAnim=null;}
-      if(opening)npAnimate(true);
+      // Back in the place of Spicy's column (Playing Next, #182, or the card gone), which leaves at the same moment: no slide,
+      // which faded the pane in over the bare page.
+      if(opening&&!fromSpicy)npAnimate(true);
     }
     npToggle.classList.toggle('am-active',on);setAttributeIfChanged(npToggle,'aria-pressed',String(on));
     setAttributeIfChanged(npToggle,'title',on?T('Şimdi Çalan\'ı gizle','Hide Now Playing'):T('Şimdi Çalan\'ı göster','Show Now Playing'));
