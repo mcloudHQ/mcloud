@@ -1655,7 +1655,7 @@ try {
     await shot('settings-window');
     // General: the look in pictures, the accent, glass with its "?" help.
     await page.click('#am-settings .am-settings-tab:has-text("Genel")');
-    assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-tile-label').allTextContents(), ['Koyu', 'Açık', 'Otomatik']);
+    assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-tile-label').allTextContents(), ['Koyu', 'Açık']);
     await page.click('#am-settings [data-key="accent"] [aria-label="Mavi"]');
     assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--am-accent')), '#0a84ff');
     assert.equal(await page.isVisible('#am-settings [data-key="glass"] .am-settings-help'), false);
@@ -1835,7 +1835,7 @@ try {
       return [...document.querySelectorAll('#am-player .am-transport button')].map(b => { const r = b.getBoundingClientRect(); return [r.x - p.x + r.width / 2, r.width]; }); });
     assert.deepEqual(boxes, [[23, 28], [51, 28], [83, 36], [115, 28], [143, 28]]);
   });
-  await check('appearance: light swaps the colour tokens, the accent and the glass tone; system follows the OS (#74)', async () => {
+  await check('appearance: light swaps the colour tokens, the accent and the glass tone; no system choice (#74, #179)', async () => {
     // In the settings window (#76): Appearance tab, a segmented control.
     const pick = async name => {
       if (!await page.locator('#am-settings').count()) await page.evaluate(() => window.__menuItems.find(i => i.name === 'mcloud Ayarları').onClick());
@@ -1868,13 +1868,11 @@ try {
     shots && await page.screenshot({ path: path.join(shots, 'light-home.png') });
     // The artist page keeps its dark artist colours in light mode, as Music does; the submenu holds only the appearance.
     assert.ok(await page.evaluate(() => document.body.classList.contains('am-artist-stays-dark')));
-    assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-option').allTextContents(), ['Koyu', 'Açık', 'Otomatik']);
-    // System: follows prefers-color-scheme as it changes.
-    await page.emulateMedia({ colorScheme: 'dark' });
-    await pick('Görünüm: Otomatik');
-    assert.equal((await state()).light, false);
+    // No "follow the system" choice (#179); the OS turning light leaves dark alone.
+    assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-option').allTextContents(), ['Koyu', 'Açık']);
+    await pick('Görünüm: Koyu');
     await page.emulateMedia({ colorScheme: 'light' });
-    await page.waitForFunction(() => document.body.classList.contains('am-light'));
+    assert.equal((await state()).light, false);
     await page.emulateMedia({ colorScheme: null });
     await pick('Görünüm: Koyu');
     const back = await state();

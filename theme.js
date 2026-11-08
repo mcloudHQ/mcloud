@@ -307,14 +307,15 @@
     apply:v=>document.body.classList.toggle('am-lcd-links',v==='spotify'),change:()=>syncPlayer()});
   defineSetting({key:'numbers',group:'pages',section:T('Parça listeleri','Track lists'),label:T('Çalma listelerinde numaralar','Numbers in playlists'),type:'toggle',default:true,context:['list'],here:()=>/^\/(playlist|collection)\//.test(routePath())});
   defineSetting({key:'tracklistHeader',group:'pages',section:T('Parça listeleri','Track lists'),label:T('Sütun başlıkları','Column headings'),note:T('#, Başlık, Albüm, Eklenme ve süre satırı.','The #, Title, Album, Date added and time row.'),type:'toggle',default:true,context:['list','view'],apply:v=>document.body.classList.toggle('am-no-tracklist-header',!v)});
-  // Appearance (issue #74): dark, light (Apple Music's light appearance) or the system's. user.css keeps every colour
+  // Appearance (issue #74): dark or light (Apple Music's light appearance); no "follow the system" choice (#179), a saved
+  // 'system' becomes the mode the OS shows at that moment. user.css keeps every colour
   // in --am-* tokens; light mode is body.am-light (and :root.am-light) swapping their values. The glass filters carry
   // their tone in SVG, so light mode adds one colour step to each (applyGlassScheme). As in Music, the artist page keeps
   // its dark artist colour in light mode (body.am-artist-stays-dark), only the glass around it turns light.
-  const appearanceModes=['dark','light','system'];
+  const appearanceModes=['dark','light'];
   if(typeof settings.appearance!=='string')try{const saved=JSON.parse(localStorage.getItem('mcloud:settings')||'{}').appearance;settings.appearance=typeof saved==='string'?saved:'dark';}catch{settings.appearance='dark';}
-  const systemLight=matchMedia('(prefers-color-scheme: light)');
-  const isLight=()=>settings.appearance==='light'||settings.appearance==='system'&&systemLight.matches;
+  if(settings.appearance==='system')settings.appearance=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';
+  const isLight=()=>settings.appearance==='light';
   // Light accents: Music's own KeyColor for red (its asset catalog: #fa233b in light, #fa2d48 in dark), the others
   // NSColor's system colours resolved under aqua on macOS 27; Spotify green from its light Encore sets.
   const lightAccents={red:'#fa233b',pink:'#ff2d55',orange:'#ff8d28',yellow:'#ffcc00',green:'#34c759',teal:'#00c3d0',blue:'#0088ff',purple:'#cb30e0',spotify:'#169f47'};
@@ -383,10 +384,9 @@
   }
   // applySettings (accent, glass) runs first and announces itself; the light accent then replaces the dark one.
   document.addEventListener('am-settings',applyAppearance);
-  systemLight.addEventListener?.('change',()=>{if(settings.appearance==='system')applyAppearance();});
   applyAppearance();
   function setAppearance(key,value){settings[key]=value;saveSettings();applyAppearance();}
-  const appearanceLabels=()=>({appearance:[T('Görünüm','Appearance'),{dark:T('Koyu','Dark'),light:T('Açık','Light'),system:T('Otomatik','Auto')}]});
+  const appearanceLabels=()=>({appearance:[T('Görünüm','Appearance'),{dark:T('Koyu','Dark'),light:T('Açık','Light')}]});
   function spotifyImage(source='') {
     if(source.startsWith('spotify:image:')) source='https://i.scdn.co/image/'+source.slice(14);
     if(source.startsWith('spotify:mosaic:')) source='https://mosaic.scdn.co/300/'+source.slice(15).replaceAll(':','');
