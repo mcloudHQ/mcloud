@@ -995,6 +995,55 @@ try {
     await page.waitForFunction(() => !document.body.classList.contains('am-artist-open'));
   });
 
+  await check('an artist without a photo gets the microphone in the hero, a real portrait stays (#178)', async () => {
+    const hero = async (id, kind) => {
+      await page.evaluate(([id, kind]) => {
+        const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#1a1a1a'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#5a5a5a'; x.fillRect(28, 24, 8, 16);
+        const flat = c.toDataURL(); x.fillStyle = '#c33'; x.fillRect(0, 0, 64, 64);
+        window.__savedHeader = window.__mockArtist.headerImage; window.__savedVisuals = window.__mockArtist.visuals;
+        window.__mockArtist.headerImage = null;
+        window.__mockArtist.visuals = { ...window.__savedVisuals, headerImage: null, avatarImage: kind && { sources: [{ url: kind === 'flat' ? flat : c.toDataURL(), width: 160, height: 160 }] } };
+        Spicetify.Platform.History.push('/artist/' + id);
+      }, [id, kind]);
+      await page.waitForSelector('body.am-artist-open .am-hero-avatar .am-hero-portrait');
+      await page.waitForFunction(() => { const p = document.querySelector('.am-hero-portrait'); return p.tagName !== 'IMG' || p.style.visibility !== 'hidden'; });
+      const seen = await page.evaluate(() => { const p = document.querySelector('.am-hero-portrait'), s = getComputedStyle(p, '::after'); return [p.tagName, s.content !== 'none', p.getBoundingClientRect().width > 100, getComputedStyle(p).borderRadius]; });
+      await page.evaluate(() => { window.__mockArtist.headerImage = window.__savedHeader; window.__mockArtist.visuals = window.__savedVisuals; Spicetify.Platform.History.push('/'); });
+      await page.waitForFunction(() => !document.body.classList.contains('am-artist-open'));
+      return seen;
+    };
+    assert.deepEqual(await hero('noPhoto178', 'flat'), ['SPAN', true, true, '50%']);
+    assert.deepEqual(await hero('noAvatar178', null), ['SPAN', true, true, '50%']);
+    assert.deepEqual(await hero('portrait178', 'photo'), ['IMG', false, true, '50%']);
+  });
+
+  await check('Home shortcuts and search results: an artist without a photo gets the microphone, others keep their image (#178)', async () => {
+    const home = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+      await home.goto(pathToFileURL(path.join(here, 'preview.html')).href);
+      await home.waitForSelector('body.am-ready #am-sidebar');
+      const flat = await home.evaluate(() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#1a1a1a'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#5a5a5a'; x.fillRect(28, 24, 8, 16); return c.toDataURL().split(',')[1]; });
+      await home.route('https://i.scdn.co/image/**', r => r.fulfill({ contentType: 'image/png', headers: { 'Access-Control-Allow-Origin': '*' }, body: Buffer.from(flat, 'base64') }));
+      await home.evaluate(() => {
+        const tile = (href, n) => `<div><div draggable="true"><a href="${href}"><div><div><img alt="" src="https://i.scdn.co/image/flat${n}"></div></div></a><div data-testid="shortcut-background"></div></div></div>`;
+        const s = document.createElement('div'); s.id = 'mock-home178'; s.innerHTML = tile('/artist/1', 1) + tile('/album/2', 2);
+        document.querySelector('.am-native-main main').prepend(s);
+        const d = document.createElement('div'); d.id = 'search-dropdown'; d.innerHTML = '<div role="row"><div><img alt="" src="https://i.scdn.co/image/flat3"></div><div id="r1-title"><a href="/artist/3">Artist</a></div></div><div role="row" id="mock-album178"><div><img alt="" src="https://i.scdn.co/image/flat4"></div><div id="r2-title"><a href="/album/4">Black album</a></div></div>';
+        document.body.append(d);
+      });
+      await home.waitForSelector('#mock-home178 [data-am-shortcut] [data-am-no-photo]');
+      await home.waitForSelector('#search-dropdown [data-am-no-photo]');
+      await home.waitForTimeout(200);
+      assert.deepEqual(await home.evaluate(() => {
+        const [artist, album] = [...document.querySelectorAll('#mock-home178 img')].map(i => i.parentElement);
+        return [artist.hasAttribute('data-am-no-photo'), getComputedStyle(artist.firstElementChild).opacity, getComputedStyle(artist, '::after').content !== 'none', album.hasAttribute('data-am-no-photo'), getComputedStyle(album.firstElementChild).opacity];
+      }), [true, '0', true, false, '1']);
+      // Only artist rows: a dark, nearly flat cover (Metallica's black album) passes isPlaceholderArt too.
+      assert.deepEqual(await home.evaluate(() => { const img = document.querySelector('#mock-album178 img'); return [img.complete, img.parentElement.hasAttribute('data-am-no-photo'), getComputedStyle(img).opacity]; }), [true, false, '1']);
+      assert.deepEqual(await home.evaluate(() => { const box = document.querySelector('#search-dropdown [data-am-no-photo]'); return [getComputedStyle(box.firstElementChild).opacity, getComputedStyle(box, '::after').content !== 'none', getComputedStyle(box).borderRadius]; }), ['0', true, '50%']);
+    } finally { await home.close(); }
+  });
+
   await check('going back, the artist page stays up until Spotify\'s page has settled', async () => {
     await page.evaluate(() => Spicetify.Platform.History.push('/artist/mock'));
     await page.waitForSelector('body.am-artist-open .am-artist-name');
@@ -2114,6 +2163,28 @@ try {
     await albumPage(1);
     await page.waitForFunction(() => document.getElementById('am-album-style')?.textContent.includes('kanye'));
     assert.deepEqual(await shown(), [true, true, false]);
+    // #187: a guest's line (Frank Ocean with André 3000) can go too, or move into the title as Apple Music writes it;
+    // a track by other artists keeps its line either way.
+    await albumPage(0);
+    await page.waitForFunction(() => document.getElementById('am-album-style')?.textContent.includes('frank'));
+    const feat = () => page.$$eval('#mock-album72 .main-trackList-rowTitle', l => l.map(t => getComputedStyle(t, '::after').content));
+    const centred = () => page.evaluate(() => [...document.querySelectorAll('#mock-album72 .main-trackList-rowMarker')].map(m => { const s = m.firstElementChild.getBoundingClientRect(), r = m.getBoundingClientRect(); return Math.round(s.top + s.height / 2 - r.top - r.height / 2); }));
+    await settingsWindow.pick('albumFeatures', 'Gizle');
+    await page.waitForFunction(() => document.getElementById('am-album-style').textContent.split('{display:none').length === 3);
+    assert.deepEqual(await shown(), [false, false, true]);
+    assert.deepEqual(await centred(), [0, 0, -2]);
+    assert.deepEqual(await feat(), ['none', 'none', 'none']);
+    await settingsWindow.pick('albumFeatures', 'Apple Music gibi');
+    await page.waitForFunction(() => document.querySelector('#mock-album72 [data-am-feat]'));
+    assert.deepEqual(await shown(), [false, false, true]);
+    assert.deepEqual(await feat(), ['none', '" (feat. André 3000)"', 'none']);
+    assert.equal(await saved('albumFeatures'), 'apple');
+    await settingsWindow.pick('albumFeatures', 'Satırda göster');
+    await page.waitForFunction(() => document.getElementById('am-album-style').textContent.split('{display:none').length === 2);
+    assert.deepEqual(await shown(), [false, true, true]);
+    assert.deepEqual(await feat(), ['none', 'none', 'none']);
+    await albumPage(1);
+    await page.waitForFunction(() => document.getElementById('am-album-style')?.textContent.includes('kanye'));
     // Switched off, Spotify's rows come back as they were.
     await flip('albumClean', 'Sanatçıyı yalnız konuklarda göster');
     assert.deepEqual(await shown(), [true, true, true]);
@@ -2246,7 +2317,20 @@ try {
     const [r, g, b] = [1, 3, 5].map(i => parseInt(appleDark.slice(i, i + 2), 16));
     assert.ok(r > g && g > b && r < 120, 'a deep gold from the gold cover: ' + appleDark);
     assert.equal(await pageBg(), `rgb(${r}, ${g}, ${b})`, 'the page is that colour, flat');
+    await page.waitForTimeout(250); // the grey capsule's ease to the colour (#183)
     assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), 'rgba(255, 255, 255, 0.92)', "Apple's white play button");
+    // Its glyph is knocked out, as music.apple.com blends the pill (lighten): it shows the page colour, not black.
+    assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'color'), `rgb(${r}, ${g}, ${b})`, 'the play glyph takes the page colour');
+    // A page whose colour is not known yet (#183): play and shuffle show at once as a grey capsule instead of the
+    // accent, then ease to the colour.
+    await page.evaluate(() => { window.__apiDelay = 400; window.__mockPlaylistMeta['spotify:playlist:p184'] = { images: [{ url: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#30a050"/></svg>'), label: 'standard' }] }; });
+    await mount('playlist', 'p184');
+    assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-pending')), true);
+    assert.deepEqual([await css('[data-encore-id="buttonPrimary"]', 'visibility'), await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), await css('.e-1-button-tertiary--condensed-all', 'backgroundColor')], ['visible', 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.1)']);
+    await page.waitForFunction(() => !document.body.classList.contains('am-album-pending') && document.body.classList.contains('am-album-tinted'));
+    await page.waitForTimeout(250);
+    assert.equal(await css('[data-encore-id="buttonPrimary"] > span', 'backgroundColor'), 'rgba(255, 255, 255, 0.92)');
+    await page.evaluate(() => { window.__apiDelay = 0; });
     await settingsWindow.pick('albumTintFill', 'Geçişli');
     assert.equal(await page.evaluate(() => document.body.classList.contains('am-album-solid') || document.body.classList.contains('am-album-fill-apple')), false);
     // Other pages have no colour level.
@@ -2280,6 +2364,19 @@ try {
     assert.ok(albumCss.includes(':has('), 'the album rule was captured');
     const bad = [];
     for (const m of (css + albumCss).matchAll(/([^{}@;]+)\{/g)) for (const selector of split(m[1], [','])) { if (!selector.includes(':has(')) continue; const compounds = split(selector, [' ', '>', '+', '~']); if (compounds.length > 1 && compounds.slice(0, -1).some(c => c.includes(':has(')) && !named(compounds.at(-1))) bad.push(selector.slice(-110)); }
+    assert.deepEqual(bad, []);
+  });
+
+  await check('no class-attribute selector left of a subject in user.css (#137)', async () => {
+    // Blink keys such a selector's invalidation on the class attribute: any class change in the window restyled the
+    // element's whole subtree, ~11,000 elements for a body class (30–60ms, measured in the client). Inside
+    // :nth-child(n of …) or :has() it stays off that path; :where(:nth-child(n of [class…])):not(.am-none) keeps the match and specificity.
+    const css = fs.readFileSync(path.join(here, '..', 'user.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\("?data:[^)]*\)/g, 'url()');
+    const split = (text, seps) => { const parts = []; let depth = 0, cur = '', quote = null; for (const ch of text) { if (quote) { cur += ch; if (ch === quote) quote = null; continue; } if (ch === '"' || ch === "'") { quote = ch; cur += ch; continue; } if ('(['.includes(ch)) depth++; if (')]'.includes(ch)) depth--; if (!depth && seps.includes(ch)) { parts.push(cur); cur = ''; } else cur += ch; } parts.push(cur); return parts.map(p => p.trim()).filter(Boolean); };
+    const strip = c => { let out = '', i = 0; while (i < c.length) { const m = /^:(has|nth-child|nth-last-child)\(/.exec(c.slice(i)); if (m) { let d = 0, j = i + m[0].length - 1; do { if (c[j] === '(') d++; if (c[j] === ')') d--; j++; } while (d && j < c.length); i = j; continue; } out += c[i++]; } return out; };
+    const bad = [];
+    for (const m of css.matchAll(/([^{}@;]+)\{/g)) for (const selector of split(m[1], [','])) { const compounds = split(selector, [' ', '>', '+', '~']); if (compounds.slice(0, -1).some(c => /\[class\s*[*^$~|]?=/.test(strip(c)))) bad.push(selector.slice(-110)); }
+    assert.ok(css.includes(':where(:nth-child(n of [class*='), 'the rewritten form is there');
     assert.deepEqual(bad, []);
   });
 
@@ -2322,7 +2419,7 @@ try {
     assert.deepEqual(colours, [true, 'rgb(39,39,39)', 'brightness(0)', '0.65']);
   });
 
-  await check('song preview: an Apple sheet, its background from settings, the sidebar closes it (#75)', async () => {
+  await check('song preview: an Apple sheet, its background from settings, the dimmed player closes it (#75)', async () => {
     // Spotify 1.3's watch feed, reduced to the structure user.css relies on: info column (feed title, song, artist,
     // cover + progress, artist row), canvas column, button column (mute/close, actions, previous/next).
     const cover = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#c33"/></svg>');
@@ -2346,14 +2443,14 @@ try {
       const close = document.querySelector('[data-testid="watch-feed-close-button"]'), pill = view.querySelector(':scope > div > div:first-child > div:first-child');
       return { marked: document.getElementById('mock-feed').hasAttribute('data-am-preview'), classes: ['am-pv-artwork'].map(c => document.body.classList.contains(c)),
         art: document.documentElement.style.getPropertyValue('--am-preview-art'), grid: cs(view.firstElementChild).display, pill: cs(pill).gridArea.split(' ')[0],
-        close: [cs(close).width, cs(close).borderRadius], radius: cs(view).borderTopLeftRadius, dim: cs(document.getElementById('am-sidebar'), '::after').content,
+        close: [cs(close).width, cs(close).borderRadius], radius: cs(view).borderTopLeftRadius, dim: cs(document.getElementById('am-player'), '::after').content,
         frost: cs(close).backdropFilter };
     });
     assert.ok(look.marked, 'the overlay is marked');
     assert.deepEqual(look.classes, [true], 'blurred artwork by default');
     assert.match(look.art, /^url\("data:image\/svg/, 'the cover feeds the artwork material');
     assert.deepEqual([look.grid, look.pill, look.close, look.radius], ['grid', 'pill', ['40px', '50%'], '26px']);
-    assert.notEqual(look.dim, 'none', 'the sidebar dims with the page');
+    assert.notEqual(look.dim, 'none', 'the player dims with the page');
     assert.match(look.frost, /^(blur\(12px\) saturate\(1\.4\)|none)$/, 'frosted buttons (plain in Eco)');
     await shot('song-preview');
     // #151: the first song has only Next, absolute in a 0×0 box, the others previous and next in the flow; the song's
@@ -2399,8 +2496,9 @@ try {
     await settingsWindow.pick('previewMaterial', 'Cam');
     assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-pv-glass'), document.body.classList.contains('am-pv-artwork'), getComputedStyle(document.querySelector('[data-testid="watch-feed-view"]'), '::before').content, JSON.parse(localStorage.getItem('mcloud:settings')).previewMaterial]), [true, false, 'none', 'glass']);
     await settingsWindow.pick('previewMaterial', 'Bulanık kapak');
-    // A click on the dimmed sidebar closes it, as one on Spotify's backdrop does.
-    await page.click('#am-sidebar', { position: { x: 100, y: 400 } });
+    // The overlay covers the sidebar (#195); a click on the dimmed player closes it, as one on Spotify's backdrop does.
+    assert.ok(await page.evaluate(() => !!document.elementFromPoint(100, 400)?.closest('#mock-feed')), 'the overlay is over the sidebar');
+    await page.click('#am-player', { position: { x: 4, y: 27 } });
     await page.waitForFunction(() => !document.getElementById('mock-feed') && !document.body.classList.contains('am-preview-open'));
     assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--am-preview-art')), '');
   });
@@ -2831,6 +2929,29 @@ try {
     assert.equal(await page.getAttribute('#am-lyrics-toggle', 'aria-label'), 'Spicy Lyrics sözlerini aç / kapat', 'off again: the lyrics button drives Spicy Lyrics');
   });
 
+  await check('the search field\'s live results draw over the Now Playing pane, which stays over the page (#181)', async () => {
+    await page.setViewportSize({ width: 1100, height: 800 }); // narrow enough for the results to reach the pane
+    await page.click('#am-player .am-np-toggle');
+    await page.waitForFunction(() => !document.getElementById('am-nowplaying').hidden && !document.querySelector('#am-nowplaying').getAnimations().length);
+    try {
+      await page.fill('#global-nav-bar input', 'sena');
+      await page.waitForSelector('#search-dropdown [role="row"]');
+      assert.deepEqual(await page.evaluate(() => {
+        const d = document.querySelector('#search-dropdown > :first-child').getBoundingClientRect(), p = document.getElementById('am-nowplaying').getBoundingClientRect();
+        const x = (Math.max(d.left, p.left) + Math.min(d.right, p.right)) / 2, y = (Math.max(d.top, p.top) + Math.min(d.bottom, p.bottom)) / 2;
+        return [x > Math.max(d.left, p.left) && y > Math.max(d.top, p.top), !!document.elementFromPoint(x, y)?.closest('#search-dropdown'), getComputedStyle(document.getElementById('main')).zIndex];
+      }), [true, true, 'auto']);
+      await page.mouse.click(700, 500);
+      await page.waitForFunction(() => !document.getElementById('search-dropdown'));
+      // Closed, #main isolates again and the pane is back over the page.
+      assert.deepEqual(await page.evaluate(() => { const p = document.getElementById('am-nowplaying').getBoundingClientRect(); return [getComputedStyle(document.getElementById('main')).isolation, !!document.elementFromPoint(p.left + p.width / 2, p.top + p.height / 2)?.closest('#am-nowplaying')]; }), ['isolate', true]);
+    } finally {
+      await page.click('#am-player .am-np-toggle');
+      await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden, null, { timeout: 3000 }).catch(() => {});
+      await page.setViewportSize({ width: 1440, height: 900 });
+    }
+  });
+
   await check('English when Spotify is not in Turkish; the menu switches the language and reloads', async () => {
     const english = await browser.newPage({ viewport: { width: 1440, height: 900 } }), englishErrors = [];
     english.on('pageerror', e => englishErrors.push(e.message));
@@ -2850,6 +2971,30 @@ try {
       assert.equal(JSON.parse(await english.evaluate(() => localStorage.getItem('mcloud:settings'))).lang, 'tr');
       assert.deepEqual(englishErrors, []);
     } finally { await english.close(); }
+  });
+
+  await check('a song preview covers the Now Playing pane, the player stays over it (#195)', async () => {
+    await page.click('#am-player .am-np-toggle');
+    await page.waitForFunction(() => !document.getElementById('am-nowplaying').hidden && !document.querySelector('#am-nowplaying').getAnimations().length);
+    try {
+      await page.evaluate(() => document.querySelector('.Root').insertAdjacentHTML('beforeend', `<div id="mock-feed-np" role="presentation" style="position:absolute;inset:0;display:flex;justify-content:center;align-items:center;z-index:6">
+        <div data-testid="watch-feed-view" style="--aspect-ratio:16 / 10;position:relative;aspect-ratio:var(--aspect-ratio)"><button data-testid="watch-feed-close-button" aria-label="Close" style="position:absolute;top:0;right:0">x</button></div></div>`));
+      await page.waitForFunction(() => document.body.classList.contains('am-preview-open'));
+      assert.deepEqual(await page.evaluate(() => {
+        const v = document.querySelector('#mock-feed-np [data-testid="watch-feed-view"]').getBoundingClientRect(), p = document.getElementById('am-nowplaying').getBoundingClientRect(), c = document.querySelector('#mock-feed-np [data-testid="watch-feed-close-button"]').getBoundingClientRect();
+        const at = (x, y) => document.elementFromPoint(x, y), pl = document.getElementById('am-player').getBoundingClientRect();
+        return [v.right > p.left, !!at((p.left + v.right) / 2, p.top + 100)?.closest('#mock-feed-np'), !!at(c.left + c.width / 2, c.top + c.height / 2)?.closest('[data-testid="watch-feed-close-button"]'),
+          !!at(pl.left + pl.width / 2, pl.top + pl.height / 2)?.closest('#am-player'), getComputedStyle(document.getElementById('main')).zIndex];
+      }), [true, true, true, true, 'auto'], 'the card and its close button over the pane, the player over the overlay');
+      await page.evaluate(() => document.getElementById('mock-feed-np').remove());
+      await page.waitForFunction(() => !document.body.classList.contains('am-preview-open'));
+      // Closed, #main isolates again and the pane is back over the page.
+      assert.deepEqual(await page.evaluate(() => { const p = document.getElementById('am-nowplaying').getBoundingClientRect(); return [getComputedStyle(document.getElementById('main')).isolation, !!document.elementFromPoint(p.left + p.width / 2, p.top + p.height / 2)?.closest('#am-nowplaying')]; }), ['isolate', true]);
+    } finally {
+      await page.evaluate(() => document.getElementById('mock-feed-np')?.remove());
+      await page.click('#am-player .am-np-toggle');
+      await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden, null, { timeout: 3000 }).catch(() => {});
+    }
   });
 
   await check('Spicetify without its webpack bindings (2.46.2 cold start): the player, CosmosAsync and Spotify labels still work', async () => {
