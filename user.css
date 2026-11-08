@@ -873,6 +873,12 @@ body.am-solid > [data-tippy-root] > div > div:has(> #hover-or-focus-tooltip),bod
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-am-icon] {flex:0 0 14px!important;width:14px!important;height:18px!important;display:inline-flex!important;align-items:center;justify-content:center}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) :is(svg,img)[data-am-icon] {flex-basis:12px!important;width:12px!important;height:12px!important;margin:0 1px!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-am-icon] :is(svg,img) {width:12px!important;height:12px!important}
+/* Liked Songs' cover is Music's Favourite Songs one, fitted to Music's (macOS 27): a light grey square and Apple's red rounded
+   star (53% of the width, inner radius .47, area 12%), wherever Spotify draws its purple heart tile (Home, library, page, search). */
+img[src*="/liked-songs/"] {content:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23edeef0'/%3E%3Cpath d='M50.00 26.98L56.00 44.43L74.44 44.74L59.70 55.83L65.11 73.47L50.00 62.88L34.89 73.47L40.30 55.83L25.56 44.74L44.00 44.43Z' fill='%23fa233b' stroke='%23fa233b' stroke-width='4.5' stroke-linejoin='round'/%3E%3C/svg%3E")}
+/* "1 song added" / "Album added" under a Recents card: Spotify's filled check circle becomes the theme's filled star. */
+svg[data-encore-id="icon"]:not(button svg):has(> path[d^="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m11.748"]) {background:currentColor;-webkit-mask:var(--am-star-fill) center/contain no-repeat;mask:var(--am-star-fill) center/contain no-repeat}
+svg[data-encore-id="icon"]:not(button svg):has(> path[d^="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m11.748"]) > path {display:none}
 /* Liked Songs rows: the theme's star from the player for Spotify's purple tile, filled when the song is liked; drawn a
    little heavier than the player's, to sit with Spotify's icons at 12px. */
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-am-liked] > img {display:none!important}
