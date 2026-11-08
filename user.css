@@ -2005,7 +2005,14 @@ body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-e
 body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"] {width:40px!important;height:40px!important;padding:0!important}
 body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"] > span {width:auto!important;height:auto!important}
 body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"] svg {width:20px!important;height:20px!important}
-body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"]:not([aria-checked="true"]) svg {fill:#fff!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"]:not([aria-checked]) svg {fill:#fff!important}
+/* Save (the aria-checked one: "Save to Your Library", "Add to Your Episodes") is Apple's star, as on album pages: outlined,
+   filled in the accent once saved. Spotify's + / tick Lottie box draws the star while a save plays. */
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"][aria-checked] :is(svg,div[style*="pointer-events: none"]) {background:currentColor;-webkit-mask:var(--am-star-line) center/20px no-repeat;mask:var(--am-star-line) center/20px no-repeat}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"][aria-checked] svg path {display:none}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"][aria-checked] div[style*="pointer-events: none"] > div {opacity:0;filter:none}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"][aria-checked="true"] {color:var(--am-star-color,var(--am-accent))!important}
+body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonTertiary"][aria-checked="true"] :is(svg,div[style*="pointer-events: none"]) {-webkit-mask-image:var(--am-star-fill);mask-image:var(--am-star-fill)}
 body.am-home-apple .am-native-main [data-encore-id="box"] > footer div:has(> button[data-encore-id="buttonPrimary"]) {box-shadow:none!important}
 body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonPrimary"] > span {inline-size:44px!important;block-size:44px!important;padding:0!important}
 body.am-home-apple .am-native-main [data-encore-id="box"] > footer button[data-encore-id="buttonPrimary"] svg {width:18px!important;height:18px!important;fill:#fff!important}

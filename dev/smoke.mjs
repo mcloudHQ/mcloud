@@ -3014,10 +3014,17 @@ try {
       const text = footer.firstElementChild.getBoundingClientRect(), row = footer.lastElementChild.getBoundingClientRect(), more = getComputedStyle(footer.querySelector('[aria-label="More"]'));
       const play = getComputedStyle(footer.querySelector('[data-encore-id="buttonPrimary"] > span')), preview = getComputedStyle(footer.querySelector('[data-encore-id="buttonSecondary"]'));
       document.body.classList.add('am-solid');const eco = getComputedStyle(footer.querySelector('[aria-label="More"]')).backdropFilter;document.body.classList.remove('am-solid');
+      // Save is Apple's star (the album pages' masks): outlined and white, filled in the accent once Spotify checks it; More keeps its glyph.
+      const save = footer.querySelector('[aria-checked]'), mask = () => getComputedStyle(save.querySelector('svg')).maskImage, accent = getComputedStyle(document.body).getPropertyValue('--am-accent').trim();
+      const probe = document.createElement('i');probe.style.color = accent;document.body.append(probe);const accentRgb = getComputedStyle(probe).color;probe.remove();
+      const star = [mask().includes("fill='none'") && mask().includes('m12 3.2'), getComputedStyle(save).color, getComputedStyle(save).width,
+        getComputedStyle(footer.querySelector('[aria-label="More"] svg')).maskImage];
+      save.setAttribute('aria-checked', 'true');star.push(mask().includes("fill='%23000'"), getComputedStyle(save).color === accentRgb, getComputedStyle(save).backdropFilter);
       const out = [art.dataset.amMix, getComputedStyle(art, '::after').content, short.dataset.amMix, Math.round(text.height), Math.round(row.top - text.bottom), Math.round(row.height),
-        more.width, more.borderRadius, more.backdropFilter, play.width, play.backdropFilter, preview.height, preview.backgroundColor, eco];
+        more.width, more.borderRadius, more.backdropFilter, play.width, play.backdropFilter, preview.height, preview.backgroundColor, eco, ...star];
       s.remove();return out;
-    }, pick), ['Rock Mix', '"Rock Mix"', 'Chill Mix', 20, 8, 48, '40px', '999px', 'blur(12px) saturate(1.4)', '44px', 'blur(12px) saturate(1.4)', '36px', 'rgba(255, 255, 255, 0.12)', 'none']);
+    }, pick), ['Rock Mix', '"Rock Mix"', 'Chill Mix', 20, 8, 48, '40px', '999px', 'blur(12px) saturate(1.4)', '44px', 'blur(12px) saturate(1.4)', '36px', 'rgba(255, 255, 255, 0.12)', 'none',
+      true, 'rgb(255, 255, 255)', '40px', 'none', true, true, 'blur(12px) saturate(1.4)']);
   });
 
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
