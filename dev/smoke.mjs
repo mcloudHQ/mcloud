@@ -1878,13 +1878,13 @@ try {
     // The lite filter: one displacement, read from the same maps as the bend.
     assert.deepEqual(await page.evaluate(() => { const id = getComputedStyle(document.querySelector('#am-player .am-tglass-lite')).backdropFilter.match(/#([\w-]+)/)[1], f = document.getElementById(id);
       return [f.querySelectorAll('feDisplacementMap').length, f.querySelectorAll('feGaussianBlur').length, !!f.querySelector('feImage[data-map="map"]').getAttribute('href')]; }), [1, 0, true]);
-    // With the Liquid Glass player off, the toolbar's own buttons blur the page; Balanced turns that off here too.
-    const blurs = () => page.evaluate(() => [...document.querySelectorAll('#global-nav-bar :is(button,input), #am-player, #am-sidebar')].filter(e => getComputedStyle(e).backdropFilter !== 'none').length);
+    // The Liquid Glass setting is the player's (#137): off, the player loses its glass and the toolbar keeps its own.
     await pick('liquid');
-    await page.waitForFunction(() => !document.body.classList.contains('am-tglass-on'));
-    assert.equal(await blurs(), 0);
+    await page.waitForFunction(() => !document.getElementById('am-player').classList.contains('am-player-glass'));
+    assert.deepEqual((s => [s.player, s.toolbar])(await state()), [null, 'lite']);
+    assert.ok(await page.evaluate(() => document.body.classList.contains('am-tglass-on') && document.body.classList.contains('am-liquid') && !document.body.classList.contains('am-liquid-player')));
     await pick('liquid');
-    await page.waitForFunction(() => document.body.classList.contains('am-tglass-on'));
+    await page.waitForFunction(() => document.getElementById('am-player').classList.contains('am-player-glass'));
     await pick('glass', 'Tam');
     assert.deepEqual(await state(), { mode: 'full', ...glass });
     await pick('glass', 'Eko');
@@ -3055,7 +3055,7 @@ try {
       assert.ok(['Dil: Türkçe', 'Renk: Spotify Yeşili', 'Oynatıcıda albüm kapağı', 'Düğme: Karıştır', 'Son listeler: 20', 'Çalma listelerinde parça numaraları'].every(n => list.includes(n)));
       assert.ok(list.includes('Renk: Mavi') && list.includes('Cam efekti: Eko') && list.includes('Son listeler: Yok'));
       await other.evaluate(() => window.__menus[0].items.find(i => i.name === 'Liquid Glass oynatıcı').onClick());
-      assert.ok(await other.evaluate(() => !document.body.classList.contains('am-liquid') && window.__menus[0].items.find(i => i.name === 'Liquid Glass oynatıcı').checked === false));
+      assert.ok(await other.evaluate(() => !document.body.classList.contains('am-liquid-player') && document.body.classList.contains('am-liquid') && window.__menus[0].items.find(i => i.name === 'Liquid Glass oynatıcı').checked === false));
       await other.evaluate(() => window.__menus[0].items.find(i => i.name === 'Liquid Glass oynatıcı').onClick());
       // Saved values of settings this build does not define are kept when it saves.
       await other.evaluate(() => localStorage.setItem('mcloud:settings', JSON.stringify({ ...JSON.parse(localStorage.getItem('mcloud:settings')), futureKey: 'kept' })));

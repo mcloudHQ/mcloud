@@ -1623,20 +1623,20 @@ body.am-search-results .am-native-main {visibility:hidden!important;opacity:0!im
 
 /* Liquid Glass player: toolbarLens in theme.js (state 'player'), fitted to macOS's own glass and to Music's own player
    frames, already carries its blur, lens and tone, so there is no tint, border or shadow on top. */
-body.am-liquid #am-player {background:none;border-color:transparent;box-shadow:none}
+body.am-liquid-player #am-player {background:none;border-color:transparent;box-shadow:none}
 /* With the glass on, the player draws none itself: the face (12pt larger, for the page past its edge) and the hairline
    sit under its content. The face covers the border box plus the margin; the hairline's box is the border box + 1px. */
 #am-player.am-player-glass {backdrop-filter:none;-webkit-backdrop-filter:none}
 #am-player > .am-player-face {position:absolute;inset:-13px;z-index:-1;pointer-events:none}
 #am-player > .am-tglass-rim {inset:-2px;z-index:-1}
-body.am-liquid .am-track-title,body.am-liquid .am-track-subtitle,body.am-liquid .am-time {text-shadow:var(--am-glass-text-shadow)}
+body.am-liquid-player .am-track-title,body.am-liquid-player .am-track-subtitle,body.am-liquid-player .am-time {text-shadow:var(--am-glass-text-shadow)}
 /* The toast is the same glass, with its own lens map (#am-glass-toast) drawn at its size. */
 body.am-liquid .am-toast {background:none;backdrop-filter:url(#am-glass-toast);-webkit-backdrop-filter:url(#am-glass-toast);box-shadow:none;text-shadow:var(--am-glass-text-shadow)}
 body.am-liquid .am-toast[data-slot="1"] {backdrop-filter:url(#am-glass-toast-1);-webkit-backdrop-filter:url(#am-glass-toast-1)}
 body.am-liquid .am-toast[data-slot="2"] {backdrop-filter:url(#am-glass-toast-2);-webkit-backdrop-filter:url(#am-glass-toast-2)}
 /* Eco mode, or Windows' "Transparency effects" off (reduced transparency), sets body.am-solid (theme.js): glass becomes
    solid but keeps its depth, and nothing re-blurs the page on every frame. */
-body.am-solid #am-player,body.am-solid.am-liquid #am-player,body.am-solid.am-tinted #am-player {background:var(--am-solid-fill);backdrop-filter:none;-webkit-backdrop-filter:none;border-color:transparent;box-shadow:inset 0 1px 0 rgb(var(--am-rim)/.149),inset 0 0 0 1px rgb(var(--am-rim)/.071),0 8px 24px #0005}
+body.am-solid #am-player,body.am-solid.am-liquid-player #am-player,body.am-solid.am-tinted #am-player {background:var(--am-solid-fill);backdrop-filter:none;-webkit-backdrop-filter:none;border-color:transparent;box-shadow:inset 0 1px 0 rgb(var(--am-rim)/.149),inset 0 0 0 1px rgb(var(--am-rim)/.071),0 8px 24px #0005}
 body.am-solid #am-sidebar,body.am-solid.am-tinted #am-sidebar {background:var(--am-sidebar-solid);backdrop-filter:none;-webkit-backdrop-filter:none}
 body.am-solid #am-sidebar-glow {display:none}
 body.am-solid .am-toast,body.am-solid.am-liquid .am-toast {background:var(--am-solid-fill);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:inset 0 1px 0 rgb(var(--am-rim)/.149),inset 0 0 0 1px rgb(var(--am-rim)/.071),0 8px 24px #0005}

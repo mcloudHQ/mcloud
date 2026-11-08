@@ -221,7 +221,8 @@
     document.documentElement.style.setProperty('--am-accent',accent);
     document.documentElement.style.setProperty('--am-accent-focus',focus);
     document.body.classList.toggle('am-no-artwork',!settings.artwork);
-    document.body.classList.toggle('am-liquid',settings.liquid);
+    // The Liquid Glass setting is the player's (#137): the toolbar, menus and arrows keep their glass; Eco turns all of it off.
+    document.body.classList.add('am-liquid');document.body.classList.toggle('am-liquid-player',settings.liquid);
     document.body.classList.toggle('am-no-numbers',!settings.numbers);
     // Glass modes. Over a page that redraws every frame (Spicy Lyrics) each backdrop filter re-runs every frame, so
     // "balanced" draws glass without them there (body.am-balanced), "eco" (and the OS reduced-transparency setting)
@@ -2383,7 +2384,7 @@
   // button size). Off with the setting or reduced transparency (user.css keeps the frosted or solid player then).
   let playerFace=null;
   function syncPlayerGlass() {
-    const live=document.body.classList.contains('am-liquid')&&!document.body.classList.contains('am-solid');
+    const live=document.body.classList.contains('am-liquid-player')&&!document.body.classList.contains('am-solid');
     player.classList.toggle('am-player-glass',live);
     if(!live){playerFace?.remove();player.querySelector(':scope > .am-tglass-rim')?.remove();playerFace=null;return;}
     if(playerFace)return;
