@@ -2705,6 +2705,7 @@ try {
   });
 
   await check('the search field\'s live results draw over the Now Playing pane, which stays over the page (#181)', async () => {
+    await page.setViewportSize({ width: 1100, height: 800 }); // narrow enough for the results to reach the pane
     await page.click('#am-player .am-np-toggle');
     await page.waitForFunction(() => !document.getElementById('am-nowplaying').hidden && !document.querySelector('#am-nowplaying').getAnimations().length);
     try {
@@ -2724,6 +2725,7 @@ try {
     } finally {
       await page.click('#am-player .am-np-toggle');
       await page.waitForFunction(() => document.getElementById('am-nowplaying').hidden, null, { timeout: 3000 }).catch(() => {});
+      await page.setViewportSize({ width: 1440, height: 900 });
     }
   });
 
