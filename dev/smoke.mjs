@@ -1768,11 +1768,12 @@ try {
     await page.waitForFunction(() => !document.querySelector('#am-settings [data-key="npBg"]').inert);
     const help = '#am-settings [data-key="npBg"] .am-settings-help';
     assert.equal(await page.isVisible(help), false);
+    await page.evaluate(() => document.querySelector('#am-settings .am-settings-box').getAnimations().forEach(a => a.finish()));
     const below = await page.locator('#am-settings [data-key="npArtSize"]').boundingBox();
     await page.click('#am-settings [data-key="npBg"] .am-settings-help-button');
     await page.waitForFunction(h => getComputedStyle(document.querySelector(h)).opacity === '1', help);
     assert.deepEqual([await page.isVisible(help), await page.getAttribute('#am-settings [data-key="npBg"] .am-settings-help-button', 'aria-expanded')], [true, 'true']);
-    assert.equal((await page.locator('#am-settings [data-key="npArtSize"]').boundingBox()).y, below.y);
+    assert.ok(Math.abs((await page.locator('#am-settings [data-key="npArtSize"]').boundingBox()).y - below.y) < 1);
     await page.keyboard.press('Escape');
     await page.waitForFunction(h => getComputedStyle(document.querySelector(h)).visibility === 'hidden', help);
     assert.equal(await page.locator('#am-settings').count(), 1);

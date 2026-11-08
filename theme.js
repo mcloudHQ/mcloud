@@ -3084,7 +3084,7 @@
   const npOff=()=>(npWant??settings.nowPlaying)==='off';
   npSetting({key:'nowPlaying',group:'nowplaying',rank:0,type:'choice',style:'segmented',default:'off',label:T('Şimdi Çalan paneli','Now Playing sidebar'),context:['np','player'],
     options:[['off',T('Kapalı','Off')],['beside',T('Oynatıcıyla','With the player')],['only',T('Oynatıcı yerine','Instead of the player')]],
-    note:T('Oynatıcı yerine: tüm kontroller panele geçer.','Instead of the player: every control moves into the sidebar.'),apply:()=>{npWant=null;npApply();}});
+    note:T('Oynatıcı yerine: tüm kontroller panele geçer.','Instead of the player: its controls move here.'),apply:()=>{npWant=null;npApply();}});
   npSetting({key:'npLayout',group:'nowplaying',section:T('Görünüm','Look'),rank:1,tile:mini.npLayout,type:'choice',style:'tiles',default:'card',label:T('Yerleşim','Layout'),context:['np'],
     options:[['card',T('Yüzen kart','Floating')],['docked',T('Kenarda','Docked')]],apply:npApplyAll,dim:npOff});
   npSetting({key:'npBg',group:'nowplaying',section:T('Görünüm','Look'),rank:2,tile:mini.npBg,type:'choice',style:'tiles',default:'spicy',label:T('Arka plan','Background'),context:['np'],
@@ -4544,7 +4544,7 @@
   // A guest's artist line on a clean album (#187): shown, hidden, or Apple Music's way, the guests in the title as "(feat. …)".
   pageSetting({key:'albumFeatures',group:'pages',section:T('Albümlerde sanatçılar','Artists on albums'),rank:7,label:T('Konuk sanatçılar','Featured artists'),type:'choice',default:'show',when:()=>settings.albumClean,context:['list','view'],here:()=>!!albumId(),
     options:[['show',T('Satırda göster','Show the artist line')],['hide',T('Gizle','Hide it')],['apple',T('Apple Music gibi','Apple Music\'s way')]],
-    note:T('Apple Music gibi: konuklar başlığa "(feat. …)" olarak eklenir, sanatçı satırı kalkar.','Apple Music\'s way: the guests go into the title as "(feat. …)", and the artist line goes.'),
+    note:T('Apple Music gibi: konuklar başlıkta “(feat. …)” olarak yazar.','Apple Music’s way: guests join the title as “(feat. …)”.'),
     apply:value=>{document.body.classList.toggle('am-album-feat',value==='apple');syncAlbum();}});
   // Album and playlist pages can take their colour from the artwork, like artist pages: a wash at the top, or the whole page.
   const tintOptions=[['off',T('Kapalı','Off')],['subtle',T('Hafif','Subtle')],['full',T('Tam','Full')]];

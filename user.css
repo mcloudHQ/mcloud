@@ -1649,17 +1649,17 @@ body.am-solid.am-ready .am-native-panel-open::before {background:var(--am-panel-
 #am-settings {position:fixed;inset:0;z-index:76;pointer-events:none;-webkit-app-region:no-drag;font:13px var(--encore-body-font-stack);color:var(--am-text);-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
 @keyframes am-settings-in {from{opacity:0;scale:.96}}
 /* Centred over the page (right of the sidebar) and kept above the player. */
-.am-settings-box {--am-settings-w:600px;--am-settings-top:max(72px,11vh);--am-settings-half:calc(min(var(--am-settings-w),100vw - 32px) / 2);pointer-events:auto;position:absolute;
+.am-settings-box {--am-settings-w:600px;--am-settings-top:max(64px,8vh);--am-settings-half:calc(min(var(--am-settings-w),100vw - 32px) / 2);pointer-events:auto;position:absolute;
  left:clamp(calc(var(--am-settings-half) + 16px),calc(var(--am-side) + (100vw - var(--am-side)) / 2),calc(100vw - var(--am-settings-half) - 16px));top:var(--am-settings-top);translate:-50% 0;
- box-sizing:border-box;width:min(var(--am-settings-w),calc(100vw - 32px));max-height:calc(100vh - var(--am-settings-top) - 86px);display:grid;grid-template-rows:auto minmax(0,1fr) auto;
+ box-sizing:border-box;width:min(var(--am-settings-w),calc(100vw - 32px));max-height:calc(100vh - var(--am-settings-top) - 82px);display:grid;grid-template-rows:auto minmax(0,1fr) auto;
  border-radius:16px;overflow:hidden;outline:0;animation:am-settings-in .24s cubic-bezier(.2,.8,.2,1);background:var(--am-settings-fill);backdrop-filter:blur(40px) saturate(1.8);-webkit-backdrop-filter:blur(40px) saturate(1.8);
  box-shadow:var(--am-rim-lines,inset 0 0 0 .5px #000000d9,inset 0 1px #ffffff1f,inset 0 1.5px #ffffff33,inset 0 -1px #ffffff1f,inset 0 -1.5px #ffffff30,inset 1px 0 #ffffff0a,inset 1.5px 0 #ffffff12,inset -1px 0 #ffffff0a,inset -1.5px 0 #ffffff12),0 22px 70px #0000008c}
 /* Balanced over a page that redraws every frame (Spicy Lyrics): solid, as the sidebar there, so no blur reruns per frame. */
 body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(.am-spicy-fullscreen) #am-settings .am-settings-box {background:var(--am-settings-window);backdrop-filter:none;-webkit-backdrop-filter:none}
 .am-settings-box :focus-visible {outline:2px solid var(--am-accent-focus);outline-offset:2px}
 /* System Settings' layout (#179): a sidebar of panes with search, the pane's rows on the right. A fixed size, as its panes
-   switch in place, as tall as the window allows up to 720px. */
-.am-settings-box {--am-settings-w:760px;grid-template-rows:none;grid-template-columns:212px minmax(0,1fr);height:min(720px,calc(100vh - var(--am-settings-top) - 86px))}
+   switch in place: as tall as the window allows up to 800px, ending 12px above the floating player (70px from the bottom). */
+.am-settings-box {--am-settings-w:820px;grid-template-rows:none;grid-template-columns:212px minmax(0,1fr);height:min(800px,calc(100vh - var(--am-settings-top) - 82px))}
 .am-settings-titlebar {display:grid;grid-template-columns:28px minmax(0,1fr) 28px;align-items:center;padding:10px 12px 0;background:var(--am-settings-band);box-shadow:0 1px var(--am-settings-hairline);position:relative;z-index:1;user-select:none;cursor:default}
 .am-settings-title {grid-column:2;grid-row:1;margin:0;text-align:center;font-size:13px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .am-settings-close {grid-column:1;grid-row:1;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:var(--am-settings-control);color:var(--am-text);cursor:pointer;transition:background-color .15s}
