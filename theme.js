@@ -4332,18 +4332,15 @@
     for(const tint of albumTints)document.body.classList.toggle('am-album-tint-'+tint,tint===level);
     return level;
   }
-  // Full colours the page's play and shuffle buttons (user.css). Until an album's colour is known they wait unseen
-  // (am-album-pending) instead of showing the accent first and then jumping to the colour (#183); 1.5s at most.
-  // On trial (#183): localStorage mcloud:play-wait = 'fade' shows them at once in a neutral grey that eases to the colour.
-  try{document.body.classList.toggle('am-album-wait-fade',localStorage.getItem('mcloud:play-wait')==='fade');}catch{}
+  // Full colours the page's play and shuffle buttons (user.css). Until an album's colour is known they show as Music's
+  // grey capsule (am-album-pending) instead of the accent first and then a jump to the colour (#183); 1.5s at most.
   let pendingTimer=0;
   let revealTimer=0;
   function albumPending(on) {
     const body=document.body.classList,was=body.contains('am-album-pending');
     clearTimeout(pendingTimer);body.toggle('am-album-pending',on);
     if(on)pendingTimer=setTimeout(()=>albumPending(false),1500);
-    // The moment the colour lands (200ms, am-album-reveal) the grey eases to it, or the unseen buttons appear without
-    // Spotify's own 150ms colour ease, which would start from the accent; hover stays as it was.
+    // The moment the colour lands (200ms, am-album-reveal) the grey eases to it; hover stays as it was.
     else if(was){clearTimeout(revealTimer);body.add('am-album-reveal');revealTimer=setTimeout(()=>body.remove('am-album-reveal'),200);}
   }
   function pageTint(hex,edge) {
