@@ -1880,10 +1880,11 @@ body.am-np-compact:not(.am-np-full) #am-nowplaying .am-explicit {width:13px;heig
 .am-np-lyrics {display:none;position:relative;flex:1 1 0;min-height:0;margin:0 -22px;padding:24px 22px 45vh;overflow-y:auto;scrollbar-width:none;
  -webkit-mask-image:linear-gradient(#0000,#000 10%,#000 85%,#0000);mask-image:linear-gradient(#0000,#000 10%,#000 85%,#0000)}
 body:is(.am-np-lyrics-below,.am-np-full) .am-np-lyrics {display:block}
-/* Under the artwork (a variant), smaller, and the artwork gives way to them first. */
+/* Under the artwork (a variant), smaller than alone in the pane, and the artwork gives way to them first. 19-24px (#182:
+   17-21px read small beside Music's own lyrics). */
 body.am-np-lyrics-below:not(.am-np-plain,.am-np-full) #am-nowplaying .am-np-lyrics {padding:12px 22px 30vh;-webkit-mask-image:linear-gradient(#0000,#000 12%,#000 80%,#0000);mask-image:linear-gradient(#0000,#000 12%,#000 80%,#0000)}
-body.am-np-lyrics-below:not(.am-np-plain,.am-np-full) #am-nowplaying .am-np-line {font-size:clamp(17px,1.35vw,21px)}
-body.am-np-lyrics-below:not(.am-np-plain,.am-np-full) #am-nowplaying .am-np-line + .am-np-line {margin-top:12px}
+body.am-np-lyrics-below:not(.am-np-plain,.am-np-full) #am-nowplaying .am-np-line {font-size:clamp(19px,1.5vw,24px)}
+body.am-np-lyrics-below:not(.am-np-plain,.am-np-full) #am-nowplaying .am-np-line + .am-np-line {margin-top:14px}
 body.am-np-lyrics-below:not(.am-np-plain,.am-np-full) #am-nowplaying .am-np-lyrics-note {margin-top:24px}
 #am-nowplaying .am-np-line {display:block;width:100%;padding:0;text-align:inherit;font:700 clamp(21px,1.75vw,28px)/1.22 var(--encore-body-font-stack);letter-spacing:-.02em;color:var(--am-np-text);opacity:.32;overflow-wrap:anywhere;transition:opacity .35s}
 #am-nowplaying .am-np-line + .am-np-line {margin-top:18px}

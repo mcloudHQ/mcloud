@@ -2738,6 +2738,9 @@ try {
       await page.click('#am-nowplaying .am-np-fullscreen');
       assert.ok(!(await page.evaluate(() => document.body.classList.contains('am-np-full'))));
       await pick('npLyricsPlace', 'Kapağın altında');
+      // #182: lyrics under the artwork at 19-24px (1.5vw: 21.6px in this 1440px window).
+      await page.waitForSelector('#am-nowplaying .am-np-line');
+      assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#am-nowplaying .am-np-line')).fontSize), '21.6px');
 
       // Plain (Apple Music's lyrics pane): opaque, no artwork or header, only the lyrics; paused every line is grey, playing
       // the line being sung is bright; the pane's buttons show on hover.
