@@ -67,6 +67,9 @@
         skipTo: async item => { (window.__skips ||= []).push(item); },
         removeFromQueue: async items => { (window.__queueRemoves ||= []).push(...items); },
       },
+      // Spotify's play history (its queue panel's Recently played), newest first; the first is the song playing now.
+      PlayHistoryAPI: { getContents: async () => ({ items: [['spotify:track:1', 'Nights', '#3d5a80'], ['spotify:track:h1', 'Thinkin Bout You', '#e07a5f'], ['spotify:track:h2', 'Lost', '#81b29a'], ['spotify:episode:h3', 'An episode', '#999'], ['spotify:track:h4', 'Super Rich Kids', '#f2cc8f']].map(([uri, name, color]) => ({ type: uri.split(':')[1], uri, name,
+        artists: [{ type: 'artist', uri: 'spotify:artist:frank', name: 'Frank Ocean' }], album: { type: 'album', uri: 'spotify:album:' + uri.split(':')[2], name, images: [{ url: 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="${color}"/></svg>`), width: 64, height: 64 }] } })) }) },
       PlaylistAPI: {
         add: async (playlistUri, uris, options) => { (window.__playlistAdds ||= []).push({ playlistUri, uris, options }); },
       },

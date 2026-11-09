@@ -2953,40 +2953,73 @@
   // Playing Next (#182): the queue button shows the queue inside the open pane instead of Spotify's queue panel beside
   // it, as Music on macOS switches its one right panel between Lyrics and Playing Next; the cover shrinks beside the title.
   const npQueue=el('div','am-np-queue'),npQueueHead=el('div','am-np-queue-head',T('Sıradaki','Playing Next')),npQueueList=el('div','am-np-queue-list');
-  npQueueList.setAttribute('role','list');npQueue.append(npQueueHead,npQueueList);npBody.insertBefore(npQueue,npLyricsBox);
+  // History (#210) sits above Playing Next in the same list, as in Music on iOS: the list opens on Playing Next and
+  // scrolling up shows the songs played before, the latest nearest the current one.
+  const npHistHead=el('div','am-np-queue-head',T('Geçmiş','History')),npHistBox=el('div','am-np-history'),npNextBox=el('div','am-np-queue-next');
+  npHistHead.hidden=npHistBox.hidden=true;
+  npQueueList.setAttribute('role','list');npQueueList.append(npHistHead,npHistBox,npQueueHead,npNextBox);npQueue.append(npQueueList);npBody.insertBefore(npQueue,npLyricsBox);
   const npQueueArt=lazyObserver(npQueueList,'200px 0px');
-  let npQueueOn=false,npQueueKey=null,npQueueTimer=0;
+  let npQueueOn=false,npQueueKey=null,npQueueTimer=0,npHistKey=null,npHistShown=null,npHistTimer=0,npHistPinned=true;
   // Spicetify keeps the queue in Spicetify.Queue; delimiters and the like are left out.
   // A song's provider says whether the user queued it ('queue', which Remove from Queue can take back) or it comes next from the context.
   const npQueueItems=()=>(S.Queue?.nextTracks||[]).map(t=>({...(t?.contextTrack||t),queued:t?.provider==='queue'})).filter(t=>/^spotify:(track|episode|local):/.test(t?.uri||'')).slice(0,50);
+  // One row: a click plays the song; right-click opens its menu, as on the artist page's songs, not the pane's options (#210).
+  function npQueueRow({uri,title,artist,image,artistUri,albumUri},play,remove) {
+    const row=el('button','am-np-queue-row'),img=el('img',''),text=el('span','am-np-queue-text');
+    row.type='button';row.setAttribute('role','listitem');img.alt='';img.decoding='async';
+    const src=spotifyImage(image||'');if(src)img.dataset.src=src;
+    text.append(el('span','am-np-queue-title',title||''),el('span','am-np-queue-artist',artist||''));
+    row.append(img,text);row.addEventListener('click',play);
+    const song={uri,name:title,artists:{items:[{uri:artistUri}]},albumOfTrack:{uri:albumUri}};
+    const items=()=>[...songItems(song,play,{artist:true})(),...(remove?['-',{label:T('Sıradan Çıkar','Remove from Queue'),action:remove}]:[])];
+    row.addEventListener('contextmenu',event=>{event.preventDefault();event.stopPropagation();togglePopover({x:event.clientX,y:event.clientY},items);});
+    return row;
+  }
+  const npQueueObserve=()=>{for(const img of npQueueList.querySelectorAll('img[data-src]'))observeLazy(npQueueArt,img);};
+  // Keeps Playing Next's heading at the list's top until the user scrolls away from it (History grows above it).
+  const npHistOffset=()=>npQueueHead.getBoundingClientRect().top-npQueueList.getBoundingClientRect().top;
+  const npHistPin=()=>{if(npHistPinned&&npQueueOn&&!npHistBox.hidden)npQueueList.scrollTop+=npHistOffset();};
+  npQueueList.addEventListener('scroll',()=>{if(npQueueOn)npHistPinned=Math.abs(npHistOffset())<2;},{passive:true});
   function npQueueRender() {
     const items=npQueueItems(),key=items.map(t=>t.uid||t.uri).join();if(key===npQueueKey)return;npQueueKey=key;
-    releaseLazy(npQueueArt,npQueueList);
-    npQueueList.replaceChildren(...items.map(t=>{
-      const m=t.metadata||{},row=el('button','am-np-queue-row'),img=el('img',''),text=el('span','am-np-queue-text');
-      row.type='button';row.setAttribute('role','listitem');img.alt='';img.decoding='async';
-      const src=spotifyImage(m.image_url||m.image_small_url||'');if(src)img.dataset.src=src;
-      text.append(el('span','am-np-queue-title',m.title||''),el('span','am-np-queue-artist',m.artist_name||''));
-      const play=()=>S.Platform?.PlayerAPI?.skipTo?.({uri:t.uri,uid:t.uid});
-      row.append(img,text);row.addEventListener('click',play);
-      // Right-click: the song's menu, as on the artist page's songs, instead of the pane's options (#210).
-      const song={uri:t.uri,name:m.title,artists:{items:[{uri:m.artist_uri}]},albumOfTrack:{uri:m.album_uri}},remove=S.Platform?.PlayerAPI?.removeFromQueue;
-      const items=()=>[...songItems(song,play,{artist:true})(),...(t.queued&&remove?['-',{label:T('Sıradan Çıkar','Remove from Queue'),action:async()=>{
-        try{await remove.call(S.Platform.PlayerAPI,[{uri:t.uri,uid:t.uid}]);}catch{notify(T('Sıradan çıkarılamadı.','Couldn\'t remove it from the queue.'));}
-        npQueueKey=null;npQueueRender();}}]:[])];
-      row.addEventListener('contextmenu',event=>{event.preventDefault();event.stopPropagation();togglePopover({x:event.clientX,y:event.clientY},items);});
-      return row;
+    releaseLazy(npQueueArt,npNextBox);
+    const removeFromQueue=S.Platform?.PlayerAPI?.removeFromQueue;
+    npNextBox.replaceChildren(...items.map(t=>{const m=t.metadata||{};
+      return npQueueRow({uri:t.uri,title:m.title,artist:m.artist_name,image:m.image_url||m.image_small_url,artistUri:m.artist_uri,albumUri:m.album_uri},
+        ()=>S.Platform?.PlayerAPI?.skipTo?.({uri:t.uri,uid:t.uid}),
+        t.queued&&removeFromQueue?async()=>{try{await removeFromQueue.call(S.Platform.PlayerAPI,[{uri:t.uri,uid:t.uid}]);}catch{notify(T('Sıradan çıkarılamadı.','Couldn\'t remove it from the queue.'));}npQueueKey=null;npQueueRender();}:null);
     }));
-    if(!items.length)npQueueList.append(el('div','am-np-queue-empty',T('Sırada şarkı yok','Nothing playing next')));
-    for(const img of npQueueList.querySelectorAll('img[data-src]'))observeLazy(npQueueArt,img);
+    if(!items.length)npNextBox.append(el('div','am-np-queue-empty',T('Sırada şarkı yok','Nothing playing next')));
+    npQueueObserve();npHistPin();
   }
+  // History comes from Spotify's play history (PlayHistoryAPI, newest first, as its queue panel's Recently played). It is
+  // read when the list opens and again a moment after the song changes, once Spotify has logged the play.
+  async function npHistoryLoad() {
+    const api=S.Platform?.PlayHistoryAPI;if(!api?.getContents||!npQueueOn)return;
+    let items=[];try{items=(await api.getContents())?.items||[];}catch{return;}
+    if(!npQueueOn)return;
+    items=items.filter(t=>/^spotify:(track|episode):/.test(t?.uri||''));
+    if(items[0]?.uri===S.Player.data?.item?.uri)items=items.slice(1);
+    items=items.slice(0,30).reverse();
+    const key=items.map(t=>t.uri).join();if(key===npHistShown)return;npHistShown=key;
+    const fromEnd=npQueueList.scrollHeight-npQueueList.scrollTop;
+    npHistBox.replaceChildren(...items.map(t=>{const art=t.album?.images||t.images||[];
+      return npQueueRow({uri:t.uri,title:t.name,artist:(t.artists||[]).map(a=>a.name).join(', '),image:(art.find(i=>i.width<=300)||art[0])?.url,artistUri:t.artists?.[0]?.uri,albumUri:t.album?.uri},()=>S.Player.playUri?.(t.uri));
+    }));
+    npHistHead.hidden=npHistBox.hidden=!items.length;
+    npQueueObserve();
+    // Pinned, Playing Next stays at the top; scrolled, what the user is looking at stays put.
+    if(npHistPinned)npHistPin();else npQueueList.scrollTop=npQueueList.scrollHeight-fromEnd;
+  }
+  const npHistoryWatch=()=>{const uri=S.Player.data?.item?.uri;if(uri===npHistKey)return;npHistKey=uri;clearTimeout(npHistTimer);npHistTimer=setTimeout(npHistoryLoad,1500);};
   function npQueueShow(on,inApply) {
     npQueueOn=on;document.body.classList.toggle('am-np-queue-open',on);
     queueButton.classList.toggle('am-active',on);setAttributeIfChanged(queueButton,'aria-pressed',String(on));
     clearInterval(npQueueTimer);
     // While it shows, the list is read again each second (Spicetify fires nothing when the queue changes); unchanged, it is left alone.
-    if(on){npQueueKey=null;npQueueRender();npQueueTimer=setInterval(()=>{if(!document.hidden)npQueueRender();},1000);}
-    else releaseLazy(npQueueArt,npQueueList);
+    if(on){npQueueKey=null;npHistPinned=true;npQueueRender();npHistKey=S.Player.data?.item?.uri;npHistoryLoad();
+      npQueueTimer=setInterval(()=>{if(!document.hidden){npQueueRender();npHistoryWatch();}},1000);}
+    else{releaseLazy(npQueueArt,npQueueList);clearTimeout(npHistTimer);}
     // Spicy Lyrics' card steps aside while the list shows (it stays mounted in Spotify's view) and comes back after.
     if(!inApply)npApply();
   }
