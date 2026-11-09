@@ -1593,6 +1593,25 @@ try {
       return [height < 140, Math.abs(height - content) <= 6]; }), [true, true], 'Spotify\'s count would be 192px (the preview\'s font is a little taller than the client\'s)');
   });
 
+  await check('a folder\'s submenu in Add to playlist has no "New playlist" of its own (#202)', async () => {
+    // Spotify's shape: Add to playlist's list (New playlist at its top stays) and, nested in its rows, a folder's submenu
+    // that starts with New playlist and a separator; an empty folder's has nothing else.
+    const out = await page.evaluate(async () => {
+      const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const row = (text, more = '') => `<li><button role="menuitem" ${more}><div><span>${text}</span></div></button>`;
+      const folder = (id, rows) => `<div data-tippy-root id="${id}" style="position:absolute;inset:0px auto auto 0px;transform:translate3d(300px,0px,0px)"><ul role="menu" style="display:block;height:69px;margin:0;padding:0;list-style:none"><div>${row('New playlist')}</li><div></div>${rows}</div></ul></div>`;
+      const tip = document.createElement('div'); tip.id = 'mock-new-tip'; tip.setAttribute('data-tippy-root', ''); tip.style.cssText = 'position:absolute;inset:0px auto auto 0px;transform:translate3d(200px,200px,0px)';
+      tip.innerHTML = `<div><ul role="menu" style="display:block;margin:0;padding:0;list-style:none">${row('Add to playlist', 'aria-expanded="true"')}<div data-tippy-root id="mock-new-list" style="position:absolute;inset:0px auto auto 0px;transform:translate3d(200px,0px,0px)"><ul role="menu" style="display:block;margin:0;padding:0;list-style:none">`
+        + `${row('New playlist')}</li><div></div>${row('Folder', 'aria-expanded="true"')}${folder('mock-new-folder', row('Playlist') + '</li>')}</li>${row('Empty folder', 'aria-expanded="true"')}${folder('mock-new-empty', '')}</li></ul></div></li></ul></div>`;
+      document.body.append(tip); await frame();
+      const shown = el => getComputedStyle(el).display !== 'none', f = document.getElementById('mock-new-folder'), rows = f.querySelectorAll('li');
+      const result = [shown(document.querySelector('#mock-new-list > ul > li')), shown(rows[0]), shown(rows[0].nextElementSibling), shown(rows[1]),
+        Math.abs(f.querySelector('ul').getBoundingClientRect().height - rows[1].getBoundingClientRect().height - 10) <= 1, shown(document.getElementById('mock-new-empty'))];
+      tip.remove(); return result; });
+    // The list's New playlist stays; the folder's goes with its separator and the list is as tall as its one row; the empty folder opens nothing.
+    assert.deepEqual(out, [true, false, false, true, true, false]);
+  });
+
   await check('a Spotify menu that opens inside a sheet gets the theme\'s menu (#59)', async () => {
     // Shared with: the Listener ▾ menu (Leave playlist) is a [data-tippy-root] inside the react-modal's dialog.
     await page.evaluate(() => { const portal = document.createElement('div'); portal.className = 'ReactModalPortal'; portal.id = 'mock-sheet-menu';
@@ -1761,7 +1780,7 @@ try {
     await page.click('#am-settings .am-settings-tab:has-text("Şimdi Çalan")');
     const rows = () => page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key + (n.classList.contains('am-settings-dim') && n.inert ? '~' : '')));
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('mcloud:settings')))).nowPlaying ?? 'off', 'off');
-    assert.deepEqual(await rows(), ['nowPlaying', 'npLayout~', 'npBg~', 'npArtSize~', 'npArt~', 'npLyricsPlace~', 'npQueue~']);
+    assert.deepEqual(await rows(), ['nowPlaying', 'npLayout~', 'npWidth~', 'npBg~', 'npArtSize~', 'npArt~', 'npLyricsPlace~', 'npQueue~']);
     assert.deepEqual(await page.locator('#am-settings .am-settings-section').allTextContents(), ['Görünüm', 'Sözler ve sıra']);
     // On, the same rows wake up; the background's "?" opens over the rows below and closes on Escape, the window stays.
     await page.click('#am-settings [data-key="nowPlaying"] .am-settings-option:has-text("Oynatıcıyla")');
@@ -2868,6 +2887,42 @@ try {
       await addCard();
       await page.waitForFunction(() => document.body.classList.contains('am-np-spicy') && document.getElementById('am-nowplaying').hidden);
       await page.waitForFunction(() => document.getElementById('SpicyLyricsNPVCard').classList.contains('Expanded'));
+      // #182: instead of the player Spicy's view shows too, between the pane's artwork and title above and the player's
+      // controls below: the pane is cut twice, the column pads its content to both cuts.
+      const cutsMatch = () => page.waitForFunction(() => { const l = document.querySelector('#am-nowplaying .am-np-lyrics').getBoundingClientRect(), a = [...document.querySelectorAll('.am-native-right aside[data-am-np-fill]')].pop(), s = getComputedStyle(a), r = a.getBoundingClientRect();
+        return Math.abs(r.top + parseFloat(s.paddingTop) - l.top) <= 1 && Math.abs(r.bottom - parseFloat(s.paddingBottom) - l.bottom) <= 1; });
+      for (const bg of ['Kapak renkleri', 'Sade']) {
+        await pick('npBg', bg);
+        await pick('nowPlaying', 'Oynatıcı yerine');
+        await page.waitForFunction(() => ['am-np-only', 'am-np-spicy', 'am-np-spicy-split'].every(c => document.body.classList.contains(c)) && !document.getElementById('am-nowplaying').hidden);
+        await page.waitForFunction(() => !document.getElementById('am-nowplaying').getAnimations().length);
+        await cutsMatch();
+        const pane = await rect('#am-nowplaying'), lyr = await rect('#am-nowplaying .am-np-lyrics'), play = await rect('#am-nowplaying .am-play'), meta = await rect('#am-nowplaying .am-np-actions');
+        assert.deepEqual([(await spicyState()).col, await topAt(lyr.left + lyr.width / 2, (lyr.top + lyr.bottom) / 2), await topAt(play.left + play.width / 2, (play.top + play.bottom) / 2), await topAt(meta.left + 8, (meta.top + meta.bottom) / 2)],
+          [pane, 'column', 'pane', 'pane'], `instead of the player (${bg}): Spicy's view between the pane's top and its controls`);
+        assert.ok(await page.evaluate(() => getComputedStyle(document.getElementById('am-player')).display === 'none'), 'the floating player stays hidden');
+      }
+      // #182: the pane's width, Narrow, Normal or Wide; Spicy's column and, docked, the page's column follow, and a change eases.
+      await pick('npBg', 'Kapak renkleri');
+      const widths = [];
+      for (const w of ['Dar', 'Geniş', 'Normal']) {
+        await pick('npWidth', w);
+        const eased = await page.evaluate(() => document.body.classList.contains('am-np-resize') && document.getAnimations().some(a => a.transitionProperty === '--am-np-w'));
+        await page.waitForFunction(() => !document.body.classList.contains('am-np-resize'));
+        await cutsMatch();
+        const pane = await rect('#am-nowplaying');assert.deepEqual((await spicyState()).col, pane, `Spicy's column follows the width (${w})`);
+        widths.push([eased, Math.round(pane.width)]);
+      }
+      assert.ok(widths.every(([eased]) => eased) && widths[0][1] < widths[2][1] && widths[2][1] < widths[1][1], 'Narrow < Normal < Wide, eased: ' + JSON.stringify(widths));
+      await pick('npLayout', 'Kenarda');
+      await pick('npWidth', 'Geniş');
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-resize'));
+      assert.deepEqual(await page.evaluate(() => [Math.round(document.getElementById('am-nowplaying').getBoundingClientRect().width), Math.round(parseFloat(getComputedStyle(document.querySelector('.am-layout')).gridTemplateColumns.split(' ').pop()))]).then(([a, b]) => a === b), true, 'docked: the page\'s column is the pane\'s width');
+      await pick('npWidth', 'Normal');
+      await pick('npLayout', 'Yüzen kart');
+      await pick('npBg', 'Sade');
+      await pick('nowPlaying', 'Oynatıcıyla');
+      await page.waitForFunction(() => document.body.classList.contains('am-np-spicy') && document.getElementById('am-nowplaying').hidden);
       await pick('npLyricsSource', 'Spotify');
       state = await spicyState();
       assert.deepEqual([state.pane, state.card, await page.evaluate(() => document.body.classList.contains('am-np-spicy'))], [true, '', false], 'back on Spotify\'s lyrics');
@@ -3781,6 +3836,16 @@ try {
       assert.equal(await win.evaluate(() => window.__win.calls.length), 0);
       assert.deepEqual(winErrors, []);
     } finally { await win.close(); }
+  });
+  await check('Encore\'s inline tooltips (Home\'s "New release from" card, #199) are glass in 12px text', async () => {
+    const r = await page.evaluate(async () => {
+      const section = window.mockSpotlight(document.querySelector('.mock-page'), { tooltip: 'save' }), tip = section.querySelector('[role="tooltip"]');
+      const out = { filter: getComputedStyle(tip).backdropFilter, font: getComputedStyle(tip.firstElementChild).fontSize, radius: getComputedStyle(tip).borderTopLeftRadius };
+      section.remove(); return out;
+    });
+    assert.match(r.filter, /blur/, 'the inline tooltip is glass');
+    assert.equal(r.font, '12px');
+    assert.equal(r.radius, '8px');
   });
   await check('no runtime errors', async () => assert.deepEqual(errors, []));
 } finally {

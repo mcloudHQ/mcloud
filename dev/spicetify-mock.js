@@ -155,7 +155,7 @@
     return { data: { searchV2: { [field]: { totalCount: 45, pagingInfo: { nextOffset: end < 45 ? end : null }, items: Array.from({ length: end - offset }, (_, k) => item(offset + k)) } } } };
   };
   if (new URLSearchParams(location.search).get('menu') === 'submenu') delete Spicetify.Menu.Item.prototype.register;
-  Spicetify.Locale = { getLocale: () => new URLSearchParams(location.search).get('locale') || 'tr', get: key => ({ 'web-player.aligned-curation.tooltips.remove-from-liked-songs': 'Remove from Liked Songs', save_to_your_library: 'Save to Your Library', remove_from_your_library: 'Remove from Your Library' })[key] ?? key };
+  Spicetify.Locale = { getLocale: () => new URLSearchParams(location.search).get('locale') || 'tr', get: key => ({ 'web-player.aligned-curation.tooltips.remove-from-liked-songs': 'Remove from Liked Songs', 'web-player.aligned-curation.contextmenu.new-playlist': 'New playlist', save_to_your_library: 'Save to Your Library', remove_from_your_library: 'Remove from Your Library' })[key] ?? key };
   Spicetify.GraphQL = {
     Definitions: { queryArtistOverview: { name: 'queryArtistOverview' }, searchDesktop: { name: 'searchDesktop' }, ...Object.fromEntries(['searchTracks', 'searchArtists', 'searchAlbums', 'searchPlaylists', 'searchUsers'].map(name => [name, { name }])), getAlbum: { name: 'getAlbum' }, fetchExtractedColorAndImageForArtistEntity: { name: 'fetchExtractedColorAndImageForArtistEntity' }, fetchExtractedColorAndImageForTrackEntity: { name: 'fetchExtractedColorAndImageForTrackEntity' } },
     // getAlbum answers in Spotify's albumUnion shape (the fields the theme reads), from window.__mockAlbums by id. The mix
@@ -239,6 +239,35 @@
       FocusMainWindowAPI: { _windowStateClient: windowState },
     });
   }
+  // Home's "New release from …" shelf (HomeV2SpotlightShelf, #199) as Spotify 1.3.6 renders it: a section header with the
+  // artist, then Encore's horizontal promotion card, a Box link whose title carries the fixed id
+  // promotion-default-native-title. Its buttons sit in Encore tooltip triggers; a hovered one adds its tooltip
+  // (role="tooltip", data-encore-id="tooltip") inline after the button, not in a [data-tippy-root].
+  // mockSpotlight(parent, {tooltip:true}) appends it; the CSS-module names are copied from Spotify's.
+  const tip = text => `<div class="overlay-trigger__overlay overlay-trigger__overlay--bottom" style="pointer-events:none;position:absolute;display:flex;justify-content:center;top:100%;left:50%;min-inline-size:296px;transform:translate(-50%,12px);z-index:1000"><div class="e-101040-text encore-text-body-small legacy-overlay legacy-tooltip legacy-tooltip--visible encore-base-set _tooltip-animation_igq95_1" role="tooltip" data-encore-id="tooltip" style="display:inline-block;max-inline-size:240px;padding:4px 8px;border-radius:8px;background:#2a2a2a;color:#fff;font-size:14px"><span data-encore-id="text">${text}</span></div></div>`;
+  const trigger = (button, text, open) => `<span class="overlay-trigger overlay-trigger--has-overlay" data-encore-id="tooltipTrigger" style="position:relative;display:inline-flex"><span class="tooltip-trigger__container">${button}</span>${open ? tip(text) : ''}</span>`;
+  const icon = d => `<svg data-encore-id="icon" role="img" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="${d}"/></svg>`;
+  window.mockSpotlight = (parent = document.querySelector('.mock-page'), { tooltip = false, saved = false } = {}) => {
+    const play = 'Play Someone New', save = saved ? 'Remove from Your Library' : 'Save to Your Library';
+    parent.insertAdjacentHTML('beforeend', `<section class="T05Zn40DfdmfgisTAPRD jt3s9X9vj1kerCU2gNlo" data-shelf-collapsable="true" data-testid="mock-spotlight" style="display:flex;flex-direction:column;max-width:600px;--shelf-fixed-height:224px">`
+      + `<div data-encore-id="listRow" class="mock-spot-head" style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div class="e-101040-legacy-list-row__header-side"><img alt="" src="${art(320, 'SŞ')}" style="width:48px;height:48px;border-radius:50%"></div><div><span data-encore-id="listRowSubtitle" style="font-size:14px;color:#b3b3b3">New release from</span><h2 data-encore-id="listRowTitle" style="margin:0;font-size:24px"><a href="/artist/mock">Sena Şener</a></h2></div></div>`
+      + `<a data-encore-id="box" class="legacy-box legacy-box--naked legacy-box--as-link legacy-box--interactive legacy-box--padding-custom legacy-box--hover-custom legacy-box--border-custom _card-container_lx1hg_1 Ghk7CjjXzSetIVoEVFOA" href="/album/r0" tabindex="0" style="--box-border-radius:var(--encore-corner-radius-larger-2);--box-padding:12px;display:block;height:var(--shelf-fixed-height);padding:12px;margin-inline:-12px;border-radius:8px;color:#fff;text-decoration:none">`
+      + `<div class="_layout-container_lx1hg_34" style="display:grid;grid-template:'image .' 'image title-area' minmax(0,max-content) 'image body-area' minmax(0,min-content) 'image footer-area' minmax(0,max-content) 'image .'/max-content 1fr;column-gap:16px;align-items:center;height:100%">`
+      + `<div class="_image-container_1ysjf_7" style="grid-area:image;height:100%;border-radius:8px;overflow:hidden;position:relative"><img class="_image_1ysjf_1" src="${art(20, 'SN')}" aria-labelledby="promotion-default-native-title" style="width:100%;height:100%;object-fit:cover"></div>`
+      + `<div class="_title-area_lx1hg_57" style="grid-area:title-area;display:flex;flex-direction:column;gap:2px;margin-bottom:2px"><span class="e-101040-text encore-text-body-small _truncated-text_lx1hg_81 _truncated-text-single-line_lx1hg_92" data-encore-id="text" style="color:#b3b3b3;font-size:14px">Single • Sena Şener</span><span class="e-101040-text encore-text-title-small _truncated-text_lx1hg_81" data-encore-id="text" id="promotion-default-native-title" style="font-size:24px;font-weight:700">Someone New (from the Motion Picture Soundtrack)</span></div>`
+      + `<div class="_body-area_lx1hg_65" style="grid-area:body-area"></div>`
+      + `<div class="_footer-area_lx1hg_73" style="grid-area:footer-area;display:flex;gap:8px">`
+      + trigger(`<button data-encore-id="buttonPrimary" class="e-101040-button-primary" aria-label="${play}" style="border:0;padding:0;background:none"><span class="e-101040-button-primary__inner encore-inverted-light-set e-101040-button-icon-only--small" style="display:flex;align-items:center;justify-content:center;inline-size:32px;block-size:32px;border-radius:50%;background:#fff;color:#000">${icon('m7.05 3.606 13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z')}</span></button>`, play, tooltip === 'play')
+      + `<div class="_tertiary-footer-icons_lx1hg_96" style="display:flex;align-items:center">`
+      + trigger(`<button data-encore-id="buttonTertiary" class="e-101040-button-tertiary e-101040-button-tertiary--icon-only" aria-label="${save}"${saved ? ' aria-checked="true"' : ''} style="border:0;background:none;color:${saved ? '#1ed760' : '#b3b3b3'};padding:8px"><span aria-hidden="true" class="e-101040-button__icon-wrapper">${icon('M11.999 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm-11 9c0-6.075 4.925-11 11-11s11 4.925 11 11-4.925 11-11 11-11-4.925-11-11z M17.999 12a1 1 0 0 1-1 1h-4v4a1 1 0 1 1-2 0v-4h-4a1 1 0 1 1 0-2h4V7a1 1 0 1 1 2 0v4h4a1 1 0 0 1 1 1z')}</span></button>`, save, tooltip === true || tooltip === 'save')
+      + `<div class="_tertiary-footer-visibility-buttons_lx1hg_28" style="display:flex;align-items:center">`
+      + trigger(`<button data-encore-id="buttonTertiary" class="e-101040-button-tertiary e-101040-button-tertiary--icon-only" aria-label="Share" style="border:0;background:none;color:#b3b3b3;padding:8px"><span aria-hidden="true" class="e-101040-button__icon-wrapper">${icon('M12 1.5 7.3 6.2l1.4 1.4L11 5.3V15h2V5.3l2.3 2.3 1.4-1.4L12 1.5zM4 9v12h16V9h-4v2h2v8H6v-8h2V9H4z')}</span></button>`, 'Share', tooltip === 'share')
+      + `</div></div></div></div></a></section>`);
+    // As Encore does, the artwork is as wide as the card's layout is tall (a ResizeObserver).
+    const section = parent.lastElementChild, layout = section.querySelector('._layout-container_lx1hg_34'), image = layout.firstElementChild;
+    new ResizeObserver(([e]) => { image.style.width = image.style.maxHeight = e.contentRect.height + 'px'; }).observe(layout);
+    return section;
+  };
   // ?spicetify=nobindings: Spicetify 2.46.2 after skipping its webpack bindings on a cold start. Player.origin, Player.data,
   // GraphQL.Request, Locale, CosmosAsync and addToQueue are missing; Platform still has PlayerAPI, GraphQLLoader,
   // Translations and Session. As in Spicetify, Player.data, addToQueue and CosmosAsync come once Player.origin exists.
