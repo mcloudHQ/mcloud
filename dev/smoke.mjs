@@ -3776,32 +3776,26 @@ try {
     assert.equal(r.font, '12px');
     assert.equal(r.radius, '8px');
   });
-  await check('Home (#199): the "New release from" card takes Apple\'s buttons and its variant', async () => {
+  await check('Home (#199): the "New release from" card is Music\'s Latest Release, with Apple\'s buttons', async () => {
     const r = await page.evaluate(async () => {
       const section = window.mockSpotlight(document.querySelector('.mock-page')), card = section.querySelector('a[data-encore-id="box"]');
       await new Promise(requestAnimationFrame);
       const cs = (n, p) => getComputedStyle(n)[p], b = document.body.classList;
       const play = card.querySelector('button[data-encore-id="buttonPrimary"] > span'), [save, share] = card.querySelectorAll('button[data-encore-id="buttonTertiary"]');
-      const look = () => ({ radius: cs(card, 'borderTopLeftRadius'), filter: cs(card, 'backdropFilter'), playBg: cs(play, 'backgroundColor'), playPos: cs(play.closest('[data-encore-id="tooltipTrigger"]'), 'position'),
-        saveMask: cs(save.querySelector('svg'), 'maskImage'), shareMask: cs(share.querySelector('svg'), 'maskImage'), saveSize: cs(save, 'width'), title: cs(card.querySelector('#promotion-default-native-title'), 'fontSize') });
-      const out = { classes: ['a', 'b', 'c', 'off'].filter(l => b.contains('am-spot-' + l)) };
-      for (const l of ['b', 'a', 'c', 'off']) { ['a', 'b', 'c', 'off'].forEach(k => b.toggle('am-spot-' + k, k === l)); out[l] = look(); }
-      ['a', 'b', 'c', 'off'].forEach(k => b.toggle('am-spot-' + k, k === 'b'));
+      const look = () => ({ bg: cs(card, 'backgroundColor'), playBg: cs(play, 'backgroundColor'), playPos: cs(play.closest('[data-encore-id="tooltipTrigger"]'), 'position'),
+        saveMask: cs(save.querySelector('svg'), 'maskImage'), shareMask: cs(share.querySelector('svg'), 'maskImage'), title: cs(card.querySelector('#promotion-default-native-title'), 'fontSize') });
+      const apple = b.contains('am-home-apple'), out = {}; b.add('am-home-apple'); out.apple = look();
+      b.remove('am-home-apple'); out.spotify = look(); b.toggle('am-home-apple', apple);
       section.remove(); return out;
     });
-    assert.deepEqual(r.classes, ['b'], 'B is the default while the decision is open');
-    assert.equal(r.b.radius, '22px', 'B: a rounded card');
-    assert.match(r.b.filter, /blur/, 'B: glass');
-    assert.equal(r.a.radius, '8px', "A keeps Spotify's card");
-    for (const l of ['a', 'b', 'c']) {
-      assert.notEqual(r[l].playBg, 'rgb(255, 255, 255)', l + ": play is not Spotify's white circle");
-      assert.match(r[l].saveMask, /url\(/, l + ': save is the star');
-      assert.equal(r[l].shareMask, 'none', l + ': share keeps its glyph');
-    }
-    assert.equal(r.c.playPos, 'absolute', 'C: play sits on the artwork');
-    assert.equal(r.c.title, '15px', "C: Music's Latest Release type");
-    assert.equal(r.off.saveMask, 'none', "off: Spotify's buttons");
-    assert.equal(r.off.playBg, 'rgb(255, 255, 255)');
+    assert.equal(r.apple.bg, 'rgba(0, 0, 0, 0)', 'no plate behind the card');
+    assert.equal(r.apple.playPos, 'absolute', 'play sits on the artwork');
+    assert.equal(r.apple.title, '15px', "Music's Latest Release type");
+    assert.notEqual(r.apple.playBg, 'rgb(255, 255, 255)', "play is not Spotify's white circle");
+    assert.match(r.apple.saveMask, /url\(/, 'save is the star');
+    assert.equal(r.apple.shareMask, 'none', 'share keeps its glyph');
+    assert.equal(r.spotify.saveMask, 'none', "Spotify's Home style keeps Spotify's buttons");
+    assert.equal(r.spotify.playBg, 'rgb(255, 255, 255)');
   });
   await check('no runtime errors', async () => assert.deepEqual(errors, []));
 } finally {
