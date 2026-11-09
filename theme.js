@@ -4217,14 +4217,15 @@
       },'am-card-more am-shortcut-more');
       shortcut.append(more);return;
     }
-    // The pointer is over the card's click layer, which covers the card beside its artwork.
-    const card=settings.homeStyle==='apple'?event.target.closest?.('.am-native-main [data-encore-id="card"]:not([aria-labelledby*=":artist:"],[aria-labelledby*=":user:"],:has(.main-cardImage-circular))'):null;
+    // The pointer is over the card's click layer, which covers the card beside its artwork. "New release from …" (#199)
+    // is a promotion card (a Box link), drawn as Music's Latest Release with "…" on its artwork too.
+    const card=settings.homeStyle==='apple'?event.target.closest?.('.am-native-main [data-encore-id="card"]:not([aria-labelledby*=":artist:"],[aria-labelledby*=":user:"],:has(.main-cardImage-circular)),.am-native-main a[data-encore-id="box"]:has(> div > div > #promotion-default-native-title)'):null;
     const box=card?.querySelector('img')?.parentElement?.parentElement;
     if(!box||box.querySelector(':scope > .am-card-more'))return;
     const more=button(T('Diğer','More'),'more',e=>{
       e.preventDefault();e.stopPropagation();
       const r=more.getBoundingClientRect();
-      more.closest('[data-encore-id="card"]')?.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:r.left+r.width/2,clientY:r.bottom+4}));
+      more.closest('[data-encore-id="card"],a[data-encore-id="box"]')?.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:r.left+r.width/2,clientY:r.bottom+4}));
     },'am-card-more');
     box.append(more);
   });
