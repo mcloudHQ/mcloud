@@ -2861,7 +2861,7 @@ try {
         const frame = () => { const p = getComputedStyle(np), c = getComputedStyle(col);
           frames.push({ list: document.body.classList.contains('am-np-queue-open') && !!np.querySelector('.am-np-queue').getClientRects().length,
             pane: !np.hidden && p.display !== 'none' && p.opacity === '1' && p.transform === 'none', column: c.display !== 'none' && c.visibility !== 'hidden', slide: np.getAnimations().length,
-            covers: [...np.querySelectorAll('.am-np-queue-row img')].filter(i => i.complete && i.naturalWidth).length });
+            covers: [...np.querySelectorAll('.am-np-queue-next .am-np-queue-row img')].filter(i => i.complete && i.naturalWidth).length });
           if (frames.length < 24) requestAnimationFrame(frame); else done(frames); };
         requestAnimationFrame(() => { document.querySelector(sel).click(); frame(); });
       }), sel);
@@ -2937,11 +2937,33 @@ try {
       assert.ok((await npFrames(queueButton)).every(f => f.list && f.pane && !f.slide), 'the list shows at once');
       await page.waitForSelector('#am-nowplaying .am-np-queue-row');
       assert.deepEqual(await page.evaluate(() => { const np = document.getElementById('am-nowplaying'), shown = s => !!np.querySelector(s)?.getClientRects().length;
-        return [[...np.querySelectorAll('.am-np-queue-title')].map(t => t.textContent).join(), shown('.am-np-art'), shown('.am-np-lyrics'), np.querySelector('.am-np-thumb').getBoundingClientRect().width > 0,
+        return [[...np.querySelectorAll('.am-np-queue-next .am-np-queue-title')].map(t => t.textContent).join(), shown('.am-np-art'), shown('.am-np-lyrics'), np.querySelector('.am-np-thumb').getBoundingClientRect().width > 0,
           document.body.classList.contains('am-panel-open'), document.querySelector('#am-player button[aria-label="Çalma sırası"]').getAttribute('aria-pressed')]; }),
         ['Pink + White,Ivy,Self Control,Solo,Godspeed', false, false, true, false, 'true']);
-      await page.click('#am-nowplaying .am-np-queue-row >> nth=1');
+      await page.click('#am-nowplaying .am-np-queue-next .am-np-queue-row >> nth=1');
       assert.deepEqual(await page.evaluate(() => window.__skips.pop()), { uri: 'spotify:track:q1', uid: 'u1' });
+      // #210: right-clicking a row opens that song's menu, not the pane's options; a song the user queued can be taken back.
+      const rowMenu = async n => { await page.click(`#am-nowplaying .am-np-queue-next .am-np-queue-row >> nth=${n}`, { button: 'right' }); return page.locator('#am-popover .am-popover-item').allTextContents(); };
+      const songMenu = ['Çalma Listesine Ekle', 'Çal', 'Sıraya Ekle', 'Katkıda Bulunanları Görüntüle', 'Sanatçıya Git', 'Albüme Git', 'Şarkı Bağlantısını Kopyala'];
+      assert.deepEqual(await rowMenu(2), songMenu, 'a song from the context: its menu');
+      await page.keyboard.press('Escape');
+      assert.deepEqual(await rowMenu(0), [...songMenu, 'Sıradan Çıkar'], 'a queued song: its menu and Remove from Queue');
+      await page.locator('#am-popover .am-popover-item', { hasText: 'Sıradan Çıkar' }).click();
+      assert.deepEqual(await page.evaluate(() => window.__queueRemoves.pop()), { uri: 'spotify:track:q0', uid: 'u0' });
+      assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#am-nowplaying .am-np-queue-title')).fontWeight), '400', 'titles in regular weight');
+      // #210: History (Spotify's play history, the song playing now left out) sits above Playing Next, the latest nearest it;
+      // the list opens on Playing Next, and scrolling up shows it. A history row plays its song.
+      await page.waitForSelector('#am-nowplaying .am-np-history .am-np-queue-row');
+      const hist = () => page.evaluate(() => { const list = document.querySelector('#am-nowplaying .am-np-queue-list'), heads = [...list.querySelectorAll(':scope > .am-np-queue-head')];
+        return { titles: [...list.querySelectorAll('.am-np-history .am-np-queue-title')].map(t => t.textContent).join(), heads: heads.map(h => h.textContent).join(),
+          next: Math.round(heads[1].getBoundingClientRect().top - list.getBoundingClientRect().top), top: list.scrollTop }; });
+      let h = await hist();
+      assert.deepEqual([h.titles, h.heads, h.next], ['Super Rich Kids,An episode,Lost,Thinkin Bout You', 'Geçmiş,Sıradaki', 0], 'History above, the list on Playing Next');
+      assert.ok(h.top > 0, 'History is above the view');
+      await page.evaluate(() => { document.querySelector('#am-nowplaying .am-np-queue-list').scrollTop = 0; });
+      await page.click('#am-nowplaying .am-np-history .am-np-queue-row >> nth=2');
+      assert.equal(await page.evaluate(() => window.__playedUri), 'spotify:track:h2');
+      assert.ok((await hist()).next > 0, 'scrolled up, it stays where the user left it');
       await page.click(queueButton);
       await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
       assert.ok(await page.isVisible('#am-nowplaying .am-np-art') && await page.isVisible('#am-nowplaying .am-np-lyrics'), 'the artwork and lyrics come back');
