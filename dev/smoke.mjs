@@ -3766,6 +3766,77 @@ try {
     assert.equal(r.path, 'none', "Spotify's check is not drawn");
     assert.equal(r.buttonMask, 'none', 'a save button keeps its own rules');
   });
+  await check('window buttons (#200): macOS traffic lights replace Windows\' caption buttons, on Windows only', async () => {
+    // Not on macOS (or Linux): no row, no lights, Spotify's buttons untouched.
+    assert.equal(await page.evaluate(() => [!!document.getElementById('am-traffic'), document.body.classList.contains('am-windows'), !!Spicetify.Platform.NativeAPI].join()), 'false,false,false');
+    assert.equal(await page.evaluate(() => { window.__menuItems.find(i => ['mcloud Ayarları', 'mcloud Settings'].includes(i.name)).onClick(); const r = !!document.querySelector('#am-settings .am-settings-row[data-key="windowButtons"]'); document.querySelector('#am-settings .am-settings-close')?.click(); return r; }), false);
+    const win = await browser.newPage({ viewport: { width: 1440, height: 900 } }), winErrors = [], url = pathToFileURL(path.join(here, 'preview.html')).href + '?os=windows';
+    win.on('pageerror', e => winErrors.push(e.message));
+    const ws = settingsOf(win), box = () => win.evaluate(() => { const b = document.getElementById('am-traffic'); if (!b?.isConnected) return null;
+      return { side: b.dataset.side, rects: [...b.children].map(c => { const r = c.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); }), w: innerWidth, max: b.classList.contains('am-traffic-max'),
+        body: ['am-traffic', 'am-traffic-right', 'am-windows'].filter(c => document.body.classList.contains(c)).join(), drag: getComputedStyle(b.firstChild).webkitAppRegion }; });
+    const native = () => win.evaluate(() => [window.__win.buttons, window.__win.height, getComputedStyle(document.getElementById('mock-caption')).display]);
+    try {
+      await win.goto(url);
+      await win.waitForSelector('body.am-ready #am-sidebar');
+      // Windows' own buttons by default, and nothing sent to Spotify's shell.
+      assert.equal(await ws.state('windowButtons'), 'Windows');
+      await ws.close();
+      assert.deepEqual([await box(), await win.evaluate(() => window.__win.calls.length), await win.evaluate(() => document.body.classList.contains('am-windows'))], [null, 0, true]);
+      await ws.pick('windowButtons', 'macOS, solda');
+      // Spotify's macOS position: 14px discs 23px apart, centred 32px down and 26px in; the native strip is hidden and 1px.
+      let b = await box();
+      assert.deepEqual(b.rects, [[19, 25, 14, 14], [42, 25, 14, 14], [65, 25, 14, 14]]);
+      assert.equal(b.body, 'am-traffic'); assert.equal(b.drag, 'no-drag');
+      assert.deepEqual(await native(), [false, 1, 'none']);
+      // Glyphs show on all three while the pointer is over the group.
+      const glyph = () => win.evaluate(() => [...document.querySelectorAll('#am-traffic svg')].map(s => getComputedStyle(s).opacity).join());
+      assert.equal(await glyph(), '0,0,0');
+      await win.hover('#am-traffic .am-traffic-minimize');
+      assert.equal(await glyph(), '1,1,1');
+      if (shots) await win.screenshot({ path: path.join(shots, 'traffic-lights-hover.png') });
+      // Red closes, yellow minimises, green maximises and restores (its arrows turn inward).
+      await win.click('#am-traffic .am-traffic-close'); await win.click('#am-traffic .am-traffic-minimize'); await win.click('#am-traffic .am-traffic-zoom');
+      await win.waitForFunction(() => document.getElementById('am-traffic').classList.contains('am-traffic-max'));
+      assert.equal(await win.evaluate(() => getComputedStyle(document.querySelector('#am-traffic .am-traffic-in')).display), 'inline');
+      await win.click('#am-traffic .am-traffic-zoom');
+      await win.waitForFunction(() => !document.getElementById('am-traffic').classList.contains('am-traffic-max'));
+      assert.deepEqual(await win.evaluate(() => window.__win.calls.filter(c => c[0] === 'close' || c[0] === 'state')), [['close'], ['state', 3], ['state', 2], ['state', 1]]);
+      // Spotify's own calls (its cinema view shows the buttons again when it closes; a zoom sets the strip) keep them hidden.
+      await win.evaluate(() => { Spicetify.Platform.NativeAPI.setWindowButtonsVisibility(true); Spicetify.Platform.ControlMessageAPI.setTitlebarHeight(80); });
+      assert.deepEqual(await native(), [false, 1, 'none']);
+      // In the background the discs turn grey, as on macOS.
+      const fill = () => win.evaluate(() => getComputedStyle(document.querySelector('#am-traffic .am-traffic-close')).backgroundImage);
+      await win.mouse.move(700, 500);
+      const active = await fill();
+      await win.evaluate(() => { document.hasFocus = () => false; dispatchEvent(new Event('blur')); });
+      assert.notEqual(await fill(), active); assert.match(await fill(), /rgb\(73, 73, 73\)/);
+      await win.evaluate(() => { document.hasFocus = () => true; dispatchEvent(new Event('focus')); });
+      if (shots) await win.screenshot({ path: path.join(shots, 'traffic-lights-left.png') });
+      // On the right: the toolbar keeps clear of them, in less room than Windows' three buttons.
+      await ws.pick('windowButtons', 'macOS, sağda');
+      b = await box();
+      assert.equal(b.w - b.rects[2][0] - 14, 19);
+      assert.equal(b.body, 'am-traffic,am-traffic-right,am-windows');
+      assert.equal(await win.evaluate(() => getComputedStyle(document.getElementById('global-nav-bar')).right), '96px');
+      // Back to Windows': the lights go and Spotify's buttons come back at the height it last asked for.
+      await ws.pick('windowButtons', 'Windows');
+      assert.equal(await box(), null);
+      assert.deepEqual(await native(), [true, 80, 'block']);
+      assert.equal(await win.evaluate(() => document.body.classList.contains('am-windows')), true);
+      // Saved: the lights come back on the next start and hide the buttons again (Spotify starts with them shown).
+      await ws.pick('windowButtons', 'macOS, solda');
+      await win.goto(url); await win.waitForSelector('#am-traffic');
+      assert.deepEqual(await native(), [false, 1, 'none']);
+      // A start with Windows' buttons picked after they were hidden (a reload keeps the shell's state) shows them once.
+      await win.evaluate(() => localStorage.setItem('mcloud:settings', JSON.stringify({ ...JSON.parse(localStorage.getItem('mcloud:settings')), windowButtons: 'windows' })));
+      await win.goto(url); await win.waitForSelector('body.am-ready #am-sidebar');
+      assert.deepEqual(await win.evaluate(() => [window.__win.calls.filter(c => c[0] === 'buttons').map(c => c[1]).join(), localStorage.getItem('mcloud:caption-hidden')]), ['true', null]);
+      await win.goto(url); await win.waitForSelector('body.am-ready #am-sidebar');
+      assert.equal(await win.evaluate(() => window.__win.calls.length), 0);
+      assert.deepEqual(winErrors, []);
+    } finally { await win.close(); }
+  });
   await check('Encore\'s inline tooltips (Home\'s "New release from" card, #199) are glass in 12px text', async () => {
     const r = await page.evaluate(async () => {
       const section = window.mockSpotlight(document.querySelector('.mock-page'), { tooltip: 'save' }), tip = section.querySelector('[role="tooltip"]');

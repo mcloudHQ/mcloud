@@ -477,10 +477,79 @@
     return /^(https:|spotify:|data:image\/)/.test(source)?source:'';
   }
   const formatTime=ms=>{const s=Math.max(0,Math.floor(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
-  // Windows draws its caption buttons over the top-right corner of the window.
-  document.body.classList.toggle('am-windows',/Windows/.test(navigator.userAgent));
+  // Windows draws its caption buttons over the top-right corner of the window (.am-windows), unless the traffic lights
+  // below replace them.
+  const onWindows=/Windows/.test(navigator.userAgent);
+  document.body.classList.toggle('am-windows',onWindows);
   // macOS draws the sidebar in SF, which user.css sets at Music's weights there (.am-mac).
   document.body.classList.toggle('am-mac',/Mac OS X|Macintosh/.test(navigator.userAgent));
+  // macOS traffic lights instead of Windows' minimise/maximise/close (#200, settings.windowButtons; Windows only, so
+  // nothing changes on macOS, where Spotify draws the real ones). Spotify's native shell draws its caption buttons and the
+  // app menu's "…" over the page. DesktopUpdateUi hides them (setButtonsVisibility, which Spotify itself calls around its
+  // cinema view) and sets the height of the strip they sit in (updateTitlebarHeight; hidden, the 64px strip still takes
+  // the clicks under it, so it goes to 1px). Both calls are wrapped on the client's prototype, so Spotify's own (cinema
+  // view, zoom, start-up) keep them hidden; its last height is kept to give back. DesktopWindowState, which Spotify uses
+  // for the mini player (FocusMainWindowAPI._windowStateClient), minimises, maximises and closes the window. The discs
+  // are macOS 27's, read off AppKit's own buttons drawn offscreen at 2x: 14px, 23px apart, centred 32px down and 26px in,
+  // where Spotify puts them on macOS.
+  const trafficApi=()=>{const P=S.Platform||{};return {win:P.FocusMainWindowAPI?._windowStateClient,ui:P.ControlMessageAPI?._updateUiClient||P.NativeAPI?._updateUiClient||P.UpdateAPI?._updateUiClient};};
+  let trafficOn=false,trafficBox=null,trafficTries=0,trafficMax=false,captionHeight=64,captionPatched=false;
+  function syncCaption() {
+    const {ui}=trafficApi(),p=ui&&Object.getPrototypeOf(ui);if(!p?.setButtonsVisibility||!p.updateTitlebarHeight)return;
+    if(!captionPatched){captionPatched=true;const show=p.setButtonsVisibility,height=p.updateTitlebarHeight;
+      p.setButtonsVisibility=function(req,...rest){return show.call(this,trafficOn?{...req,showButtons:false}:req,...rest);};
+      p.updateTitlebarHeight=function(req,...rest){if(req?.height>1)captionHeight=req.height;return height.call(this,trafficOn?{...req,height:1}:req,...rest);};}
+    try{ui.updateTitlebarHeight({height:trafficOn?1:captionHeight})?.catch?.(()=>{});ui.setButtonsVisibility({showButtons:!trafficOn})?.catch?.(()=>{});}catch{}
+    try{trafficOn?localStorage.setItem('mcloud:caption-hidden','1'):localStorage.removeItem('mcloud:caption-hidden');}catch{}
+  }
+  async function trafficAction(kind,event) {
+    const {win}=trafficApi();
+    try{
+      if(kind==='close')return win?await win.closeWindow({}):window.close();
+      if(kind==='minimize')return await win?.setWindowState({state:3});
+      // Green maximises, as Windows' own button (Alt: full screen, as macOS's Option swaps the two). In full screen it leaves.
+      if(document.fullscreenElement)return await document.exitFullscreen();
+      if(event.altKey)return await document.documentElement.requestFullscreen();
+      const max=(await win?.getWindowState({}))?.state===2;await win?.setWindowState({state:max?1:2});trafficState(!max);
+    }catch(e){console.warn('[AppleMusicMac] Window',kind,e);}
+  }
+  function trafficState(max){trafficMax=max;trafficBox?.classList.toggle('am-traffic-max',max||!!document.fullscreenElement);}
+  function trafficBuild() {
+    const box=el('div','');box.id='am-traffic';box.setAttribute('role','group');box.setAttribute('aria-label',T('Pencere','Window'));
+    const glyphs={close:'<path d="M4.6 4.6l4.8 4.8M9.4 4.6l-4.8 4.8" stroke-width="2"/>',minimize:'<path d="M4.1 7h5.8" stroke-width="2"/>',
+      zoom:'<path class="am-traffic-out" d="M4 4h5L4 9zM10 10H5l5-5z"/><path class="am-traffic-in" d="M6.3 2.9v3.4H2.9zM7.7 11.1V7.7h3.4z"/>'};
+    for(const [kind,label] of [['close',T('Kapat','Close')],['minimize',T('Küçült','Minimise')],['zoom',T('Büyüt','Maximise')]]){
+      const b=el('button','am-traffic-'+kind);b.type='button';b.tabIndex=-1;b.setAttribute('aria-label',label);
+      b.innerHTML=`<svg viewBox="0 0 14 14" aria-hidden="true">${glyphs[kind]}</svg>`;b.addEventListener('click',event=>trafficAction(kind,event));box.append(b);
+    }
+    // As on macOS: grey while the window is in the background, hidden in full screen until the pointer reaches them.
+    const focus=()=>box.classList.toggle('am-traffic-inactive',!document.hasFocus());
+    addEventListener('focus',focus);addEventListener('blur',focus);focus();
+    document.addEventListener('fullscreenchange',()=>{box.classList.toggle('am-traffic-fs',!!document.fullscreenElement);trafficState(trafficMax);if(trafficOn)syncCaption();});
+    trafficApi().win?.subscribeWindowState?.({},s=>trafficState(s?.state===2));
+    let resize=0;addEventListener('resize',()=>{clearTimeout(resize);resize=setTimeout(()=>trafficOn&&syncCaption(),300);});
+    return box;
+  }
+  function trafficSync() {
+    if(!onWindows)return;
+    const side=settings.windowButtons,want=side==='left'||side==='right',{win,ui}=trafficApi();
+    // Spicetify resolves Spotify's APIs a moment after the theme starts.
+    if(want&&!(win&&ui)){if(trafficTries++<20)setTimeout(trafficSync,500);return;}
+    const was=trafficOn;let hidden=false;try{hidden=!!localStorage.getItem('mcloud:caption-hidden');}catch{}
+    trafficOn=want;
+    document.body.classList.toggle('am-traffic',want);document.body.classList.toggle('am-traffic-right',want&&side==='right');
+    // On the left nothing covers the top-right corner any more; on the right the lights do, in less room.
+    document.body.classList.toggle('am-windows',!want||side==='right');
+    if(want){trafficBox||=trafficBuild();trafficBox.dataset.side=side;if(!trafficBox.isConnected)document.body.append(trafficBox);}
+    else trafficBox?.remove();
+    if(want||was||hidden)syncCaption();
+    // Spotify sets its strip again while it starts (and on a zoom); the wrapper catches what goes through it.
+    if(want&&!was)for(const ms of [1000,2000,4000,8000])setTimeout(()=>trafficOn&&syncCaption(),ms);
+  }
+  defineSetting({key:'windowButtons',group:'general',section:T('Pencere','Window'),label:T('Pencere düğmeleri','Window buttons'),type:'choice',style:'segmented',default:'windows',
+    options:[['windows','Windows'],['left',T('macOS, solda','macOS, left')],['right',T('macOS, sağda','macOS, right')]],
+    note:T('Küçült, büyüt ve kapat; Alt ile yeşil tam ekran yapar.','Minimise, maximise and close; Alt-click green for full screen.'),
+    hidden:!onWindows,apply:()=>trafficSync()});
   // A control clicked with the mouse keeps focus, and Chromium draws its :focus-visible ring once any key is pressed
   // (Space for play/pause). Focus that arrives without a key since the last pointer press gets .am-mouse-focus, which
   // hides the ring; text fields keep theirs.
