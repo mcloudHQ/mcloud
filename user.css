@@ -846,6 +846,10 @@ body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-me
    a 32px search, so ours left that much empty glass under the last row. Counted in the theme's rows instead (a
    separator is 1px between 5px margins); past 50vh the menu scrolls, as Spotify's does. */
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) {--context-menu-submenu-item-height:24px;--context-menu-submenu-filter-height:30px;--context-menu-submenu-divider-height:11px}
+/* Add to playlist: a folder's submenu without Spotify's "New playlist" and its separator (theme.js marks them, #202), as
+   tall as the rows left; a folder with nothing else opens no submenu. */
+[data-tippy-root] [data-tippy-root] [data-tippy-root] [data-am-folder-new],[data-tippy-root][data-am-folder-empty] {display:none!important}
+[data-tippy-root] [data-tippy-root] [data-tippy-root] > ul[role="menu"]:has([data-am-folder-new]) {height:auto!important}
 /* Rows answer as the theme's do: the accent under the pointer, grey while their submenu is open, the thin › for a
    submenu instead of Spotify's filled triangle (submenu rows carry aria-expanded). */
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button):not([aria-disabled="true"],:disabled,:has([role="search"])):is(:hover,:focus-visible) {background:var(--am-accent)!important;color:#fff!important}
@@ -1791,7 +1795,15 @@ body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(
    appearance to override. body.am-np-artbg: the cover's colours, blurred, as on iOS; otherwise the sheet's glass. */
 /* A registered length, so the grid track it feeds can transition as the pane opens and closes. */
 @property --am-right {syntax:"<length>";inherits:true;initial-value:0px}
-:root {--am-np-w:clamp(300px,24vw,380px);--am-right:0px}
+/* The pane's width (settings.npWidth, #182): Normal is the original; Narrow comes close to Music's own pane (~260pt in a
+   1400pt window) while the controls still fit. Registered, so a change eases (body.am-np-resize) and the page's column
+   follows it frame by frame through --am-right. */
+@property --am-np-w {syntax:"<length>";inherits:true;initial-value:340px}
+:root {--am-right:0px}
+body {--am-np-w:clamp(300px,24vw,380px)}
+body.am-np-narrow {--am-np-w:clamp(280px,20vw,320px)}
+body.am-np-wide {--am-np-w:clamp(340px,30vw,460px)}
+body.am-np-resize {transition:--am-np-w .24s cubic-bezier(.32,.72,0,1)}
 body.am-np-open.am-np-docked {--am-right:var(--am-np-w)}
 body.am-ready.am-np-open .am-layout {grid-template-columns:var(--am-side) minmax(0,1fr) var(--am-right)!important}
 body.am-np-anim .am-layout {transition:grid-template-columns .24s cubic-bezier(.32,.72,0,1)}
@@ -2039,7 +2051,13 @@ body.am-np-spicy-split #am-nowplaying {clip-path:inset(0 0 calc(100% - var(--am-
 body.am-np-spicy-split #am-nowplaying::before,body.am-np-spicy-split #am-nowplaying :is(.am-np-bg,.am-np-bleed) {display:none!important}
 body.am-np-spicy-split #am-nowplaying.am-np-bleeding .am-np-cover {visibility:visible}
 body.am-np-spicy-split #am-nowplaying.am-np-bleeding .am-np-body {background:none}
-body.am-np-spicy-split:not(.am-panel-open).am-ready .am-native-right aside[data-am-np-fill] {padding-top:var(--am-np-split,0px)!important;box-sizing:border-box!important}
+body.am-np-spicy-split:not(.am-panel-open).am-ready .am-native-right aside[data-am-np-fill] {padding-top:var(--am-np-split,0px)!important;padding-bottom:var(--am-np-split-end,0px)!important;box-sizing:border-box!important}
+/* Instead of the player (#182): the pane keeps its controls too, so it is cut twice, a band at the top (artwork and title)
+   and one at the bottom (scrubber, transport, volume, buttons); Spicy's view shows between them (--am-np-split-end). */
+body.am-np-spicy-split.am-np-only #am-nowplaying {clip-path:polygon(0 0,100% 0,100% var(--am-np-split,100%),0 var(--am-np-split,100%),0 calc(100% - var(--am-np-split-end,0px)),100% calc(100% - var(--am-np-split-end,0px)),100% 100%,0 100%)}
+body.am-np-spicy.am-np-only:not(.am-np-docked):not(.am-panel-open).am-ready .am-native-right {bottom:16px!important}
+/* Docked, the pane stops 16px short of the window's bottom (body.am-np-only) while the column runs to it. */
+body.am-np-spicy-split.am-np-only.am-np-docked:not(.am-panel-open).am-ready .am-native-right aside[data-am-np-fill] {padding-bottom:calc(var(--am-np-split-end,0px) + 16px)!important}
 body.am-np-spicy-split:not(.am-np-artbg):not(.am-panel-open).am-ready .am-native-right {background:transparent!important}
 body.am-np-spicy-split:not(.am-panel-open).am-ready .am-native-right::before {background:color-mix(in srgb,#2a2a2a 78%,transparent)}
 body.am-np-spicy-split.am-solid:not(.am-panel-open).am-ready .am-native-right {background:#1f1f1f!important}
