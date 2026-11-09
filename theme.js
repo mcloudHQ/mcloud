@@ -2957,7 +2957,8 @@
   const npQueueArt=lazyObserver(npQueueList,'200px 0px');
   let npQueueOn=false,npQueueKey=null,npQueueTimer=0;
   // Spicetify keeps the queue in Spicetify.Queue; delimiters and the like are left out.
-  const npQueueItems=()=>(S.Queue?.nextTracks||[]).map(t=>t?.contextTrack||t).filter(t=>/^spotify:(track|episode|local):/.test(t?.uri||'')).slice(0,50);
+  // A song's provider says whether the user queued it ('queue', which Remove from Queue can take back) or it comes next from the context.
+  const npQueueItems=()=>(S.Queue?.nextTracks||[]).map(t=>({...(t?.contextTrack||t),queued:t?.provider==='queue'})).filter(t=>/^spotify:(track|episode|local):/.test(t?.uri||'')).slice(0,50);
   function npQueueRender() {
     const items=npQueueItems(),key=items.map(t=>t.uid||t.uri).join();if(key===npQueueKey)return;npQueueKey=key;
     releaseLazy(npQueueArt,npQueueList);
@@ -2966,7 +2967,14 @@
       row.type='button';row.setAttribute('role','listitem');img.alt='';img.decoding='async';
       const src=spotifyImage(m.image_url||m.image_small_url||'');if(src)img.dataset.src=src;
       text.append(el('span','am-np-queue-title',m.title||''),el('span','am-np-queue-artist',m.artist_name||''));
-      row.append(img,text);row.addEventListener('click',()=>S.Platform?.PlayerAPI?.skipTo?.({uri:t.uri,uid:t.uid}));
+      const play=()=>S.Platform?.PlayerAPI?.skipTo?.({uri:t.uri,uid:t.uid});
+      row.append(img,text);row.addEventListener('click',play);
+      // Right-click: the song's menu, as on the artist page's songs, instead of the pane's options (#210).
+      const song={uri:t.uri,name:m.title,artists:{items:[{uri:m.artist_uri}]},albumOfTrack:{uri:m.album_uri}},remove=S.Platform?.PlayerAPI?.removeFromQueue;
+      const items=()=>[...songItems(song,play,{artist:true})(),...(t.queued&&remove?['-',{label:T('Sıradan Çıkar','Remove from Queue'),action:async()=>{
+        try{await remove.call(S.Platform.PlayerAPI,[{uri:t.uri,uid:t.uid}]);}catch{notify(T('Sıradan çıkarılamadı.','Couldn\'t remove it from the queue.'));}
+        npQueueKey=null;npQueueRender();}}]:[])];
+      row.addEventListener('contextmenu',event=>{event.preventDefault();event.stopPropagation();togglePopover({x:event.clientX,y:event.clientY},items);});
       return row;
     }));
     if(!items.length)npQueueList.append(el('div','am-np-queue-empty',T('Sırada şarkı yok','Nothing playing next')));

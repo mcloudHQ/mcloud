@@ -2942,6 +2942,15 @@ try {
         ['Pink + White,Ivy,Self Control,Solo,Godspeed', false, false, true, false, 'true']);
       await page.click('#am-nowplaying .am-np-queue-row >> nth=1');
       assert.deepEqual(await page.evaluate(() => window.__skips.pop()), { uri: 'spotify:track:q1', uid: 'u1' });
+      // #210: right-clicking a row opens that song's menu, not the pane's options; a song the user queued can be taken back.
+      const rowMenu = async n => { await page.click(`#am-nowplaying .am-np-queue-row >> nth=${n}`, { button: 'right' }); return page.locator('#am-popover .am-popover-item').allTextContents(); };
+      const songMenu = ['Çalma Listesine Ekle', 'Çal', 'Sıraya Ekle', 'Katkıda Bulunanları Görüntüle', 'Sanatçıya Git', 'Albüme Git', 'Şarkı Bağlantısını Kopyala'];
+      assert.deepEqual(await rowMenu(2), songMenu, 'a song from the context: its menu');
+      await page.keyboard.press('Escape');
+      assert.deepEqual(await rowMenu(0), [...songMenu, 'Sıradan Çıkar'], 'a queued song: its menu and Remove from Queue');
+      await page.locator('#am-popover .am-popover-item', { hasText: 'Sıradan Çıkar' }).click();
+      assert.deepEqual(await page.evaluate(() => window.__queueRemoves.pop()), { uri: 'spotify:track:q0', uid: 'u0' });
+      assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#am-nowplaying .am-np-queue-title')).fontWeight), '400', 'titles in regular weight');
       await page.click(queueButton);
       await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
       assert.ok(await page.isVisible('#am-nowplaying .am-np-art') && await page.isVisible('#am-nowplaying .am-np-lyrics'), 'the artwork and lyrics come back');

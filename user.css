@@ -1967,7 +1967,8 @@ body.am-np-queue-open.am-np-blend.am-np-beside:not(.am-np-full) #am-nowplaying .
 .am-np-queue-row img:not([src]) {visibility:visible}
 .am-np-queue-text {display:flex;flex-direction:column;min-width:0;gap:1px}
 .am-np-queue-title,.am-np-queue-artist {overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.am-np-queue-title {font-size:14px;font-weight:600;color:var(--am-np-text)}
+/* Regular weight, as Spotify's queue panel and Music's Playing Next set their rows (#210); the heading stays bold. */
+.am-np-queue-title {font-size:14px;font-weight:400;color:var(--am-np-text)}
 .am-np-queue-artist {font-size:13px;color:var(--am-np-sub)}
 .am-np-queue-empty {padding:24px 10px;text-align:center;font-size:14px;color:var(--am-np-sub)}
 /* Beside the player the pane has its own close button, at the top left as macOS's (Windows' caption buttons sit at the top right). */
