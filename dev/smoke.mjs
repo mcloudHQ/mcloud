@@ -3711,6 +3711,16 @@ try {
     assert.equal(r.path, 'none', "Spotify's check is not drawn");
     assert.equal(r.buttonMask, 'none', 'a save button keeps its own rules');
   });
+  await check('Encore\'s inline tooltips (Home\'s "New release from" card, #199) are glass in 12px text', async () => {
+    const r = await page.evaluate(async () => {
+      const section = window.mockSpotlight(document.querySelector('.mock-page'), { tooltip: 'save' }), tip = section.querySelector('[role="tooltip"]');
+      const out = { filter: getComputedStyle(tip).backdropFilter, font: getComputedStyle(tip.firstElementChild).fontSize, radius: getComputedStyle(tip).borderTopLeftRadius };
+      section.remove(); return out;
+    });
+    assert.match(r.filter, /blur/, 'the inline tooltip is glass');
+    assert.equal(r.font, '12px');
+    assert.equal(r.radius, '8px');
+  });
   await check('no runtime errors', async () => assert.deepEqual(errors, []));
 } finally {
   await browser.close();
