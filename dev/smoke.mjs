@@ -1593,6 +1593,25 @@ try {
       return [height < 140, Math.abs(height - content) <= 6]; }), [true, true], 'Spotify\'s count would be 192px (the preview\'s font is a little taller than the client\'s)');
   });
 
+  await check('a folder\'s submenu in Add to playlist has no "New playlist" of its own (#202)', async () => {
+    // Spotify's shape: Add to playlist's list (New playlist at its top stays) and, nested in its rows, a folder's submenu
+    // that starts with New playlist and a separator; an empty folder's has nothing else.
+    const out = await page.evaluate(async () => {
+      const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const row = (text, more = '') => `<li><button role="menuitem" ${more}><div><span>${text}</span></div></button>`;
+      const folder = (id, rows) => `<div data-tippy-root id="${id}" style="position:absolute;inset:0px auto auto 0px;transform:translate3d(300px,0px,0px)"><ul role="menu" style="display:block;height:69px;margin:0;padding:0;list-style:none"><div>${row('New playlist')}</li><div></div>${rows}</div></ul></div>`;
+      const tip = document.createElement('div'); tip.id = 'mock-new-tip'; tip.setAttribute('data-tippy-root', ''); tip.style.cssText = 'position:absolute;inset:0px auto auto 0px;transform:translate3d(200px,200px,0px)';
+      tip.innerHTML = `<div><ul role="menu" style="display:block;margin:0;padding:0;list-style:none">${row('Add to playlist', 'aria-expanded="true"')}<div data-tippy-root id="mock-new-list" style="position:absolute;inset:0px auto auto 0px;transform:translate3d(200px,0px,0px)"><ul role="menu" style="display:block;margin:0;padding:0;list-style:none">`
+        + `${row('New playlist')}</li><div></div>${row('Folder', 'aria-expanded="true"')}${folder('mock-new-folder', row('Playlist') + '</li>')}</li>${row('Empty folder', 'aria-expanded="true"')}${folder('mock-new-empty', '')}</li></ul></div></li></ul></div>`;
+      document.body.append(tip); await frame();
+      const shown = el => getComputedStyle(el).display !== 'none', f = document.getElementById('mock-new-folder'), rows = f.querySelectorAll('li');
+      const result = [shown(document.querySelector('#mock-new-list > ul > li')), shown(rows[0]), shown(rows[0].nextElementSibling), shown(rows[1]),
+        Math.abs(f.querySelector('ul').getBoundingClientRect().height - rows[1].getBoundingClientRect().height - 10) <= 1, shown(document.getElementById('mock-new-empty'))];
+      tip.remove(); return result; });
+    // The list's New playlist stays; the folder's goes with its separator and the list is as tall as its one row; the empty folder opens nothing.
+    assert.deepEqual(out, [true, false, false, true, true, false]);
+  });
+
   await check('a Spotify menu that opens inside a sheet gets the theme\'s menu (#59)', async () => {
     // Shared with: the Listener ▾ menu (Leave playlist) is a [data-tippy-root] inside the react-modal's dialog.
     await page.evaluate(() => { const portal = document.createElement('div'); portal.className = 'ReactModalPortal'; portal.id = 'mock-sheet-menu';

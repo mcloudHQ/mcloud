@@ -1727,11 +1727,23 @@
     // in its ::before), never on the list: a backdrop-filter makes the list the containing block of a submenu inside
     // it, which its scrolling then clipped away. Lists can be replaced inside a root.
     const sync=()=>{
+      const fresh=spotifyText('web-player.aligned-curation.contextmenu.new-playlist');
       for(const slot of slots)if(slot.node&&!slot.node.isConnected){slot.watch.unobserve(slot.node);slot.node=null;}
       for(const tip of document.querySelectorAll('body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]')){if(!watched.has(tip)){watched.add(tip);tips.observe(tip,{childList:true,subtree:true});}
         // Spotify puts a closed submenu (Add to playlist) back when it opens again, still marked with a slot another
         // menu took meanwhile: its glass then drew that menu's map. A root is attached whenever its slot is not its own.
         for(const menu of tip.querySelectorAll('ul[role="menu"]')){const root=menu.closest('[data-tippy-root]');menu.dataset.amGlassList='';if(slots[root.dataset.amGlass]?.node!==root)attach(root);}
+        // Add to playlist: a folder's submenu (a list two levels down) starts with Spotify's "New playlist" and a
+        // separator, so hovering a folder on the way to a playlist offered to make one. Music offers New Playlist once,
+        // at the top of Add to Playlist (#202): both go (user.css), and a folder with nothing else opens nothing.
+        if(fresh)for(const sub of tip.querySelectorAll('[data-tippy-root] [data-tippy-root] [data-tippy-root]')){
+          for(const row of sub.querySelectorAll('[role="menuitem"]'))if(row.closest('[data-tippy-root]')===sub&&row.textContent.trim()===fresh){
+            const li=row.closest('li');if(!li||li.hasAttribute('data-am-folder-new'))continue;li.dataset.amFolderNew='';
+            if(li.nextElementSibling?.matches('div:empty:not([data-tippy-root])'))li.nextElementSibling.dataset.amFolderNew='';
+          }
+          const rest=[...sub.querySelectorAll('li')].some(li=>li.closest('[data-tippy-root]')===sub&&!li.hasAttribute('data-am-folder-new'));
+          if(rest)delete sub.dataset.amFolderEmpty;else sub.dataset.amFolderEmpty='';
+        }
         // Spotify's (and Spicetify's) leading icons, which user.css sets in Apple Music's icon column, as in the theme's
         // menus: a row's first part when it holds no text (an icon, or the empty slot of one), else the first icon
         // before the label's text, taken with its wrappers up to the one that holds text. Trailing icons (submenu

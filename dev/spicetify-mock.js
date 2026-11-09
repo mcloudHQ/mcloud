@@ -155,7 +155,7 @@
     return { data: { searchV2: { [field]: { totalCount: 45, pagingInfo: { nextOffset: end < 45 ? end : null }, items: Array.from({ length: end - offset }, (_, k) => item(offset + k)) } } } };
   };
   if (new URLSearchParams(location.search).get('menu') === 'submenu') delete Spicetify.Menu.Item.prototype.register;
-  Spicetify.Locale = { getLocale: () => new URLSearchParams(location.search).get('locale') || 'tr', get: key => ({ 'web-player.aligned-curation.tooltips.remove-from-liked-songs': 'Remove from Liked Songs', save_to_your_library: 'Save to Your Library', remove_from_your_library: 'Remove from Your Library' })[key] ?? key };
+  Spicetify.Locale = { getLocale: () => new URLSearchParams(location.search).get('locale') || 'tr', get: key => ({ 'web-player.aligned-curation.tooltips.remove-from-liked-songs': 'Remove from Liked Songs', 'web-player.aligned-curation.contextmenu.new-playlist': 'New playlist', save_to_your_library: 'Save to Your Library', remove_from_your_library: 'Remove from Your Library' })[key] ?? key };
   Spicetify.GraphQL = {
     Definitions: { queryArtistOverview: { name: 'queryArtistOverview' }, searchDesktop: { name: 'searchDesktop' }, ...Object.fromEntries(['searchTracks', 'searchArtists', 'searchAlbums', 'searchPlaylists', 'searchUsers'].map(name => [name, { name }])), getAlbum: { name: 'getAlbum' }, fetchExtractedColorAndImageForArtistEntity: { name: 'fetchExtractedColorAndImageForArtistEntity' }, fetchExtractedColorAndImageForTrackEntity: { name: 'fetchExtractedColorAndImageForTrackEntity' } },
     // getAlbum answers in Spotify's albumUnion shape (the fields the theme reads), from window.__mockAlbums by id. The mix
