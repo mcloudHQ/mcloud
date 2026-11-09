@@ -1761,7 +1761,7 @@ try {
     await page.click('#am-settings .am-settings-tab:has-text("Şimdi Çalan")');
     const rows = () => page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key + (n.classList.contains('am-settings-dim') && n.inert ? '~' : '')));
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('mcloud:settings')))).nowPlaying ?? 'off', 'off');
-    assert.deepEqual(await rows(), ['nowPlaying', 'npLayout~', 'npBg~', 'npArtSize~', 'npArt~', 'npLyricsPlace~', 'npQueue~']);
+    assert.deepEqual(await rows(), ['nowPlaying', 'npLayout~', 'npWidth~', 'npBg~', 'npArtSize~', 'npArt~', 'npLyricsPlace~', 'npQueue~']);
     assert.deepEqual(await page.locator('#am-settings .am-settings-section').allTextContents(), ['Görünüm', 'Sözler ve sıra']);
     // On, the same rows wake up; the background's "?" opens over the rows below and closes on Escape, the window stays.
     await page.click('#am-settings [data-key="nowPlaying"] .am-settings-option:has-text("Oynatıcıyla")');
@@ -2868,6 +2868,42 @@ try {
       await addCard();
       await page.waitForFunction(() => document.body.classList.contains('am-np-spicy') && document.getElementById('am-nowplaying').hidden);
       await page.waitForFunction(() => document.getElementById('SpicyLyricsNPVCard').classList.contains('Expanded'));
+      // #182: instead of the player Spicy's view shows too, between the pane's artwork and title above and the player's
+      // controls below: the pane is cut twice, the column pads its content to both cuts.
+      const cutsMatch = () => page.waitForFunction(() => { const l = document.querySelector('#am-nowplaying .am-np-lyrics').getBoundingClientRect(), a = [...document.querySelectorAll('.am-native-right aside[data-am-np-fill]')].pop(), s = getComputedStyle(a), r = a.getBoundingClientRect();
+        return Math.abs(r.top + parseFloat(s.paddingTop) - l.top) <= 1 && Math.abs(r.bottom - parseFloat(s.paddingBottom) - l.bottom) <= 1; });
+      for (const bg of ['Kapak renkleri', 'Sade']) {
+        await pick('npBg', bg);
+        await pick('nowPlaying', 'Oynatıcı yerine');
+        await page.waitForFunction(() => ['am-np-only', 'am-np-spicy', 'am-np-spicy-split'].every(c => document.body.classList.contains(c)) && !document.getElementById('am-nowplaying').hidden);
+        await page.waitForFunction(() => !document.getElementById('am-nowplaying').getAnimations().length);
+        await cutsMatch();
+        const pane = await rect('#am-nowplaying'), lyr = await rect('#am-nowplaying .am-np-lyrics'), play = await rect('#am-nowplaying .am-play'), meta = await rect('#am-nowplaying .am-np-actions');
+        assert.deepEqual([(await spicyState()).col, await topAt(lyr.left + lyr.width / 2, (lyr.top + lyr.bottom) / 2), await topAt(play.left + play.width / 2, (play.top + play.bottom) / 2), await topAt(meta.left + 8, (meta.top + meta.bottom) / 2)],
+          [pane, 'column', 'pane', 'pane'], `instead of the player (${bg}): Spicy's view between the pane's top and its controls`);
+        assert.ok(await page.evaluate(() => getComputedStyle(document.getElementById('am-player')).display === 'none'), 'the floating player stays hidden');
+      }
+      // #182: the pane's width, Narrow, Normal or Wide; Spicy's column and, docked, the page's column follow, and a change eases.
+      await pick('npBg', 'Kapak renkleri');
+      const widths = [];
+      for (const w of ['Dar', 'Geniş', 'Normal']) {
+        await pick('npWidth', w);
+        const eased = await page.evaluate(() => document.body.classList.contains('am-np-resize') && document.getAnimations().some(a => a.transitionProperty === '--am-np-w'));
+        await page.waitForFunction(() => !document.body.classList.contains('am-np-resize'));
+        await cutsMatch();
+        const pane = await rect('#am-nowplaying');assert.deepEqual((await spicyState()).col, pane, `Spicy's column follows the width (${w})`);
+        widths.push([eased, Math.round(pane.width)]);
+      }
+      assert.ok(widths.every(([eased]) => eased) && widths[0][1] < widths[2][1] && widths[2][1] < widths[1][1], 'Narrow < Normal < Wide, eased: ' + JSON.stringify(widths));
+      await pick('npLayout', 'Kenarda');
+      await pick('npWidth', 'Geniş');
+      await page.waitForFunction(() => !document.body.classList.contains('am-np-resize'));
+      assert.deepEqual(await page.evaluate(() => [Math.round(document.getElementById('am-nowplaying').getBoundingClientRect().width), Math.round(parseFloat(getComputedStyle(document.querySelector('.am-layout')).gridTemplateColumns.split(' ').pop()))]).then(([a, b]) => a === b), true, 'docked: the page\'s column is the pane\'s width');
+      await pick('npWidth', 'Normal');
+      await pick('npLayout', 'Yüzen kart');
+      await pick('npBg', 'Sade');
+      await pick('nowPlaying', 'Oynatıcıyla');
+      await page.waitForFunction(() => document.body.classList.contains('am-np-spicy') && document.getElementById('am-nowplaying').hidden);
       await pick('npLyricsSource', 'Spotify');
       state = await spicyState();
       assert.deepEqual([state.pane, state.card, await page.evaluate(() => document.body.classList.contains('am-np-spicy'))], [true, '', false], 'back on Spotify\'s lyrics');

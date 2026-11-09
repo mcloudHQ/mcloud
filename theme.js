@@ -2788,15 +2788,18 @@
   // changes the look: in a short window Large and Blended give the lyrics box the same size in another place (#153).
   const npSpicyCard=()=>document.querySelector('.am-native-right #SpicyLyricsNPVCard');
   let npSpicyOn=false,npSpicySplit=false,npSpicyExpanded=false,npSpicyClicked=null;
+  // Instead of the player (#182) the player's controls stay under the lyrics: a second cut, from the lyrics box's bottom.
   const npMeasureSplit=()=>{
     if(!npSpicySplit||np.hidden)return;
-    document.body.style.setProperty('--am-np-split',Math.round(npLyricsBox.getBoundingClientRect().top-np.getBoundingClientRect().top)+'px');
+    const box=npLyricsBox.getBoundingClientRect(),pane=np.getBoundingClientRect(),only=document.body.classList.contains('am-np-only');
+    document.body.style.setProperty('--am-np-split',Math.round(box.top-pane.top)+'px');
+    document.body.style.setProperty('--am-np-split-end',only?Math.round(pane.bottom-box.bottom)+'px':'0px');
   };
   const npSplitObserver=new ResizeObserver(npMeasureSplit);
   // On Spicy Lyrics' page the pane stays (#120) with the artwork and title only: the page has the lyrics.
   const npOnSpicyPage=()=>document.body.classList.contains('am-spicy-route');
   const npOpenFor=mode=>mode==='only'||mode==='beside';
-  const npSpicyWanted=mode=>mode==='beside'&&!npOnSpicyPage()&&!npFullOn&&settings.npLyricsSource==='spicy'&&(settings.npLyricsPlace==='below'||settings.npBg==='plain')
+  const npSpicyWanted=mode=>npOpenFor(mode)&&!npOnSpicyPage()&&!npFullOn&&settings.npLyricsSource==='spicy'&&(settings.npLyricsPlace==='below'||settings.npBg==='plain')
     &&!document.body.classList.contains('am-panel-open')&&!npQueueOn&&!!npSpicyCard();
   function npSpicyFill() {
     const card=npSpicyCard(),right=card?.closest('.am-native-right');if(!card)return;
@@ -2824,7 +2827,7 @@
   // Opening and closing ease: the pane slides in from the right while the page's right column widens (Apple Music opens
   // its sidebar player the same way). The column moves through the registered --am-right, so its grid track can
   // transition; reduced motion, or a build without the animation API, keeps the plain switch.
-  let npAnimTimer=0,npLeaveTimer=0,npAnim=null;
+  let npAnimTimer=0,npLeaveTimer=0,npAnim=null,npResizeTimer=0;
   function npAnimateArm() {
     if(reducedMotion.matches)return;
     document.body.classList.add('am-np-anim');void document.body.offsetWidth;
@@ -2920,7 +2923,8 @@
     const mode=npWant??settings.nowPlaying,b=document.body.classList,open=npOpenFor(mode),spicy=npSpicyWanted(mode),fromSpicy=npSpicyOn&&!spicy;
     // The pane's own content is rebuilt when it comes back from Spicy's (its lyrics were not loaded meanwhile).
     if(spicy!==npSpicyOn){npSpicyOn=spicy;b.toggle('am-np-spicy',spicy);npTrackKey='';npLyricUri=null;}
-    const split=spicy&&settings.npBg!=='plain';
+    // Plain has no artwork to keep above Spicy's view, but instead of the player its controls stay below it.
+    const split=spicy&&(settings.npBg!=='plain'||mode==='only');
     if(split!==npSpicySplit){npSpicySplit=split;b.toggle('am-np-spicy-split',split);npSplitObserver.disconnect();if(split){npSplitObserver.observe(np);npSplitObserver.observe(npLyricsBox);}}
     if(spicy)npSpicyFill();
     if(mode==='off'&&npFullOn){npFullOn=false;b.remove('am-np-full');npSyncFull();}
@@ -3133,6 +3137,14 @@
     note:T('Oynatıcı yerine: tüm kontroller panele geçer.','Instead of the player: its controls move here.'),apply:()=>{npWant=null;npApply();}});
   npSetting({key:'npLayout',group:'nowplaying',section:T('Görünüm','Look'),rank:1,tile:mini.npLayout,type:'choice',style:'tiles',default:'card',label:T('Yerleşim','Layout'),context:['np'],
     options:[['card',T('Yüzen kart','Floating')],['docked',T('Kenarda','Docked')]],apply:npApplyAll,dim:npOff});
+  // Width (#182), in place of dragging its edge: Music's own pane is ~260pt wide in a 1400pt window, Narrow comes close
+  // while the controls still fit. An open pane eases to the new width as it opens (user.css registers --am-np-w).
+  npSetting({key:'npWidth',group:'nowplaying',section:T('Görünüm','Look'),rank:1.5,type:'choice',style:'segmented',default:'normal',label:T('Genişlik','Width'),context:['np'],
+    options:[['narrow',T('Dar','Narrow')],['normal',T('Normal','Normal')],['wide',T('Geniş','Wide')]],dim:npOff,apply:v=>{
+      const b=document.body.classList;if(b.contains(`am-np-${v}`)||v==='normal'&&!b.contains('am-np-narrow')&&!b.contains('am-np-wide'))return;
+      if(b.contains('am-np-open')&&!reducedMotion.matches){b.add('am-np-resize');void document.body.offsetWidth;clearTimeout(npResizeTimer);npResizeTimer=setTimeout(()=>b.remove('am-np-resize'),320);}
+      b.toggle('am-np-narrow',v==='narrow');b.toggle('am-np-wide',v==='wide');
+    }});
   npSetting({key:'npBg',group:'nowplaying',section:T('Görünüm','Look'),rank:2,tile:mini.npBg,type:'choice',style:'tiles',default:'spicy',label:T('Arka plan','Background'),context:['np'],
     options:[['spicy','Spicy Lyrics'],['artwork',T('Kapak renkleri','Artwork colours')],['glass',T('Cam','Glass')],['plain',T('Sade','Plain')]],
     help:T('“Spicy Lyrics”: Spicy’nin hareketli arka planı. Bunun için Spicy Lyrics ayarlarında Background → Now Playing Sidebar → “Animated Background”ı açın; kapalıyken kapak renkleri görünür. “Sade”: Apple Music’in Mac’teki söz paneli gibi; kapak ve başlık yok, yalnızca sözler.','“Spicy Lyrics”: Spicy’s moving background. Turn on “Animated Background” in Spicy Lyrics’ settings (Background → Now Playing Sidebar); while it is off, the artwork’s colours show. “Plain”: like Apple Music’s lyrics pane on the Mac: no artwork or header, only the lyrics.'),apply:npApplyAll,dim:npOff});
@@ -3148,7 +3160,7 @@
   npSetting({key:'npLyricsSource',group:'nowplaying',section:T('Sözler ve sıra','Lyrics and queue'),rank:6,type:'choice',style:'segmented',default:'spicy',label:T('Söz kaynağı','Lyrics from'),context:['np'],
     options:[['spotify','Spotify'],['spicy','Spicy Lyrics']],
     note:T('Spicy Lyrics yoksa Spotify’ın sözleri gelir.','Without Spicy Lyrics, Spotify’s lyrics show.'),
-    apply:npSpicySource,when:()=>(npWant??settings.nowPlaying)==='beside'&&(settings.npLyricsPlace==='below'||settings.npBg==='plain')&&!!document.getElementById('SpicyLyrics_PageButton')});
+    apply:npSpicySource,when:()=>npOpenFor(npWant??settings.nowPlaying)&&(settings.npLyricsPlace==='below'||settings.npBg==='plain')&&!!document.getElementById('SpicyLyrics_PageButton')});
   // Playing Next in the pane (#182) or, for those who prefer it, Spotify's own queue panel beside it; switching closes an open list.
   npSetting({key:'npQueue',group:'nowplaying',section:T('Sözler ve sıra','Lyrics and queue'),rank:7,type:'choice',style:'segmented',default:'pane',label:T('Sıra','Queue'),context:['np'],
     options:[['pane',T('Panelin içinde','In the pane')],['spotify',T('Ayrı panel (Spotify)','Separate panel (Spotify)')]],apply:v=>{if(v==='spotify'&&npQueueOn)npQueueShow(false);},dim:npOff});
