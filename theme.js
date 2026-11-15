@@ -232,7 +232,7 @@
     // "balanced" draws glass without them there (body.am-balanced), "eco" (and the OS reduced-transparency setting)
     // swaps every blur and glass for solid surfaces (body.am-solid), "full" keeps the real glass everywhere.
     if(!glassModes.includes(settings.glass))settings.glass='balanced';
-    const solid=settings.glass==='eco'||reducedTransparency.matches;
+    const solid=settings.glass==='eco'||settings.optimized||reducedTransparency.matches;
     document.body.classList.toggle('am-solid',solid);document.body.classList.toggle('am-balanced',!solid&&settings.glass==='balanced');
     // 0 keeps the proportional default width from user.css.
     if(settings.sidebar>0)document.documentElement.style.setProperty('--am-side','min('+settings.sidebar+'px,40vw)');
@@ -377,15 +377,20 @@
   defineSetting({key:'accent',group:'general',rank:-2,label:T('Vurgu rengi','Accent colour'),type:'choice',default:'red',style:'swatches',options:Object.entries(accents).map(([key,[label,color]])=>[key,label,color])});
   // The value shown is the mode in effect: reduced transparency in the OS keeps Eco whatever is picked.
   defineSetting({key:'glass',group:'general',rank:-1,label:T('Cam efekti','Glass effect'),type:'choice',default:'balanced',style:'segmented',
-    options:[['full',T('Tam','Full')],['balanced',T('Dengeli','Balanced')],['eco',T('Eko','Eco')]],value:()=>reducedTransparency.matches?'eco':settings.glass,
+    options:[['full',T('Tam','Full')],['balanced',T('Dengeli','Balanced')],['eco',T('Eko','Eco')]],value:()=>reducedTransparency.matches||settings.optimized?'eco':settings.glass,dim:()=>!!settings.optimized,
     note:T('Eko camı kapatır ve pili korur.','Eco turns the glass off and saves battery.'),
     change:v=>{if(v!=='eco'&&reducedTransparency.matches)notify(T('Sistem ayarlarında saydamlık kapalı olduğu için cam efekti açılamıyor.','Transparency is reduced in your system settings, so the glass effect stays off.'));}});
   // Reduce motion (#217): scrolling titles stand still (ellipsized), the progress bar moves once a second, panes and
   // sheets switch without sliding, as with the system's Reduce Motion (which keeps it on whatever is picked).
-  const motionReduced=()=>!!settings.reduceMotion,marquees=new Set();
+  const motionReduced=()=>!!(settings.reduceMotion||settings.optimized),marquees=new Set();
+  const syncMotion=()=>{document.body.classList.toggle('am-reduce-motion',motionReduced());marquees.forEach(fit=>fit());};
+  // Optimized mode (#217): one switch for the least CPU and GPU, Eco's solid surfaces and Reduce motion together; the
+  // two rows show what it holds, dimmed, and keep their own value for when it is turned off.
+  defineSetting({key:'optimized',group:'general',rank:-1.5,label:T('Optimize mod','Optimized mode'),type:'toggle',default:false,
+    note:T('Camı ve hareketleri kapatır: en az işlemci ve ekran kartı.','Turns the glass and motion off, for the least CPU and GPU.'),apply:syncMotion});
   defineSetting({key:'reduceMotion',group:'general',rank:-.5,label:T('Hareketi azalt','Reduce motion'),type:'toggle',default:false,
-    value:()=>reducedMotionQuery.matches||settings.reduceMotion,dim:()=>reducedMotionQuery.matches,note:T('Kayan başlıklar ve geçişler durur, işlemci daha az çalışır.','Titles stop scrolling and transitions switch at once, for less CPU.'),
-    apply:v=>{document.body.classList.toggle('am-reduce-motion',v);marquees.forEach(fit=>fit());}});
+    value:()=>reducedMotionQuery.matches||motionReduced(),dim:()=>reducedMotionQuery.matches||!!settings.optimized,note:T('Kayan başlıklar ve geçişler durur, işlemci daha az çalışır.','Titles stop scrolling and transitions switch at once, for less CPU.'),
+    apply:syncMotion});
   defineSetting({key:'artwork',group:'player',rank:0,label:T('Albüm kapağı','Artwork'),type:'toggle',default:true,context:['player']});
   defineSetting({key:'liquid',group:'player',rank:1,label:'Liquid Glass',note:T('Kapalıyken oynatıcı düz buzlu cam olur.','Off, the player is plain frosted glass.'),type:'toggle',default:true,context:['player']});
   // Apple Music opens the song's menu wherever the player is right-clicked, and its title and artist — album line ask
