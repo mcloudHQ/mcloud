@@ -508,7 +508,7 @@
   // are macOS 27's, read off AppKit's own buttons drawn offscreen at 2x: 14px, 23px apart, centred 32px down and 26px in,
   // where Spotify puts them on macOS.
   const trafficApi=()=>{const P=S.Platform||{};return {win:P.FocusMainWindowAPI?._windowStateClient,ui:P.ControlMessageAPI?._updateUiClient||P.NativeAPI?._updateUiClient||P.UpdateAPI?._updateUiClient};};
-  let trafficOn=false,trafficBox=null,trafficTries=0,trafficMax=false,captionHeight=64,captionPatched=false;
+  let trafficOn=false,drawnBox=null,trafficBox=null,trafficTries=0,trafficMax=false,captionHeight=64,captionPatched=false;
   function syncCaption() {
     const {ui}=trafficApi(),p=ui&&Object.getPrototypeOf(ui);if(!p?.setButtonsVisibility||!p.updateTitlebarHeight)return;
     if(!captionPatched){captionPatched=true;const show=p.setButtonsVisibility,height=p.updateTitlebarHeight;
@@ -528,7 +528,39 @@
       const max=(await win?.getWindowState({}))?.state===2;await win?.setWindowState({state:max?1:2});trafficState(!max);
     }catch(e){console.warn('[AppleMusicMac] Window',kind,e);}
   }
-  function trafficState(max){trafficMax=max;trafficBox?.classList.toggle('am-traffic-max',max||!!document.fullscreenElement);}
+  function trafficState(max){trafficMax=max;trafficBox?.classList.toggle('am-traffic-max',max||!!document.fullscreenElement);drawnBox?.classList.toggle('am-caption-max',max);}
+  // settings.windowButtons 'mcloud' (option C of 15 Nov): Spotify's strip hidden as for the lights, and Windows 11's
+  // minimise/maximise/close drawn by the theme (Segoe Fluent's 10px glyphs, close hovers #c42b1c), in a capsule where
+  // the native ones sit or flush in the corner (settings.captionShape). Spotify gives no call that opens its app menu, so
+  // "…" opens ours instead.
+  function drawnBuild() {
+    const box=el('div','');box.id='am-caption';box.setAttribute('role','group');box.setAttribute('aria-label',T('Pencere','Window'));
+    const more=el('button','am-caption-more');more.type='button';more.setAttribute('aria-label',T('Menü','Menu'));
+    more.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg>';
+    more.addEventListener('click',()=>togglePopover(more,captionMenu));
+    const strip=el('div','am-caption-strip');
+    const glyphs={minimize:'<path d="M0.5 5.5h10"/>',zoom:'<rect class="am-caption-out" x="0.5" y="0.5" width="10" height="10" rx="1.5"/><g class="am-caption-in"><rect x="0.5" y="2.5" width="8" height="8" rx="1.2"/><path d="M2.6 0.5h6.4a1.5 1.5 0 0 1 1.5 1.5v6.4"/></g>',close:'<path d="M0.8 0.8l9.4 9.4M10.2 0.8l-9.4 9.4"/>'};
+    for(const [kind,label] of [['minimize',T('Küçült','Minimise')],['zoom',T('Büyüt','Maximise')],['close',T('Kapat','Close')]]){
+      const b=el('button','am-caption-'+kind);b.type='button';b.tabIndex=-1;b.setAttribute('aria-label',label);
+      b.innerHTML=`<svg viewBox="0 0 11 11" aria-hidden="true">${glyphs[kind]}</svg>`;b.addEventListener('click',event=>trafficAction(kind,event));strip.append(b);
+    }
+    box.append(more,strip);
+    const focus=()=>box.classList.toggle('am-caption-inactive',!document.hasFocus());addEventListener('focus',focus);addEventListener('blur',focus);focus();
+    trafficApi().win?.subscribeWindowState?.({},s=>trafficState(s?.state===2));
+    trafficApi().win?.getWindowState?.({})?.then?.(s=>trafficState(s?.state===2),()=>{});
+    return box;
+  }
+  function captionMenu() {
+    const apps=S.Config?.custom_apps||[];
+    return [
+      {label:T('Ayarlar','Settings'),action:()=>go('/preferences')},
+      {label:T('mcloud Ayarları','mcloud Settings'),action:()=>openSettings()},
+      ...(apps.includes('marketplace')?[{label:'Marketplace',action:()=>go('/marketplace')}]:[]),
+      '-',
+      {label:T('Yeniden Yükle','Reload'),action:()=>location.reload()},
+      {label:T('Kapat','Close'),action:()=>trafficAction('close',{})},
+    ];
+  }
   function trafficBuild() {
     const box=el('div','');box.id='am-traffic';box.setAttribute('role','group');box.setAttribute('aria-label',T('Pencere','Window'));
     const glyphs={close:'<path d="M4.6 4.6l4.8 4.8M9.4 4.6l-4.8 4.8" stroke-width="1.6"/>',minimize:'<path d="M4.1 7h5.8" stroke-width="1.6"/>',
@@ -547,28 +579,32 @@
   }
   function trafficSync() {
     if(!onWindows)return;
-    const side=settings.windowButtons,want=side==='left'||side==='right',{win,ui}=trafficApi();
+    const side=settings.windowButtons,lights=side==='left'||side==='right',drawn=side==='mcloud',want=lights||drawn,{win,ui}=trafficApi();
     // Spicetify resolves Spotify's APIs a moment after the theme starts.
     if(want&&!(win&&ui)){if(trafficTries++<20)setTimeout(trafficSync,500);return;}
     const was=trafficOn;let hidden=false;try{hidden=!!localStorage.getItem('mcloud:caption-hidden');}catch{}
     trafficOn=want;
-    document.body.classList.toggle('am-traffic',want);document.body.classList.toggle('am-traffic-right',want&&side==='right');
+    document.body.classList.toggle('am-traffic',lights);document.body.classList.toggle('am-traffic-right',side==='right');document.body.classList.toggle('am-caption-drawn',drawn);
     // On the left nothing covers the top-right corner any more; on the right the lights do, in less room.
-    document.body.classList.toggle('am-windows',!want||side==='right');
-    if(want){trafficBox||=trafficBuild();trafficBox.dataset.side=side;if(!trafficBox.isConnected)document.body.append(trafficBox);}
+    document.body.classList.toggle('am-windows',!lights||side==='right');
+    if(lights){trafficBox||=trafficBuild();trafficBox.dataset.side=side;if(!trafficBox.isConnected)document.body.append(trafficBox);}
     else trafficBox?.remove();
+    if(drawn){drawnBox||=drawnBuild();if(!drawnBox.isConnected)document.body.append(drawnBox);}else drawnBox?.remove();
     if(want||was||hidden)syncCaption();
     // Spotify sets its strip again while it starts (and on a zoom); the wrapper catches what goes through it.
     if(want&&!was)for(const ms of [1000,2000,4000,8000])setTimeout(()=>trafficOn&&syncCaption(),ms);
   }
   defineSetting({key:'windowButtons',group:'general',section:T('Pencere','Window'),label:T('Pencere düğmeleri','Window buttons'),type:'choice',style:'segmented',default:'windows',
-    options:[['windows','Windows'],['left',T('macOS, solda','macOS, left')],['right',T('macOS, sağda','macOS, right')]],
+    options:[['windows','Windows'],['mcloud',T('Windows, mcloud','Windows, mcloud')],['left',T('macOS, solda','macOS, left')],['right',T('macOS, sağda','macOS, right')]],
     note:T('Küçült, büyüt ve kapat; Alt ile yeşil tam ekran yapar.','Minimise, maximise and close; Alt-click green for full screen.'),
     hidden:!onWindows,apply:()=>trafficSync()});
   // The backing behind Spotify's own caption glyphs and "…" (user.css body.am-windows): frosted (body ::before/::after,
   // light mode only) or the toolbar's Liquid Glass in a dark tint (syncCaptionGlass, below), in both modes.
   defineSetting({key:'captionGlass',group:'general',section:T('Pencere','Window'),label:T('Pencere düğmelerinin zemini','Window buttons backing'),type:'choice',style:'segmented',default:'frosted',
-    options:[['frosted',T('Buzlu','Frosted')],['liquid','Liquid Glass']],dim:()=>settings.windowButtons!=='windows',hidden:!onWindows});
+    options:[['frosted',T('Buzlu','Frosted')],['liquid','Liquid Glass']],dim:()=>!['windows','mcloud'].includes(settings.windowButtons)||settings.windowButtons==='mcloud'&&settings.captionShape==='flush',hidden:!onWindows});
+  defineSetting({key:'captionShape',group:'general',section:T('Pencere','Window'),label:T('mcloud düğmelerinin biçimi','mcloud buttons shape'),type:'choice',style:'segmented',default:'capsule',
+    options:[['capsule',T('Kapsül','Capsule')],['flush',T('Köşede','In the corner')]],dim:()=>settings.windowButtons!=='mcloud',hidden:!onWindows,
+    apply:v=>document.body.classList.toggle('am-caption-flush',v==='flush')});
   // A control clicked with the mouse keeps focus, and Chromium draws its :focus-visible ring once any key is pressed
   // (Space for play/pause). Focus that arrives without a key since the last pointer press gets .am-mouse-focus, which
   // hides the ring; text fields keep theirs.
@@ -2725,7 +2761,7 @@
   // through its light layer (user.css #am-caption-glass) so the white glyphs stay readable in light mode too.
   let captionRoot=null,captionGlasses=[],captionKey='';
   function syncCaptionGlass() {
-    const b=document.body.classList,want=onWindows&&settings.captionGlass==='liquid'&&b.contains('am-windows')&&!b.contains('am-traffic')&&glassShapes(),key=want?(glassLive()?'lens':'solid'):'';
+    const b=document.body.classList,want=onWindows&&settings.captionGlass==='liquid'&&b.contains('am-windows')&&!b.contains('am-traffic')&&!(b.contains('am-caption-drawn')&&b.contains('am-caption-flush'))&&glassShapes(),key=want?(glassLive()?'lens':'solid'):'';
     b.toggle('am-caption-liquid',want);if(key===captionKey)return;captionKey=key;
     captionGlasses.forEach(g=>g.destroy());captionGlasses=[];
     if(!want){captionRoot?.remove();captionRoot=null;return;}
@@ -3564,17 +3600,17 @@
     if(!photoReady)return;
     const id=playlistId(),header=id&&settings.photoHeaders?main?.querySelector('[data-testid="playlist-page"] > [data-testid="entity-header"]'):null;
     const slot=header&&!header.querySelector('.main-entityHeader-imageContainer')?header.querySelector('.main-entityHeader-contentWrapper > div:first-child:empty'):null;
-    for(const old of main?.querySelectorAll('.am-photo-art')||[])if(old!==slot){old.classList.remove('am-photo-art','am-mix','am-mix-ready','am-mix-plain');delete old.dataset.amMixSrc;}
+    for(const old of main?.querySelectorAll('.am-photo-art')||[])if(old!==slot){old.classList.remove('am-photo-art','am-mix','am-mix-ready','am-mix-plain','am-mix-trio');delete old.dataset.amMixSrc;}
     if(photoPage!==!!slot){photoPage=!!slot;document.body.classList.toggle('am-photo-page',photoPage);}
     if(!slot)return;
     slot.classList.add('am-photo-art');
     const url=photoCovers.get(id);if(!url||slot.dataset.amMixSrc===url)return;
     slot.dataset.amMixSrc=url;
-    if(!mixUrl.test(url)||settings.mixCovers==='spotify'){slot.classList.remove('am-mix','am-mix-ready','am-mix-plain');slot.style.setProperty('--am-photo-art',`url("${spotifyImage(url)}")`);return;}
+    if(!mixUrl.test(url)||settings.mixCovers==='spotify'){slot.classList.remove('am-mix','am-mix-ready','am-mix-plain','am-mix-trio');slot.style.setProperty('--am-photo-art',`url("${spotifyImage(url)}")`);return;}
     slot.dataset.amMixStyle=mixStyle(url);slot.dataset.amMix=header.querySelector('h1')?.textContent.trim()||'';
     slot.classList.add('am-mix');slot.style.setProperty('--am-mix-radius','10px');
-    const known=mixCovers.get(url);if(known){drawMix(slot,known);return;}
-    slot.classList.remove('am-mix-ready');
+    const known=mixCovers.get(url);if(known){drawMix(slot,known);if(!mixStale(url,known))return;}
+    else slot.classList.remove('am-mix-ready');
     mixCover(url).then(cover=>{if(cover&&slot.dataset.amMixSrc===url)drawMix(slot,cover);});
   }
   function syncHeaderColor() {
@@ -4431,22 +4467,30 @@
     const path=(mixUrl.exec(url)?.[1]||'').split('/');
     if(path[0]==='daily'&&/^ab67[0-9a-f]{20,}$/.test(path[2]||''))return {photo:'https://i.scdn.co/image/'+path[2]};
     const id=path.find(p=>/^[A-Za-z0-9]{22}$/.test(p));
-    return !id?{}:path[0]==='radio'&&path[1]==='track'?{track:id}:{artist:id};
+    return !id?{}:path[0]==='radio'&&path[1]==='track'?{track:id}:{artist:id,radio:path[0]==='radio'};
   }
   // Covers worked out before (photo and colour by image URL), so a mix seen before draws at once. The newest 200 are kept.
-  const mixCovers=new Map(),mixJobs=new Map();
+  const mixCovers=new Map(),mixJobs=new Map(),mixTried=new Set();
   try{for(const [url,cover] of JSON.parse(localStorage.getItem('mcloud:mix-covers')||'[]'))if(typeof cover?.color==='string')mixCovers.set(url,cover);}catch{}
   function mixCover(url) {
     if(mixJobs.has(url))return mixJobs.get(url);
     const job=(async()=>{
       const source=mixSource(url),request=gql(),D=request&&S.GraphQL?.Definitions;let photo=source.photo||'';
+      let related;
       try{
-        if(source.artist&&D?.fetchExtractedColorAndImageForArtistEntity)photo=spotifyImage(bySize((await request(D.fetchExtractedColorAndImageForArtistEntity,{uri:'spotify:artist:'+source.artist}))?.data?.artistUnion?.visuals?.avatarImage).at(-1)?.url||'');
+        // An artist's station also shows two of its similar artists, as Apple's "… & Similar Artists" (#219): from the
+        // artist overview the artist page uses (Spotify's API, cached), their avatars from Spotify's image CDN.
+        if(source.radio&&mixStyle(url)==='station'&&D?.queryArtistOverview){
+          mixTried.add(url);
+          const artist=await artistOverview(source.artist).catch(()=>null);
+          if(artist){photo=artistImage(artist.visuals?.avatarImage);related=(artist.relatedContent?.relatedArtists?.items||[]).map(a=>artistImage(a?.visuals?.avatarImage)).filter(Boolean).slice(0,2);}
+        }
+        if(!photo&&source.artist&&D?.fetchExtractedColorAndImageForArtistEntity)photo=spotifyImage(bySize((await request(D.fetchExtractedColorAndImageForArtistEntity,{uri:'spotify:artist:'+source.artist}))?.data?.artistUnion?.visuals?.avatarImage).at(-1)?.url||'');
         if(source.track&&D?.fetchExtractedColorAndImageForTrackEntity)photo=spotifyImage(bySize((await request(D.fetchExtractedColorAndImageForTrackEntity,{uri:'spotify:track:'+source.track}))?.data?.trackUnion?.albumOfTrack?.coverArt).at(-1)?.url||'');
       }catch{}
       const color=await artworkColor(photo||url);
       mixJobs.delete(url);if(!color)return null;
-      const cover={photo,color};mixCovers.delete(url);mixCovers.set(url,cover);
+      const cover={photo,color,...related&&{related}};mixCovers.delete(url);mixCovers.set(url,cover);
       while(mixCovers.size>200)mixCovers.delete(mixCovers.keys().next().value);
       try{localStorage.setItem('mcloud:mix-covers',JSON.stringify([...mixCovers]));}catch{}
       return cover;
@@ -4462,8 +4506,15 @@
     const mid=Math.min(.6,Math.max(.4,l));
     style.setProperty('--am-mix-from',`hsl(${hue} ${sat}% ${Math.round((mid+.12)*100)}%)`);
     style.setProperty('--am-mix-to',`hsl(${(hue+330)%360} ${Math.min(90,sat+10)}% ${Math.round((mid-.14)*100)}%)`);
+    const trio=cover.related?.length===2&&!!cover.photo;box.classList.toggle('am-mix-trio',trio);
+    if(trio)cover.related.forEach((src,i)=>style.setProperty('--am-mix-photo'+(i+2),`url("${src}")`));
+    // Apple's station covers run from the colour at 20% lightness at the top to 49% at the bottom, at its own saturation.
+    if(trio){const full=Math.round(s*100);style.setProperty('--am-mix-top',`hsl(${hue} ${full}% 20%)`);style.setProperty('--am-mix-bottom',`hsl(${hue} ${full}% 49%)`);}
     box.classList.toggle('am-mix-plain',!cover.photo);box.classList.add('am-mix-ready');
   }
+  // A station cover drawn before its similar artists were looked up (or before #219) is drawn at once, then once more
+  // with them; a lookup that failed is tried again next session.
+  const mixStale=(url,cover)=>!cover.related&&!mixTried.has(url)&&mixStyle(url)==='station'&&/\/img\/radio\/artist\//.test(url);
   // The name drawn into the band: a card's title, a playlist page's h1, else the nearest link with text around the image
   // (Home's big "Made for you" cards and the shortcuts at the top have neither; their band was drawn empty, #194).
   function mixName(img) {
@@ -4482,14 +4533,16 @@
     // A card's image sits absolute in its square box (main-card-imageContainer, or the card's own image area); a page
     // header's directly in its parent, as do the search suggestions' thumbnails (#218) and the theme's own cards.
     const box=img.closest('[data-encore-id="card"]')?img.parentElement?.parentElement:img.parentElement,url=img.getAttribute('src')||'';if(!box||!img.closest(mixPlaces))return;
-    if(!mixUrl.test(url)||settings.mixCovers==='spotify'){if(box.classList.contains('am-mix'))box.classList.remove('am-mix','am-mix-ready','am-mix-plain');delete box.dataset.amMixSrc;return;}
+    if(!mixUrl.test(url)||settings.mixCovers==='spotify'){if(box.classList.contains('am-mix'))box.classList.remove('am-mix','am-mix-ready','am-mix-plain','am-mix-trio');delete box.dataset.amMixSrc;return;}
     box.dataset.amMixStyle=mixStyle(url);
     const name=mixName(img);if(box.dataset.amMix!==name)box.dataset.amMix=name;
     if(box.dataset.amMixSrc===url&&box.classList.contains('am-mix-ready'))return;
-    box.dataset.amMixSrc=url;box.classList.add('am-mix');box.style.setProperty('--am-mix-radius',radius??getComputedStyle(img).borderRadius);
+    box.dataset.amMixSrc=url;box.classList.add('am-mix');
+    // The corners are the image's, else its box's (the suggestions' and the theme's own artwork round the box).
+    const corner=radius??getComputedStyle(img).borderRadius;box.style.setProperty('--am-mix-radius',parseFloat(corner)?corner:getComputedStyle(box).borderRadius);
     const known=mixCovers.get(url);
-    if(known){drawMix(box,known);return;}
-    box.classList.remove('am-mix-ready');
+    if(known){drawMix(box,known);if(!mixStale(url,known))return;}
+    else box.classList.remove('am-mix-ready');
     mixCover(url).then(cover=>{if(cover&&box.dataset.amMixSrc===url&&img.getAttribute('src')===url)drawMix(box,cover);});
   }
   document.addEventListener('load',event=>{if(event.target.tagName==='IMG'&&(settings.mixCovers!=='spotify'||event.target.closest('.am-mix')))markMix(event.target);},true);

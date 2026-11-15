@@ -3535,17 +3535,23 @@ try {
       true, 'rgb(255, 255, 255)', '40px', 'none', true, true, 'blur(12px) saturate(1.4)']);
   });
 
-  await check('mix covers in the search suggestions (#218)', async () => {
+  await check('mix covers in the search suggestions (#218) and artist stations with two similar artists (#219)', async () => {
     const pick = 'https://pickasso.spotifycdn.com/image/ab67c0de0000deef/dt/v1/img/';
     assert.deepEqual(await page.evaluate(async pick => {
       const d = document.createElement('div');d.id = 'search-dropdown';
       d.innerHTML = `<div role="row"><div><div><div class="mock-sdmix" style="position:relative;width:46px;height:46px"><img alt="" style="width:46px;height:46px" src="${pick}topic/chill/0ECwFtbIWEVNwjlrfc6xoL/en"></div><div id="m1-play"></div></div></div><div id="m1-title"><a href="/playlist/1">Chill Mix</a></div></div>`;
       document.body.append(d);
-      const box = d.querySelector('.mock-sdmix');
-      for (let i = 0; i < 100 && !box.classList.contains('am-mix-ready'); i++) await new Promise(r => setTimeout(r, 20));
-      const out = [box.dataset.amMix, box.classList.contains('am-mix-ready'), getComputedStyle(box, '::after').content];
-      d.remove();return out;
-    }, pick), ['Chill Mix', true, '"Chill Mix"']);
+      const s = document.createElement('section');s.id = 'mock-trio';
+      s.innerHTML = `<div data-encore-id="card" style="position:relative;width:180px"><div class="mock-trio-art" style="position:relative;width:180px;height:180px"><div><img alt="" style="position:absolute;inset:0;width:100%;height:100%" src="${pick}radio/artist/1Xyo4u8uXC1ZmMpatF05PJ/en"></div></div><a><p data-encore-id="cardTitle">Sena Radio</p></a></div>`;
+      document.querySelector('.am-native-main main').prepend(s);
+      const box = d.querySelector('.mock-sdmix'), trio = s.querySelector('.mock-trio-art');
+      for (let i = 0; i < 100 && !(box.classList.contains('am-mix-ready') && trio.classList.contains('am-mix-trio')); i++) await new Promise(r => setTimeout(r, 20));
+      const masks = ['::before', '::after'].map(p => { const a = getComputedStyle(trio, p); return ((a.webkitMaskImage || a.maskImage).match(/radial-gradient/g) || []).length; }).join('+');
+      const out = [box.dataset.amMix, box.classList.contains('am-mix-ready'), getComputedStyle(box, '::after').content, trio.dataset.amMixStyle, trio.classList.contains('am-mix-trio'),
+        !!trio.style.getPropertyValue('--am-mix-photo2') && !!trio.style.getPropertyValue('--am-mix-photo3'), masks, getComputedStyle(trio).backgroundImage.startsWith('linear-gradient'),
+        JSON.parse(localStorage.getItem('mcloud:mix-covers')).find(([u]) => u.includes('/radio/artist/'))[1].related.length];
+      d.remove();s.remove();return out;
+    }, pick), ['Chill Mix', true, '"Chill Mix"', 'station', true, true, '1+2', true, 2]);
   });
 
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
@@ -3984,6 +3990,26 @@ try {
       await ws.pick('windowButtons', 'Windows');
       await ws.pick('captionGlass', 'Buzlu');
       assert.equal(await win.evaluate(() => !!document.getElementById('am-caption-glass') || document.body.classList.contains('am-caption-liquid')), false);
+      // Option C: the strip hidden, our own "…" and minimise/maximise/close (no-drag, under modals), which work as the lights do.
+      await ws.pick('windowButtons', 'Windows, mcloud');
+      assert.deepEqual(await native(), [false, 1, 'none']);
+      assert.deepEqual(await win.evaluate(() => { const c = document.getElementById('am-caption'), z = +getComputedStyle(c).zIndex;
+        return [[...c.querySelectorAll('.am-caption-strip button')].map(b => getComputedStyle(b).webkitAppRegion).join(), z > 60 && z < 65, document.body.classList.contains('am-traffic')]; }), ['no-drag,no-drag,no-drag', true, false]);
+      const before = await win.evaluate(() => window.__win.calls.length);
+      await win.click('#am-caption .am-caption-minimize'); await win.click('#am-caption .am-caption-zoom');
+      await win.waitForFunction(() => document.getElementById('am-caption').classList.contains('am-caption-max'));
+      await win.click('#am-caption .am-caption-zoom');
+      assert.deepEqual(await win.evaluate(n => window.__win.calls.slice(n).filter(c => c[0] === 'state'), before), [['state', 3], ['state', 2], ['state', 1]]);
+      await win.click('#am-caption .am-caption-more');
+      assert.equal(await win.evaluate(() => !document.getElementById('am-popover').hidden && document.getElementById('am-popover').textContent.includes('mcloud')), true);
+      await win.keyboard.press('Escape');
+      // Docked Now Playing: the artwork starts under the capsule (52px), and under Spotify's grey strip (64px) with its buttons.
+      const dockedTop = () => win.evaluate(() => { const b = document.body.classList, had = ['am-np-beside', 'am-np-docked'].filter(c => !b.contains(c));
+        b.add(...had); const v = getComputedStyle(document.querySelector('#am-nowplaying .am-np-body')).paddingTop; b.remove(...had); return v; });
+      assert.equal(await dockedTop(), '52px');
+      await ws.pick('windowButtons', 'Windows');
+      assert.equal(await dockedTop(), '64px');
+      assert.deepEqual([await win.evaluate(() => !!document.getElementById('am-caption')), await native()], [false, [true, 80, 'block']]);
       // Saved: the lights come back on the next start and hide the buttons again (Spotify starts with them shown).
       await ws.pick('windowButtons', 'macOS, solda');
       await win.goto(url); await win.waitForSelector('#am-traffic');

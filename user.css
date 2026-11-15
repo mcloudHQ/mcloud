@@ -2017,6 +2017,12 @@ body.am-windows.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-co
 body.am-windows.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:44px}
 body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:44px}
 body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:76px}
+/* Spotify's own strip paints a grey block behind its glyphs that the page cannot change, so the artwork starts below it
+   (64px); mcloud's capsule ends 48px down (52px). The corner shape and the lights fit the 44px above. */
+body.am-windows.am-np-beside.am-np-docked:not(.am-traffic,.am-caption-drawn):not(.am-np-full,.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:72px}
+body.am-windows.am-np-beside.am-np-docked:not(.am-traffic,.am-caption-drawn):not(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:64px}
+body.am-caption-drawn:not(.am-caption-flush).am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:60px}
+body.am-caption-drawn:not(.am-caption-flush).am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:52px}
 /* Full screen without Spicy Lyrics (with it, Spicy's page; theme.js npFullscreen): the pane fills the window as
    Apple Music's full-screen player, the artwork and title on the left and the lyrics large on the right. The floating
    player stays above it. Its button moves to the top right corner. */
@@ -2124,6 +2130,37 @@ body.am-caption-liquid::before,body.am-caption-liquid::after {content:none!impor
 #am-caption-glass .am-caption-buttons {right:2px;width:134px}
 #am-caption-glass .am-tglass-light {background:rgb(0 0 0/.18)}
 body.am-light #am-caption-glass .am-tglass-light {background:rgb(0 0 0/.46)}
+/* settings.windowButtons 'mcloud' (theme.js drawnBuild): Spotify's strip is hidden and the theme
+   draws Windows 11's buttons (46x32 in the corner, or 42px segments of a capsule where the native ones sat), so the glyphs
+   follow the theme: dark on a light capsule in light mode. Under modals like the lights (#216); the glass under it. */
+body.am-caption-drawn::before,body.am-caption-drawn::after {content:none!important}
+body.am-caption-drawn #am-caption-glass {z-index:61}
+body.am-caption-drawn #am-caption-glass .am-caption-buttons {right:12px;width:126px}
+body.am-caption-drawn.am-light #am-caption-glass .am-tglass-light {background:rgb(255 255 255/.3)}
+#am-caption {--am-cap-glyph:#fff;--am-cap-hover:rgb(255 255 255/.1);--am-cap-press:rgb(255 255 255/.06);--am-cap-fill:rgb(38 38 38/.55);position:fixed;inset:0 0 auto;height:0;z-index:62}
+body.am-light #am-caption {--am-cap-glyph:#1a1a1a;--am-cap-hover:rgb(0 0 0/.07);--am-cap-press:rgb(0 0 0/.04);--am-cap-fill:rgb(255 255 255/.62)}
+#am-caption button {display:grid;place-items:center;border:0;padding:0;margin:0;background:transparent;color:var(--am-cap-glyph);-webkit-app-region:no-drag;transition:background-color .1s}
+#am-caption svg {width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:1;overflow:visible}
+#am-caption .am-caption-more svg {width:16px;height:16px;fill:currentColor;stroke:none}
+#am-caption .am-caption-more,#am-caption .am-caption-strip {position:fixed;top:16px;height:32px;border-radius:16px;overflow:hidden;background:var(--am-cap-fill);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);box-shadow:inset 0 0 0 .5px rgb(255 255 255/.14),0 1px 3px rgb(0 0 0/.12)}
+#am-caption .am-caption-more {left:12px;width:46px}
+#am-caption .am-caption-strip {right:12px;display:flex}
+#am-caption .am-caption-strip button {width:42px;height:32px}
+body.am-caption-liquid #am-caption :is(.am-caption-more,.am-caption-strip),body.am-solid #am-caption :is(.am-caption-more,.am-caption-strip) {-webkit-backdrop-filter:none;backdrop-filter:none}
+body.am-caption-liquid #am-caption :is(.am-caption-more,.am-caption-strip) {background:transparent;box-shadow:none}
+#am-caption button:hover {background:var(--am-cap-hover)}
+#am-caption button:active {background:var(--am-cap-press)}
+#am-caption .am-caption-close:hover {background:#c42b1c;color:#fff}
+#am-caption .am-caption-close:active {background:#c42b1ce6;color:#fff}
+#am-caption.am-caption-inactive button:not(:hover) {color:color-mix(in srgb,var(--am-cap-glyph) 40%,transparent)}
+#am-caption .am-caption-in,#am-caption.am-caption-max .am-caption-out {display:none}
+#am-caption.am-caption-max .am-caption-in {display:inline}
+/* In the corner: Windows' own geometry, flat, no backing; "…" flat over the sidebar's top-left. */
+body.am-caption-flush #am-caption :is(.am-caption-more,.am-caption-strip) {top:0;height:32px;border-radius:0;background:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+body.am-caption-flush #am-caption .am-caption-strip {right:0}
+body.am-caption-flush #am-caption .am-caption-more {left:0}
+body.am-caption-flush #am-caption .am-caption-strip button {width:46px}
+body.am-caption-flush.am-windows.am-ready #global-nav-bar {right:146px!important}
 /* macOS traffic lights on Windows (#200, theme.js trafficSync): the native buttons are hidden, so their capsules go; on
    the right the lights need less room than Windows' three buttons. Colours read off macOS 27's own buttons (AppKit,
    2x, and docs/screenshot.png): a flat fill lit from below by a soft radial glow, a bright rim toward the bottom, a darker
@@ -2371,6 +2408,7 @@ body.am-home-apple .am-native-main [data-am-shortcut]:is(:hover,:focus-within) .
    container units so a 150px card and a 230px page header keep the same proportions. */
 .am-mix-ready[data-am-mix-style] {container-type:inline-size;overflow:hidden;border-radius:var(--am-mix-radius,8px)}
 .am-mix-ready[data-am-mix-style] img {opacity:0!important}
+.am-card-art.am-mix-ready[data-am-mix-style] {position:relative}
 /* Spotify hides a mix card's title (height 0, transparent text) since its image carries the name; Apple names every
    card under its artwork, whatever the cover says. */
 /* A mix card's title shows from its first frame, not once the cover is redrawn: Spotify hides it (height:0 inline) and
@@ -2398,6 +2436,15 @@ body.am-mix-titles [data-encore-id="card"]:has(img:is([src^="https://pickasso.sp
 /* Station: the photo in a circle on its colour, as Apple's artist stations. */
 .am-mix-ready[data-am-mix-style="station"]:not(.am-mix-plain)::before {background:var(--am-mix-band)}
 .am-mix-ready[data-am-mix-style="station"]:not(.am-mix-plain)::after {content:"";left:17%;top:17%;width:66%;aspect-ratio:1;border-radius:50%;background:var(--am-mix-photo) center 22%/cover no-repeat;box-shadow:0 2cqw 6cqw rgb(0 0 0/.28)}
+/* An artist's station with two of its similar artists (#219), measured on Apple's "… & Similar Artists" covers: flat
+   circles (no shadows), the artist's centred at 37/34.6% with radius 29.6%, the others at 76/64.2% (16.5%) and 45/80.7%
+   (14.5%), on the artist's colour from dark at the top to light at the bottom (theme.js works out --am-mix-top/-bottom).
+   Each photo is a layer masked to its disc; the right one's square would reach the large disc, so it is in ::before and
+   the colour on the box itself. */
+.am-mix-ready.am-mix-trio[data-am-mix-style="station"] {background:linear-gradient(var(--am-mix-top),var(--am-mix-bottom))}
+.am-mix-ready.am-mix-trio[data-am-mix-style="station"]::before {background:var(--am-mix-photo2) 59.5cqw 47.7cqw/33cqw 33cqw no-repeat;-webkit-mask:radial-gradient(circle 16.5cqw at 76cqw 64.2cqw,#000 calc(100% - .6px),#0000)}
+.am-mix-ready.am-mix-trio[data-am-mix-style="station"]::after {inset:0;width:auto;aspect-ratio:auto;border-radius:0;box-shadow:none;background:var(--am-mix-photo) 7.4cqw 5cqw/59.2cqw 59.2cqw no-repeat,var(--am-mix-photo3) 30.5cqw 66.2cqw/29cqw 29cqw no-repeat;
+  -webkit-mask:radial-gradient(circle 29.6cqw at 37cqw 34.6cqw,#000 calc(100% - .6px),#0000),radial-gradient(circle 14.5cqw at 45cqw 80.7cqw,#000 calc(100% - .6px),#0000)}
 
 /* Inter (c) The Inter Project Authors, SIL Open Font License 1.1, see licenses/Inter-OFL.txt.
    Subset to Latin + Latin Extended-A (all Turkish letters) with the wght/opsz axes. macOS keeps SF Pro,
