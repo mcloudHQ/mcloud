@@ -2345,13 +2345,15 @@ body.am-mix-titles [data-encore-id="card"]:has(img:is([src^="https://pickasso.sp
 /* Station: the photo in a circle on its colour, as Apple's artist stations. */
 .am-mix-ready[data-am-mix-style="station"]:not(.am-mix-plain)::before {background:var(--am-mix-band)}
 .am-mix-ready[data-am-mix-style="station"]:not(.am-mix-plain)::after {content:"";left:17%;top:17%;width:66%;aspect-ratio:1;border-radius:50%;background:var(--am-mix-photo) center 22%/cover no-repeat;box-shadow:0 2cqw 6cqw rgb(0 0 0/.28)}
-/* An artist's station with two of its similar artists (#219), as Apple's "… & Similar Artists": the artist in a large
-   circle up left, the two others smaller on the right and below, on the artist's colour going deeper downwards. The
-   circles are one layer of three photos masked to three discs, so no photo's square may reach another's disc: Apple's
-   places (centres 39/37, 77/61, 48/82%, radii 29, 15.5, 13%) moved that far apart. Their soft shadows are in ::before. */
-.am-mix-ready.am-mix-trio[data-am-mix-style="station"]::before {background:radial-gradient(circle 35cqw at 37cqw 39.5cqw,rgb(0 0 0/.26) 27cqw,rgb(0 0 0/0)),radial-gradient(circle 19cqw at 80cqw 53.5cqw,rgb(0 0 0/.24) 12.5cqw,rgb(0 0 0/0)),radial-gradient(circle 18cqw at 48cqw 83.5cqw,rgb(0 0 0/.24) 12cqw,rgb(0 0 0/0)),linear-gradient(var(--am-mix-from),var(--am-mix-deep))}
-.am-mix-ready.am-mix-trio[data-am-mix-style="station"]::after {inset:0;width:auto;aspect-ratio:auto;border-radius:0;box-shadow:none;background:var(--am-mix-photo) 8cqw 8cqw/58cqw 58cqw no-repeat,var(--am-mix-photo2) 66cqw 38cqw/28cqw 28cqw no-repeat,var(--am-mix-photo3) 35cqw 69cqw/26cqw 26cqw no-repeat;
-  -webkit-mask:radial-gradient(circle 29cqw at 37cqw 37cqw,#000 calc(100% - .6px),#0000),radial-gradient(circle 14cqw at 80cqw 52cqw,#000 calc(100% - .6px),#0000),radial-gradient(circle 13cqw at 48cqw 82cqw,#000 calc(100% - .6px),#0000)}
+/* An artist's station with two of its similar artists (#219), measured on Apple's "… & Similar Artists" covers: flat
+   circles (no shadows), the artist's centred at 37/34.6% with radius 29.6%, the others at 76/64.2% (16.5%) and 45/80.7%
+   (14.5%), on the artist's colour from dark at the top to light at the bottom (theme.js works out --am-mix-top/-bottom).
+   Each photo is a layer masked to its disc; the right one's square would reach the large disc, so it is in ::before and
+   the colour on the box itself. */
+.am-mix-ready.am-mix-trio[data-am-mix-style="station"] {background:linear-gradient(var(--am-mix-top),var(--am-mix-bottom))}
+.am-mix-ready.am-mix-trio[data-am-mix-style="station"]::before {background:var(--am-mix-photo2) 59.5cqw 47.7cqw/33cqw 33cqw no-repeat;-webkit-mask:radial-gradient(circle 16.5cqw at 76cqw 64.2cqw,#000 calc(100% - .6px),#0000)}
+.am-mix-ready.am-mix-trio[data-am-mix-style="station"]::after {inset:0;width:auto;aspect-ratio:auto;border-radius:0;box-shadow:none;background:var(--am-mix-photo) 7.4cqw 5cqw/59.2cqw 59.2cqw no-repeat,var(--am-mix-photo3) 30.5cqw 66.2cqw/29cqw 29cqw no-repeat;
+  -webkit-mask:radial-gradient(circle 29.6cqw at 37cqw 34.6cqw,#000 calc(100% - .6px),#0000),radial-gradient(circle 14.5cqw at 45cqw 80.7cqw,#000 calc(100% - .6px),#0000)}
 
 /* Inter (c) The Inter Project Authors, SIL Open Font License 1.1, see licenses/Inter-OFL.txt.
    Subset to Latin + Latin Extended-A (all Turkish letters) with the wght/opsz axes. macOS keeps SF Pro,

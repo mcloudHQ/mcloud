@@ -4393,7 +4393,8 @@
     style.setProperty('--am-mix-to',`hsl(${(hue+330)%360} ${Math.min(90,sat+10)}% ${Math.round((mid-.14)*100)}%)`);
     const trio=cover.related?.length===2&&!!cover.photo;box.classList.toggle('am-mix-trio',trio);
     if(trio)cover.related.forEach((src,i)=>style.setProperty('--am-mix-photo'+(i+2),`url("${src}")`));
-    style.setProperty('--am-mix-deep',`hsl(${hue} ${sat}% ${Math.round((mid-.1)*100)}%)`);
+    // Apple's station covers run from the colour at 20% lightness at the top to 49% at the bottom, at its own saturation.
+    if(trio){const full=Math.round(s*100);style.setProperty('--am-mix-top',`hsl(${hue} ${full}% 20%)`);style.setProperty('--am-mix-bottom',`hsl(${hue} ${full}% 49%)`);}
     box.classList.toggle('am-mix-plain',!cover.photo);box.classList.add('am-mix-ready');
   }
   // A station cover drawn before its similar artists were looked up (or before #219) is drawn at once, then once more

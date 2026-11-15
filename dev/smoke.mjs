@@ -3475,12 +3475,12 @@ try {
       document.querySelector('.am-native-main main').prepend(s);
       const box = d.querySelector('.mock-sdmix'), trio = s.querySelector('.mock-trio-art');
       for (let i = 0; i < 100 && !(box.classList.contains('am-mix-ready') && trio.classList.contains('am-mix-trio')); i++) await new Promise(r => setTimeout(r, 20));
-      const a = getComputedStyle(trio, '::after'), mask = a.webkitMaskImage || a.maskImage;
+      const masks = ['::before', '::after'].map(p => { const a = getComputedStyle(trio, p); return ((a.webkitMaskImage || a.maskImage).match(/radial-gradient/g) || []).length; }).join('+');
       const out = [box.dataset.amMix, box.classList.contains('am-mix-ready'), getComputedStyle(box, '::after').content, trio.dataset.amMixStyle, trio.classList.contains('am-mix-trio'),
-        !!trio.style.getPropertyValue('--am-mix-photo2') && !!trio.style.getPropertyValue('--am-mix-photo3'), (mask.match(/radial-gradient/g) || []).length,
+        !!trio.style.getPropertyValue('--am-mix-photo2') && !!trio.style.getPropertyValue('--am-mix-photo3'), masks, getComputedStyle(trio).backgroundImage.startsWith('linear-gradient'),
         JSON.parse(localStorage.getItem('mcloud:mix-covers')).find(([u]) => u.includes('/radio/artist/'))[1].related.length];
       d.remove();s.remove();return out;
-    }, pick), ['Chill Mix', true, '"Chill Mix"', 'station', true, true, 3, 2]);
+    }, pick), ['Chill Mix', true, '"Chill Mix"', 'station', true, true, '1+2', true, 2]);
   });
 
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
