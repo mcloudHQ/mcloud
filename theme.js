@@ -3577,17 +3577,17 @@
     if(!photoReady)return;
     const id=playlistId(),header=id&&settings.photoHeaders?main?.querySelector('[data-testid="playlist-page"] > [data-testid="entity-header"]'):null;
     const slot=header&&!header.querySelector('.main-entityHeader-imageContainer')?header.querySelector('.main-entityHeader-contentWrapper > div:first-child:empty'):null;
-    for(const old of main?.querySelectorAll('.am-photo-art')||[])if(old!==slot){old.classList.remove('am-photo-art','am-mix','am-mix-ready','am-mix-plain');delete old.dataset.amMixSrc;}
+    for(const old of main?.querySelectorAll('.am-photo-art')||[])if(old!==slot){old.classList.remove('am-photo-art','am-mix','am-mix-ready','am-mix-plain','am-mix-trio');delete old.dataset.amMixSrc;}
     if(photoPage!==!!slot){photoPage=!!slot;document.body.classList.toggle('am-photo-page',photoPage);}
     if(!slot)return;
     slot.classList.add('am-photo-art');
     const url=photoCovers.get(id);if(!url||slot.dataset.amMixSrc===url)return;
     slot.dataset.amMixSrc=url;
-    if(!mixUrl.test(url)||settings.mixCovers==='spotify'){slot.classList.remove('am-mix','am-mix-ready','am-mix-plain');slot.style.setProperty('--am-photo-art',`url("${spotifyImage(url)}")`);return;}
+    if(!mixUrl.test(url)||settings.mixCovers==='spotify'){slot.classList.remove('am-mix','am-mix-ready','am-mix-plain','am-mix-trio');slot.style.setProperty('--am-photo-art',`url("${spotifyImage(url)}")`);return;}
     slot.dataset.amMixStyle=mixStyle(url);slot.dataset.amMix=header.querySelector('h1')?.textContent.trim()||'';
     slot.classList.add('am-mix');slot.style.setProperty('--am-mix-radius','10px');
-    const known=mixCovers.get(url);if(known){drawMix(slot,known);return;}
-    slot.classList.remove('am-mix-ready');
+    const known=mixCovers.get(url);if(known){drawMix(slot,known);if(!mixStale(url,known))return;}
+    else slot.classList.remove('am-mix-ready');
     mixCover(url).then(cover=>{if(cover&&slot.dataset.amMixSrc===url)drawMix(slot,cover);});
   }
   function syncHeaderColor() {
@@ -4444,22 +4444,30 @@
     const path=(mixUrl.exec(url)?.[1]||'').split('/');
     if(path[0]==='daily'&&/^ab67[0-9a-f]{20,}$/.test(path[2]||''))return {photo:'https://i.scdn.co/image/'+path[2]};
     const id=path.find(p=>/^[A-Za-z0-9]{22}$/.test(p));
-    return !id?{}:path[0]==='radio'&&path[1]==='track'?{track:id}:{artist:id};
+    return !id?{}:path[0]==='radio'&&path[1]==='track'?{track:id}:{artist:id,radio:path[0]==='radio'};
   }
   // Covers worked out before (photo and colour by image URL), so a mix seen before draws at once. The newest 200 are kept.
-  const mixCovers=new Map(),mixJobs=new Map();
+  const mixCovers=new Map(),mixJobs=new Map(),mixTried=new Set();
   try{for(const [url,cover] of JSON.parse(localStorage.getItem('mcloud:mix-covers')||'[]'))if(typeof cover?.color==='string')mixCovers.set(url,cover);}catch{}
   function mixCover(url) {
     if(mixJobs.has(url))return mixJobs.get(url);
     const job=(async()=>{
       const source=mixSource(url),request=gql(),D=request&&S.GraphQL?.Definitions;let photo=source.photo||'';
+      let related;
       try{
-        if(source.artist&&D?.fetchExtractedColorAndImageForArtistEntity)photo=spotifyImage(bySize((await request(D.fetchExtractedColorAndImageForArtistEntity,{uri:'spotify:artist:'+source.artist}))?.data?.artistUnion?.visuals?.avatarImage).at(-1)?.url||'');
+        // An artist's station also shows two of its similar artists, as Apple's "… & Similar Artists" (#219): from the
+        // artist overview the artist page uses (Spotify's API, cached), their avatars from Spotify's image CDN.
+        if(source.radio&&mixStyle(url)==='station'&&D?.queryArtistOverview){
+          mixTried.add(url);
+          const artist=await artistOverview(source.artist).catch(()=>null);
+          if(artist){photo=artistImage(artist.visuals?.avatarImage);related=(artist.relatedContent?.relatedArtists?.items||[]).map(a=>artistImage(a?.visuals?.avatarImage)).filter(Boolean).slice(0,2);}
+        }
+        if(!photo&&source.artist&&D?.fetchExtractedColorAndImageForArtistEntity)photo=spotifyImage(bySize((await request(D.fetchExtractedColorAndImageForArtistEntity,{uri:'spotify:artist:'+source.artist}))?.data?.artistUnion?.visuals?.avatarImage).at(-1)?.url||'');
         if(source.track&&D?.fetchExtractedColorAndImageForTrackEntity)photo=spotifyImage(bySize((await request(D.fetchExtractedColorAndImageForTrackEntity,{uri:'spotify:track:'+source.track}))?.data?.trackUnion?.albumOfTrack?.coverArt).at(-1)?.url||'');
       }catch{}
       const color=await artworkColor(photo||url);
       mixJobs.delete(url);if(!color)return null;
-      const cover={photo,color};mixCovers.delete(url);mixCovers.set(url,cover);
+      const cover={photo,color,...related&&{related}};mixCovers.delete(url);mixCovers.set(url,cover);
       while(mixCovers.size>200)mixCovers.delete(mixCovers.keys().next().value);
       try{localStorage.setItem('mcloud:mix-covers',JSON.stringify([...mixCovers]));}catch{}
       return cover;
@@ -4475,8 +4483,15 @@
     const mid=Math.min(.6,Math.max(.4,l));
     style.setProperty('--am-mix-from',`hsl(${hue} ${sat}% ${Math.round((mid+.12)*100)}%)`);
     style.setProperty('--am-mix-to',`hsl(${(hue+330)%360} ${Math.min(90,sat+10)}% ${Math.round((mid-.14)*100)}%)`);
+    const trio=cover.related?.length===2&&!!cover.photo;box.classList.toggle('am-mix-trio',trio);
+    if(trio)cover.related.forEach((src,i)=>style.setProperty('--am-mix-photo'+(i+2),`url("${src}")`));
+    // Apple's station covers run from the colour at 20% lightness at the top to 49% at the bottom, at its own saturation.
+    if(trio){const full=Math.round(s*100);style.setProperty('--am-mix-top',`hsl(${hue} ${full}% 20%)`);style.setProperty('--am-mix-bottom',`hsl(${hue} ${full}% 49%)`);}
     box.classList.toggle('am-mix-plain',!cover.photo);box.classList.add('am-mix-ready');
   }
+  // A station cover drawn before its similar artists were looked up (or before #219) is drawn at once, then once more
+  // with them; a lookup that failed is tried again next session.
+  const mixStale=(url,cover)=>!cover.related&&!mixTried.has(url)&&mixStyle(url)==='station'&&/\/img\/radio\/artist\//.test(url);
   // The name drawn into the band: a card's title, a playlist page's h1, else the nearest link with text around the image
   // (Home's big "Made for you" cards and the shortcuts at the top have neither; their band was drawn empty, #194).
   function mixName(img) {
@@ -4495,14 +4510,16 @@
     // A card's image sits absolute in its square box (main-card-imageContainer, or the card's own image area); a page
     // header's directly in its parent, as do the search suggestions' thumbnails (#218) and the theme's own cards.
     const box=img.closest('[data-encore-id="card"]')?img.parentElement?.parentElement:img.parentElement,url=img.getAttribute('src')||'';if(!box||!img.closest(mixPlaces))return;
-    if(!mixUrl.test(url)||settings.mixCovers==='spotify'){if(box.classList.contains('am-mix'))box.classList.remove('am-mix','am-mix-ready','am-mix-plain');delete box.dataset.amMixSrc;return;}
+    if(!mixUrl.test(url)||settings.mixCovers==='spotify'){if(box.classList.contains('am-mix'))box.classList.remove('am-mix','am-mix-ready','am-mix-plain','am-mix-trio');delete box.dataset.amMixSrc;return;}
     box.dataset.amMixStyle=mixStyle(url);
     const name=mixName(img);if(box.dataset.amMix!==name)box.dataset.amMix=name;
     if(box.dataset.amMixSrc===url&&box.classList.contains('am-mix-ready'))return;
-    box.dataset.amMixSrc=url;box.classList.add('am-mix');box.style.setProperty('--am-mix-radius',radius??getComputedStyle(img).borderRadius);
+    box.dataset.amMixSrc=url;box.classList.add('am-mix');
+    // The corners are the image's, else its box's (the suggestions' and the theme's own artwork round the box).
+    const corner=radius??getComputedStyle(img).borderRadius;box.style.setProperty('--am-mix-radius',parseFloat(corner)?corner:getComputedStyle(box).borderRadius);
     const known=mixCovers.get(url);
-    if(known){drawMix(box,known);return;}
-    box.classList.remove('am-mix-ready');
+    if(known){drawMix(box,known);if(!mixStale(url,known))return;}
+    else box.classList.remove('am-mix-ready');
     mixCover(url).then(cover=>{if(cover&&box.dataset.amMixSrc===url&&img.getAttribute('src')===url)drawMix(box,cover);});
   }
   document.addEventListener('load',event=>{if(event.target.tagName==='IMG'&&(settings.mixCovers!=='spotify'||event.target.closest('.am-mix')))markMix(event.target);},true);

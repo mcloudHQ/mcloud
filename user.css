@@ -2398,6 +2398,7 @@ body.am-home-apple .am-native-main [data-am-shortcut]:is(:hover,:focus-within) .
    container units so a 150px card and a 230px page header keep the same proportions. */
 .am-mix-ready[data-am-mix-style] {container-type:inline-size;overflow:hidden;border-radius:var(--am-mix-radius,8px)}
 .am-mix-ready[data-am-mix-style] img {opacity:0!important}
+.am-card-art.am-mix-ready[data-am-mix-style] {position:relative}
 /* Spotify hides a mix card's title (height 0, transparent text) since its image carries the name; Apple names every
    card under its artwork, whatever the cover says. */
 /* A mix card's title shows from its first frame, not once the cover is redrawn: Spotify hides it (height:0 inline) and
@@ -2425,6 +2426,15 @@ body.am-mix-titles [data-encore-id="card"]:has(img:is([src^="https://pickasso.sp
 /* Station: the photo in a circle on its colour, as Apple's artist stations. */
 .am-mix-ready[data-am-mix-style="station"]:not(.am-mix-plain)::before {background:var(--am-mix-band)}
 .am-mix-ready[data-am-mix-style="station"]:not(.am-mix-plain)::after {content:"";left:17%;top:17%;width:66%;aspect-ratio:1;border-radius:50%;background:var(--am-mix-photo) center 22%/cover no-repeat;box-shadow:0 2cqw 6cqw rgb(0 0 0/.28)}
+/* An artist's station with two of its similar artists (#219), measured on Apple's "… & Similar Artists" covers: flat
+   circles (no shadows), the artist's centred at 37/34.6% with radius 29.6%, the others at 76/64.2% (16.5%) and 45/80.7%
+   (14.5%), on the artist's colour from dark at the top to light at the bottom (theme.js works out --am-mix-top/-bottom).
+   Each photo is a layer masked to its disc; the right one's square would reach the large disc, so it is in ::before and
+   the colour on the box itself. */
+.am-mix-ready.am-mix-trio[data-am-mix-style="station"] {background:linear-gradient(var(--am-mix-top),var(--am-mix-bottom))}
+.am-mix-ready.am-mix-trio[data-am-mix-style="station"]::before {background:var(--am-mix-photo2) 59.5cqw 47.7cqw/33cqw 33cqw no-repeat;-webkit-mask:radial-gradient(circle 16.5cqw at 76cqw 64.2cqw,#000 calc(100% - .6px),#0000)}
+.am-mix-ready.am-mix-trio[data-am-mix-style="station"]::after {inset:0;width:auto;aspect-ratio:auto;border-radius:0;box-shadow:none;background:var(--am-mix-photo) 7.4cqw 5cqw/59.2cqw 59.2cqw no-repeat,var(--am-mix-photo3) 30.5cqw 66.2cqw/29cqw 29cqw no-repeat;
+  -webkit-mask:radial-gradient(circle 29.6cqw at 37cqw 34.6cqw,#000 calc(100% - .6px),#0000),radial-gradient(circle 14.5cqw at 45cqw 80.7cqw,#000 calc(100% - .6px),#0000)}
 
 /* Inter (c) The Inter Project Authors, SIL Open Font License 1.1, see licenses/Inter-OFL.txt.
    Subset to Latin + Latin Extended-A (all Turkish letters) with the wght/opsz axes. macOS keeps SF Pro,
