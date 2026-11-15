@@ -3638,6 +3638,41 @@ try {
     }), [true, true, true]);
     await page.evaluate(() => { document.getElementById('mock-feed').remove(); Spicetify.Platform.History.push('/'); });
   });
+  await check('What\'s New: a podcast episode is Apple\'s episode card, as tall as the music cards (#136)', async () => {
+    // Spotify 1.3.9's episode row: the description (listRowDetails) in its own box, then one box holding the
+    // "Episode · 2 days ago · 43 min" line (the time in episode-progress-*) and the buttons. A started episode has the
+    // time left and a progress bar instead of the duration.
+    await page.evaluate(() => {
+      const buttons = save => `<div><div><button aria-label="${save}" aria-checked="false" data-encore-id="buttonTertiary"><span><svg></svg></span></button><button aria-label="Download" aria-checked="false" data-encore-id="buttonTertiary"><span><svg></svg></span></button><button aria-label="More" aria-haspopup="menu" data-encore-id="buttonTertiary"><span><svg></svg></span></button></div><div><div role="div"><button aria-label="Play" data-encore-id="buttonPrimary"><span><svg></svg></span></button></div></div></div>`;
+      const head = (href, title, sub) => `<div role="button"></div><div style="position:absolute;width:1px;height:1px;overflow:hidden"></div><div><div><div><div style="width:112px;height:112px"><img alt="" style="width:99px;height:99px"></div></div></div></div><div><div><h3 data-encore-id="listRowTitle"><span style="--encore-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--encore-line-clamp);overflow:hidden"><a href="${href}">${title}</a></span></h3><p data-encore-id="listRowSubtitle" style="padding-block-end:8px"><span><a href="/show/1">${sub}</a></span></p></div></div>`;
+      const time = started => started
+        ? '<div class="mock-progress" style="display:flex;flex-direction:column"><div><p data-encore-id="text">31 min left</p></div><div><div role="progressbar" aria-valuenow="720000" aria-valuemax="2580000"><div></div><div><div data-testid="progressBarFg" style="transform:translateX(-72%)"></div></div></div></div></div>'
+        : '<div><p data-encore-id="text" data-testid="episode-progress-not-played"><span>43 min</span></p></div>';
+      const episode = (n, started) => `<div><li role="row"><hr><div data-encore-id="listRow" role="group">${head('/episode/' + n, 'A rather long episode title that would wrap onto a second line / Part ' + n, 'The Show')}<div><p data-encore-id="listRowDetails" style="padding-block-end:4px"><span><span data-encore-id="text">${'A long description of the episode. '.repeat(12)}</span></span></p></div><div><div style="display:flex;flex-wrap:wrap;gap:8px"><span data-encore-id="text">Episode</span><span></span><span data-encore-id="text">2 days ago</span><span></span>${time(started)}</div>${buttons('Add to Your Episodes')}</div></div></li></div>`;
+      const album = n => `<div><li role="row"><hr><div data-encore-id="listRow" role="group">${head('/album/' + n, 'Album ' + n, 'Artist')}<div><span data-encore-id="text"><span><span data-encore-id="text">2 days ago</span></span></span></div><div>${buttons('Save to Your Library')}</div></div></li></div>`;
+      const chip = t => `<div role="presentation"><div role="option"><button data-encore-id="chip" role="checkbox" aria-checked="false">${t}</button></div></div>`;
+      const s = document.createElement('section');s.id = 'mock-feed';s.style.maxWidth = '960px';
+      s.innerHTML = `<div><h1>What's New</h1></div><div><div role="presentation"><div role="presentation"><div role="listbox">${chip('Music')}${chip('Podcasts')}</div></div></div></div>`
+        + `<ul role="treegrid"><div><div><li role="row"><h2>Earlier</h2></li></div>${episode(1)}${album(2)}${episode(3, true)}${album(4)}<div style="height:32px"></div></div></ul>`;
+      document.querySelector('.am-native-main main').prepend(s);
+      Spicetify.Platform.History.push('/content-feed');
+    });
+    await page.waitForFunction(() => document.querySelector('#mock-feed .am-feed-filter'));
+    const look = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('#mock-feed [data-encore-id="listRow"]')], [ep, album, started] = cards, box = e => e.getBoundingClientRect();
+      const meta = card => card.querySelector(':scope > div > [data-encore-id="text"], :scope > div > div > [data-encore-id="text"]').parentElement, title = card => card.querySelector('[data-encore-id="listRowTitle"]');
+      const visible = card => [...card.querySelectorAll('button')].filter(b => box(b).width > 0).map(b => b.getAttribute('aria-label')).join();
+      const bar = started.querySelector('[role="progressbar"]'), left = started.querySelector('.mock-progress p');
+      return { heights: [...new Set(cards.map(c => Math.round(box(c).height)))], description: getComputedStyle(ep.querySelector('[data-encore-id="listRowDetails"]').parentElement).display,
+        metaAbove: box(meta(ep)).bottom <= box(title(ep)).top + 1, metaLine: Math.round(box(meta(ep)).height), metaText: [ep, started].every(card => [...meta(card).querySelectorAll('p')].every(t => box(t).top >= box(meta(card)).top - 1 && box(t).bottom <= box(meta(card)).bottom + 1)), metaX: Math.round(box(meta(ep)).left - box(title(ep)).left),
+        titleLine: Math.round(box(title(ep)).height) === Math.round(box(title(album)).height), starRight: box(ep.querySelector('button[aria-checked]')).left > box(title(ep)).right,
+        buttons: visible(ep), bar: [Math.round(box(bar).width), Math.round(box(bar).height), box(bar).right <= box(left).left, Math.abs(box(bar).top + box(bar).height / 2 - (box(left).top + box(left).height / 2)) < 2],
+        startedLine: Math.round(box(meta(started)).height) };
+    });
+    assert.deepEqual(look, { heights: [124], description: 'none', metaAbove: true, metaLine: 18, metaText: true, metaX: 0, titleLine: true, starRight: true, buttons: 'Add to Your Episodes,Play', bar: [36, 4, true, true], startedLine: 18 });
+    await shot('feed-episodes');
+    await page.evaluate(() => { document.getElementById('mock-feed').remove(); Spicetify.Platform.History.push('/'); });
+  });
   await check('a track list, a shelf and Browse all without Spotify\'s readable class names get them back (#109)', async () => {
     await page.evaluate(() => {
       const host = document.querySelector('.am-native-main');
