@@ -3837,11 +3837,11 @@ try {
       await win.evaluate(() => { Spicetify.Platform.NativeAPI.setWindowButtonsVisibility(true); Spicetify.Platform.ControlMessageAPI.setTitlebarHeight(80); });
       assert.deepEqual(await native(), [false, 1, 'none']);
       // In the background the discs turn grey, as on macOS.
-      const fill = () => win.evaluate(() => getComputedStyle(document.querySelector('#am-traffic .am-traffic-close')).backgroundImage);
+      const fill = () => win.evaluate(() => getComputedStyle(document.querySelector('#am-traffic .am-traffic-close')).backgroundColor);
       await win.mouse.move(700, 500);
       const active = await fill();
       await win.evaluate(() => { document.hasFocus = () => false; dispatchEvent(new Event('blur')); });
-      assert.notEqual(await fill(), active); assert.match(await fill(), /rgb\(73, 73, 73\)/);
+      assert.notEqual(await fill(), active); assert.match(await fill(), /rgb\(70, 70, 70\)/);
       await win.evaluate(() => { document.hasFocus = () => true; dispatchEvent(new Event('focus')); });
       if (shots) await win.screenshot({ path: path.join(shots, 'traffic-lights-left.png') });
       // On the right: the toolbar keeps clear of them, in less room than Windows' three buttons.

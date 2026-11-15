@@ -516,8 +516,8 @@
   function trafficState(max){trafficMax=max;trafficBox?.classList.toggle('am-traffic-max',max||!!document.fullscreenElement);}
   function trafficBuild() {
     const box=el('div','');box.id='am-traffic';box.setAttribute('role','group');box.setAttribute('aria-label',T('Pencere','Window'));
-    const glyphs={close:'<path d="M4.6 4.6l4.8 4.8M9.4 4.6l-4.8 4.8" stroke-width="2"/>',minimize:'<path d="M4.1 7h5.8" stroke-width="2"/>',
-      zoom:'<path class="am-traffic-out" d="M4 4h5L4 9zM10 10H5l5-5z"/><path class="am-traffic-in" d="M6.3 2.9v3.4H2.9zM7.7 11.1V7.7h3.4z"/>'};
+    const glyphs={close:'<path d="M4.6 4.6l4.8 4.8M9.4 4.6l-4.8 4.8" stroke-width="1.6"/>',minimize:'<path d="M4.1 7h5.8" stroke-width="1.6"/>',
+      zoom:'<path class="am-traffic-out" d="M4.2 4.2h4.5L4.2 8.7zM9.8 9.8H5.3l4.5-4.5z"/><path class="am-traffic-in" d="M6.3 2.9v3.4H2.9zM7.7 11.1V7.7h3.4z"/>'};
     for(const [kind,label] of [['close',T('Kapat','Close')],['minimize',T('Küçült','Minimise')],['zoom',T('Büyüt','Maximise')]]){
       const b=el('button','am-traffic-'+kind);b.type='button';b.tabIndex=-1;b.setAttribute('aria-label',label);
       b.innerHTML=`<svg viewBox="0 0 14 14" aria-hidden="true">${glyphs[kind]}</svg>`;b.addEventListener('click',event=>trafficAction(kind,event));box.append(b);
