@@ -465,6 +465,8 @@ body.am-ready .am-native-global {height:64px!important;background:var(--am-bg)!i
 body.am-light #am-sidebar-glow {backdrop-filter:blur(56px) saturate(3.5) brightness(1.25) url(#am-glow-cap-light);-webkit-backdrop-filter:blur(56px) saturate(3.5) brightness(1.25) url(#am-glow-cap-light)}
 /* Same height as the toolbar row, so the first item lines up with the page content. */
 .am-drag {height:var(--am-header);flex-shrink:0;-webkit-app-region:drag}
+.am-drag-hole {display:none;position:absolute;top:16px;left:8px;width:84px;height:32px;-webkit-app-region:no-drag}
+body.am-traffic:not(.am-traffic-right) .am-drag-hole {display:block}
 .am-sidebar-resizer {position:absolute;top:0;bottom:0;right:-4px;width:8px;z-index:1;cursor:col-resize;-webkit-app-region:no-drag;outline:0}
 .am-sidebar-resizer::after {content:"";position:absolute;top:0;bottom:0;left:3px;width:2px;background:rgb(var(--am-ink)/.18);opacity:0;transition:opacity .15s}
 .am-sidebar-resizer:hover::after,.am-sidebar-resizer:focus-visible::after,.am-resizing .am-sidebar-resizer::after {opacity:1}
@@ -2092,6 +2094,15 @@ body.am-windows.am-light::before,body.am-windows.am-light::after {content:'';pos
 body.am-windows.am-light::before {left:12px;width:46px}
 body.am-windows.am-light::after {right:2px;width:134px}
 body.am-windows.am-light.am-solid::before,body.am-windows.am-light.am-solid::after {background:var(--am-caption-solid);-webkit-backdrop-filter:none;backdrop-filter:none}
+/* Option B (settings.captionGlass 'liquid', theme.js syncCaptionGlass): the toolbar's Liquid Glass on the same two slots,
+   darkened through each shape's light layer so Spotify's white glyphs read on it in light mode. */
+body.am-caption-liquid::before,body.am-caption-liquid::after {content:none!important}
+#am-caption-glass {position:fixed;inset:0;z-index:2147483647;pointer-events:none}
+#am-caption-glass .am-caption-slot {position:fixed;top:16px;height:32px;visibility:hidden}
+#am-caption-glass .am-caption-menu {left:12px;width:46px}
+#am-caption-glass .am-caption-buttons {right:2px;width:134px}
+#am-caption-glass .am-tglass-light {background:rgb(0 0 0/.18)}
+body.am-light #am-caption-glass .am-tglass-light {background:rgb(0 0 0/.46)}
 /* macOS traffic lights on Windows (#200, theme.js trafficSync): the native buttons are hidden, so their capsules go; on
    the right the lights need less room than Windows' three buttons. Colours read off macOS 27's own buttons (AppKit,
    2x): a vertical fill, a bright rim at the top and bottom in dark mode, a darker ring in light mode, glyphs on hover
@@ -2099,7 +2110,9 @@ body.am-windows.am-light.am-solid::before,body.am-windows.am-light.am-solid::aft
 body.am-traffic.am-light::before,body.am-traffic.am-light::after {content:none}
 body.am-windows.am-traffic-right.am-ready #global-nav-bar {right:96px!important}
 body.am-windows.am-traffic-right #am-artist .am-artist-actions {right:96px}
-#am-traffic {position:fixed;top:25px;left:19px;z-index:2147483646;display:flex;gap:9px;padding:0;-webkit-app-region:no-drag;transition:opacity .2s}
+/* #216: over the page, the sidebar, the toolbar and the player (60), under Spotify's modals (65), menus and toasts (70)
+   and our sheets and settings (75, 76), as macOS draws a sheet over its window's buttons. */
+#am-traffic {position:fixed;top:25px;left:19px;z-index:62;display:flex;gap:9px;padding:0;-webkit-app-region:no-drag;transition:opacity .2s}
 #am-traffic[data-side="right"] {left:auto;right:19px}
 #am-traffic button {--am-tl-top:#f9665b;--am-tl-mid:#f54f46;--am-tl-bottom:#ef6961;--am-tl-rim-top:#fab0a6;--am-tl-rim-bottom:#faaca3;--am-tl-ring:#0000;--am-tl-glyph:#8c0000;
   position:relative;width:14px;height:14px;margin:0;padding:0;border:0;border-radius:50%;cursor:default;-webkit-app-region:no-drag;

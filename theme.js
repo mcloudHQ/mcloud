@@ -550,6 +550,10 @@
     options:[['windows','Windows'],['left',T('macOS, solda','macOS, left')],['right',T('macOS, sağda','macOS, right')]],
     note:T('Küçült, büyüt ve kapat; Alt ile yeşil tam ekran yapar.','Minimise, maximise and close; Alt-click green for full screen.'),
     hidden:!onWindows,apply:()=>trafficSync()});
+  // The backing behind Spotify's own caption glyphs and "…" (user.css body.am-windows): frosted (body ::before/::after,
+  // light mode only) or the toolbar's Liquid Glass in a dark tint (syncCaptionGlass, below), in both modes.
+  defineSetting({key:'captionGlass',group:'general',section:T('Pencere','Window'),label:T('Pencere düğmelerinin zemini','Window buttons backing'),type:'choice',style:'segmented',default:'frosted',
+    options:[['frosted',T('Buzlu','Frosted')],['liquid','Liquid Glass']],dim:()=>settings.windowButtons!=='windows',hidden:!onWindows});
   // A control clicked with the mouse keeps focus, and Chromium draws its :focus-visible ring once any key is pressed
   // (Space for play/pause). Focus that arrives without a key since the last pointer press gets .am-mouse-focus, which
   // hides the ring; text fields keep theirs.
@@ -733,7 +737,11 @@
   for (let i = 0; i < 120 && !bindLayout(); i++) await wait(250);
   if (!main) return;
   const sidebar = el('aside', '', ''); sidebar.id = 'am-sidebar'; sidebar.setAttribute('aria-label', T('Ana gezinme','Main navigation'));
-  const drag = el('div', 'am-drag'); sidebar.append(drag);
+  // The sidebar's top is the window's drag strip. With the traffic lights on the left (#200, #214) it lies under them,
+  // and Chromium applies app-regions in document order: when the lights were appended before the sidebar (Spotify's
+  // APIs ready at once), this later drag region took their clicks back for the OS. The hole is a no-drag child of the
+  // strip, so it always comes after it, wherever the lights are.
+  const drag = el('div', 'am-drag'); drag.append(el('div','am-drag-hole')); sidebar.append(drag);
   const nav = el('nav', 'am-navigation'); sidebar.append(nav);
   const navItems = [];
   // Search and Browse both open Spotify's /search page; the row that opened it stays selected there.
@@ -2689,6 +2697,20 @@
   addEventListener('resize',placeGlasses);
   document.addEventListener('am-settings',()=>{if(boundToolbar)syncToolbarGlass(boundToolbar);syncArtistGlass(...(artistGlassArgs?.[0].isConnected?artistGlassArgs:[null]));requestAnimationFrame(()=>requestAnimationFrame(placeGlasses));});
   document.addEventListener('transitionend',event=>{if(toolbarGlasses.length&&(boundToolbar?.contains(event.target)||event.target.closest?.('#am-sidebar')))placeGlasses();},true);
+  // Option B for the caption backing (settings.captionGlass 'liquid'): one ToolbarGlass per group of Spotify's native
+  // buttons, laid on fixed slots where the frosted capsules sit, each with its own lens (no shared pane), dark-tinted
+  // through its light layer (user.css #am-caption-glass) so the white glyphs stay readable in light mode too.
+  let captionRoot=null,captionGlasses=[],captionKey='';
+  function syncCaptionGlass() {
+    const b=document.body.classList,want=onWindows&&settings.captionGlass==='liquid'&&b.contains('am-windows')&&!b.contains('am-traffic')&&glassShapes(),key=want?(glassLive()?'lens':'solid'):'';
+    b.toggle('am-caption-liquid',want);if(key===captionKey)return;captionKey=key;
+    captionGlasses.forEach(g=>g.destroy());captionGlasses=[];
+    if(!want){captionRoot?.remove();captionRoot=null;return;}
+    if(!captionRoot){captionRoot=el('div','');captionRoot.id='am-caption-glass';captionRoot.setAttribute('aria-hidden','true');}
+    if(!captionRoot.isConnected)document.body.append(captionRoot);
+    captionGlasses=['menu','buttons'].map(kind=>{let slot=captionRoot.querySelector('.am-caption-'+kind);if(!slot){slot=el('div','am-caption-slot am-caption-'+kind);captionRoot.append(slot);}return new ToolbarGlass([slot],false,captionRoot,null);});
+  }
+  document.addEventListener('am-settings',syncCaptionGlass);addEventListener('resize',()=>captionGlasses.forEach(g=>g.place()));syncCaptionGlass();
   function spicyPage() { return document.getElementById('SpicyLyricsPage'); }
   function runSpicyControl(id) {
     const native=document.getElementById(id);
