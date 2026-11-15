@@ -78,6 +78,14 @@ try {
       getComputedStyle(document.querySelector('#am-player .am-track-title .am-marquee-inner')).textOverflow]), [true, 0, 'ellipsis']);
     await settingsWindow.pick('reduceMotion');
     assert.equal(await page.evaluate(() => document.querySelectorAll('#am-player .am-marquee-on').length), 2);
+    // Optimized mode holds Eco and Reduce motion; the two rows show it, dimmed, and keep their own values.
+    await settingsWindow.pick('optimized');
+    assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-solid'), document.body.classList.contains('am-reduce-motion'), document.querySelectorAll('#am-player .am-marquee-on').length]), [true, true, 0]);
+    assert.deepEqual([await settingsWindow.state('glass'), await settingsWindow.state('reduceMotion')], ['Eko', true]);
+    assert.equal(await page.evaluate(() => ['glass', 'reduceMotion'].every(k => document.querySelector(`#am-settings .am-settings-row[data-key="${k}"]`).matches('.am-dim,[aria-disabled="true"]') || !!document.querySelector(`#am-settings .am-settings-row[data-key="${k}"] [disabled]`))), true);
+    await settingsWindow.close();
+    await settingsWindow.pick('optimized');
+    assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-solid'), document.body.classList.contains('am-reduce-motion'), document.querySelectorAll('#am-player .am-marquee-on').length]), [false, false, 2]);
     await force(false);
   });
 
@@ -1748,7 +1756,7 @@ try {
     // General: the look in pictures, the accent, glass with a one-line note (no "?"), the language on a card of its own,
     // and last the version and Restore Defaults…, which asks in place first.
     await page.click('#am-settings .am-settings-tab:has-text("Genel")');
-    assert.deepEqual(await page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key)), ['appearance', 'accent', 'glass', 'reduceMotion', 'lang']);
+    assert.deepEqual(await page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key)), ['appearance', 'accent', 'optimized', 'glass', 'reduceMotion', 'lang']);
     assert.deepEqual([await page.locator('#am-settings .am-settings-card').count(), await page.locator('#am-settings .am-settings-section').count(), await page.locator('#am-settings .am-settings-help-button').count()], [3, 0, 0]);
     assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-tile-label').allTextContents(), ['Koyu', 'Açık']);
     await page.click('#am-settings [data-key="accent"] [aria-label="Mavi"]');
