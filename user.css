@@ -1755,7 +1755,7 @@ body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(
 .am-settings-icon {display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:6px;background:#8e8e93;color:#fff}
 .am-settings-icon svg {width:15px;height:15px;stroke-width:1.9}
 .am-settings-icon[data-pane="player"] {background:#fa2d48}.am-settings-icon[data-pane="nowplaying"] {background:#bf5af2}.am-settings-icon[data-pane="sidebar"] {background:#0a84ff}
-.am-settings-icon[data-pane="pages"] {background:#ff9f0a}.am-settings-icon[data-pane="home"] {background:#30d158}
+.am-settings-icon[data-pane="pages"] {background:#ff9f0a}.am-settings-icon[data-pane="performance"] {background:#5e5ce6}.am-settings-icon[data-pane="home"] {background:#30d158}
 /* The sidebar (search over the panes, groups apart by a gap as System Settings' are), the pane's title over its rows. */
 .am-settings-side {display:flex;flex-direction:column;gap:10px;min-height:0;padding:10px 10px 12px;background:rgb(var(--am-ink,255 255 255)/.035);box-shadow:1px 0 var(--am-settings-hairline);user-select:none}
 .am-settings-sidetop {display:flex;align-items:center;min-height:28px;cursor:default}

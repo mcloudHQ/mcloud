@@ -141,6 +141,7 @@
     friends:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17.2" cy="9" r="2.6"/><path d="M16 14.1a5.5 5.5 0 0 1 5.4 5.9"/>',
     devices:'<path d="M7 17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="m12 15 5 6H7z" fill="currentColor"/>',
     // Settings tabs: SF Symbols' gearshape, paintpalette and sidebar.left, redrawn.
+    gauge:'<path d="M4.2 17.5a9 9 0 1 1 15.6 0"/><path d="M12 13.5l4-5"/><circle cx="12" cy="14" r="1.6"/>',
     gear:'<circle cx="12" cy="12" r="3"/><path d="M9.83 5.13l.42-2.57h3.5l.42 2.57a7.2 7.2 0 0 1 1.15.48l2.12-1.52 2.47 2.47-1.52 2.12a7.2 7.2 0 0 1 .48 1.15l2.57.42v3.5l-2.57.42a7.2 7.2 0 0 1-.48 1.15l1.52 2.12-2.47 2.47-2.12-1.52a7.2 7.2 0 0 1-1.15.48l-.42 2.57h-3.5l-.42-2.57a7.2 7.2 0 0 1-1.15-.48l-2.12 1.52-2.47-2.47 1.52-2.12a7.2 7.2 0 0 1-.48-1.15l-2.57-.42v-3.5l2.57-.42a7.2 7.2 0 0 1 .48-1.15L4.09 6.56l2.47-2.47 2.12 1.52a7.2 7.2 0 0 1 1.15-.48z"/>',
     paint:'<path d="M12 3a9 9 0 0 0 0 18c1.4 0 2-.9 2-1.8 0-1.3-1-1.7-1-2.8 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.4 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor" stroke="none"/><circle cx="10" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="17.3" cy="10.5" r="1.2" fill="currentColor" stroke="none"/>',
     filter:'<path d="M4 7h16M7 12h10M10 17h4"/>',
@@ -357,6 +358,8 @@
   function settingGroup(id,label,icon,gap){let g=settingGroups.find(g=>g.id===id);if(!g)settingGroups.push(g={id});Object.assign(g,{label,icon},gap===undefined?{}:{gap});return g;}
   settingGroup('general',T('Genel','General'),'gear');settingGroup('sidebar',T('Kenar Çubuğu','Sidebar'),'sidebar',true);settingGroup('player',T('Oynatıcı','Player'),'play');
   settingGroup('nowplaying',T('Şimdi Çalan','Now Playing'),'nowPlaying');settingGroup('home',T('Ana Sayfa ve Arama','Home & Search'),'home',true);settingGroup('pages',T('Albümler ve Listeler','Albums & Playlists'),'disc');
+  // Option C for #217: the switches that trade looks for CPU and GPU in a pane of their own, as System Settings' Energy.
+  settingGroup('performance',T('Performans','Performance'),'gauge',true);
   function defineSetting(def) {
     const {key}=def,ok=v=>def.valid?def.valid(v):typeof v===typeof def.default&&(def.type!=='choice'||def.options.some(o=>o[0]===v));
     if(!ok(settings[key]))settings[key]=ok(savedSettings[key])?savedSettings[key]:def.default;
@@ -376,7 +379,7 @@
     options:[['auto',T('Spotify ile aynı','Same as Spotify')],['en','English'],['tr','Türkçe']],note:T('Değişince Spotify yeniden yüklenir.','Spotify reloads when this changes.')});
   defineSetting({key:'accent',group:'general',rank:-2,label:T('Vurgu rengi','Accent colour'),type:'choice',default:'red',style:'swatches',options:Object.entries(accents).map(([key,[label,color]])=>[key,label,color])});
   // The value shown is the mode in effect: reduced transparency in the OS keeps Eco whatever is picked.
-  defineSetting({key:'glass',group:'general',rank:-1,label:T('Cam efekti','Glass effect'),type:'choice',default:'balanced',style:'segmented',
+  defineSetting({key:'glass',group:'performance',section:T('Ayrıntılar','Details'),rank:1,label:T('Cam efekti','Glass effect'),type:'choice',default:'balanced',style:'segmented',
     options:[['full',T('Tam','Full')],['balanced',T('Dengeli','Balanced')],['eco',T('Eko','Eco')]],value:()=>reducedTransparency.matches||settings.optimized?'eco':settings.glass,dim:()=>!!settings.optimized,
     note:T('Eko camı kapatır ve pili korur.','Eco turns the glass off and saves battery.'),
     change:v=>{if(v!=='eco'&&reducedTransparency.matches)notify(T('Sistem ayarlarında saydamlık kapalı olduğu için cam efekti açılamıyor.','Transparency is reduced in your system settings, so the glass effect stays off.'));}});
@@ -386,13 +389,13 @@
   const syncMotion=()=>{document.body.classList.toggle('am-reduce-motion',motionReduced());marquees.forEach(fit=>fit());};
   // Optimized mode (#217): one switch for the least CPU and GPU, Eco's solid surfaces and Reduce motion together; the
   // two rows show what it holds, dimmed, and keep their own value for when it is turned off.
-  defineSetting({key:'optimized',group:'general',rank:-1.5,label:T('Optimize mod','Optimized mode'),type:'toggle',default:false,
+  defineSetting({key:'optimized',group:'performance',rank:0,label:T('Optimize mod','Optimized mode'),type:'toggle',default:false,
     note:T('Camı ve hareketleri kapatır: en az işlemci ve ekran kartı.','Turns the glass and motion off, for the least CPU and GPU.'),apply:syncMotion});
-  defineSetting({key:'reduceMotion',group:'general',rank:-.5,label:T('Hareketi azalt','Reduce motion'),type:'toggle',default:false,
+  defineSetting({key:'reduceMotion',group:'performance',section:T('Ayrıntılar','Details'),rank:3,label:T('Hareketi azalt','Reduce motion'),type:'toggle',default:false,
     value:()=>reducedMotionQuery.matches||motionReduced(),dim:()=>reducedMotionQuery.matches||!!settings.optimized,note:T('Kayan başlıklar ve geçişler durur, işlemci daha az çalışır.','Titles stop scrolling and transitions switch at once, for less CPU.'),
     apply:syncMotion});
   defineSetting({key:'artwork',group:'player',rank:0,label:T('Albüm kapağı','Artwork'),type:'toggle',default:true,context:['player']});
-  defineSetting({key:'liquid',group:'player',rank:1,label:'Liquid Glass',note:T('Kapalıyken oynatıcı düz buzlu cam olur.','Off, the player is plain frosted glass.'),type:'toggle',default:true,context:['player']});
+  defineSetting({key:'liquid',group:'performance',section:T('Ayrıntılar','Details'),rank:2,dim:()=>!!settings.optimized||settings.glass==='eco',label:T('Liquid Glass oynatıcı','Liquid Glass player'),note:T('Kapalıyken oynatıcı düz buzlu cam olur.','Off, the player is plain frosted glass.'),type:'toggle',default:true,context:['player']});
   // Apple Music opens the song's menu wherever the player is right-clicked, and its title and artist — album line ask
   // where to go; Spotify opens it over the song only and links each name (issue #85). Spotify's is the default.
   defineSetting({key:'playerMenu',group:'player',label:T('Oynatıcıda sağ tık','Right-click on the player'),type:'choice',style:'segmented',default:'track',which:true,
