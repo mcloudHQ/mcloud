@@ -493,7 +493,7 @@
   // are macOS 27's, read off AppKit's own buttons drawn offscreen at 2x: 14px, 23px apart, centred 32px down and 26px in,
   // where Spotify puts them on macOS.
   const trafficApi=()=>{const P=S.Platform||{};return {win:P.FocusMainWindowAPI?._windowStateClient,ui:P.ControlMessageAPI?._updateUiClient||P.NativeAPI?._updateUiClient||P.UpdateAPI?._updateUiClient};};
-  let trafficOn=false,trafficBox=null,trafficTries=0,trafficMax=false,captionHeight=64,captionPatched=false;
+  let trafficOn=false,drawnBox=null,trafficBox=null,trafficTries=0,trafficMax=false,captionHeight=64,captionPatched=false;
   function syncCaption() {
     const {ui}=trafficApi(),p=ui&&Object.getPrototypeOf(ui);if(!p?.setButtonsVisibility||!p.updateTitlebarHeight)return;
     if(!captionPatched){captionPatched=true;const show=p.setButtonsVisibility,height=p.updateTitlebarHeight;
@@ -513,7 +513,39 @@
       const max=(await win?.getWindowState({}))?.state===2;await win?.setWindowState({state:max?1:2});trafficState(!max);
     }catch(e){console.warn('[AppleMusicMac] Window',kind,e);}
   }
-  function trafficState(max){trafficMax=max;trafficBox?.classList.toggle('am-traffic-max',max||!!document.fullscreenElement);}
+  function trafficState(max){trafficMax=max;trafficBox?.classList.toggle('am-traffic-max',max||!!document.fullscreenElement);drawnBox?.classList.toggle('am-caption-max',max);}
+  // Option C (settings.windowButtons 'mcloud', prototype): Spotify's strip hidden as for the lights, and Windows 11's
+  // minimise/maximise/close drawn by the theme (Segoe Fluent's 10px glyphs, close hovers #c42b1c), in a capsule where
+  // the native ones sit or flush in the corner (settings.captionShape). Spotify gives no call that opens its app menu, so
+  // "…" opens ours instead.
+  function drawnBuild() {
+    const box=el('div','');box.id='am-caption';box.setAttribute('role','group');box.setAttribute('aria-label',T('Pencere','Window'));
+    const more=el('button','am-caption-more');more.type='button';more.setAttribute('aria-label',T('Menü','Menu'));
+    more.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg>';
+    more.addEventListener('click',()=>togglePopover(more,captionMenu));
+    const strip=el('div','am-caption-strip');
+    const glyphs={minimize:'<path d="M0.5 5.5h10"/>',zoom:'<rect class="am-caption-out" x="0.5" y="0.5" width="10" height="10" rx="1.5"/><g class="am-caption-in"><rect x="0.5" y="2.5" width="8" height="8" rx="1.2"/><path d="M2.6 0.5h6.4a1.5 1.5 0 0 1 1.5 1.5v6.4"/></g>',close:'<path d="M0.8 0.8l9.4 9.4M10.2 0.8l-9.4 9.4"/>'};
+    for(const [kind,label] of [['minimize',T('Küçült','Minimise')],['zoom',T('Büyüt','Maximise')],['close',T('Kapat','Close')]]){
+      const b=el('button','am-caption-'+kind);b.type='button';b.tabIndex=-1;b.setAttribute('aria-label',label);
+      b.innerHTML=`<svg viewBox="0 0 11 11" aria-hidden="true">${glyphs[kind]}</svg>`;b.addEventListener('click',event=>trafficAction(kind,event));strip.append(b);
+    }
+    box.append(more,strip);
+    const focus=()=>box.classList.toggle('am-caption-inactive',!document.hasFocus());addEventListener('focus',focus);addEventListener('blur',focus);focus();
+    trafficApi().win?.subscribeWindowState?.({},s=>trafficState(s?.state===2));
+    trafficApi().win?.getWindowState?.({})?.then?.(s=>trafficState(s?.state===2),()=>{});
+    return box;
+  }
+  function captionMenu() {
+    const apps=S.Config?.custom_apps||[];
+    return [
+      {label:T('Ayarlar','Settings'),action:()=>go('/preferences')},
+      {label:T('mcloud Ayarları','mcloud Settings'),action:()=>openSettings()},
+      ...(apps.includes('marketplace')?[{label:'Marketplace',action:()=>go('/marketplace')}]:[]),
+      '-',
+      {label:T('Yeniden Yükle','Reload'),action:()=>location.reload()},
+      {label:T('Kapat','Close'),action:()=>trafficAction('close',{})},
+    ];
+  }
   function trafficBuild() {
     const box=el('div','');box.id='am-traffic';box.setAttribute('role','group');box.setAttribute('aria-label',T('Pencere','Window'));
     const glyphs={close:'<path d="M4.6 4.6l4.8 4.8M9.4 4.6l-4.8 4.8" stroke-width="1.6"/>',minimize:'<path d="M4.1 7h5.8" stroke-width="1.6"/>',
@@ -532,28 +564,32 @@
   }
   function trafficSync() {
     if(!onWindows)return;
-    const side=settings.windowButtons,want=side==='left'||side==='right',{win,ui}=trafficApi();
+    const side=settings.windowButtons,lights=side==='left'||side==='right',drawn=side==='mcloud',want=lights||drawn,{win,ui}=trafficApi();
     // Spicetify resolves Spotify's APIs a moment after the theme starts.
     if(want&&!(win&&ui)){if(trafficTries++<20)setTimeout(trafficSync,500);return;}
     const was=trafficOn;let hidden=false;try{hidden=!!localStorage.getItem('mcloud:caption-hidden');}catch{}
     trafficOn=want;
-    document.body.classList.toggle('am-traffic',want);document.body.classList.toggle('am-traffic-right',want&&side==='right');
+    document.body.classList.toggle('am-traffic',lights);document.body.classList.toggle('am-traffic-right',side==='right');document.body.classList.toggle('am-caption-drawn',drawn);
     // On the left nothing covers the top-right corner any more; on the right the lights do, in less room.
-    document.body.classList.toggle('am-windows',!want||side==='right');
-    if(want){trafficBox||=trafficBuild();trafficBox.dataset.side=side;if(!trafficBox.isConnected)document.body.append(trafficBox);}
+    document.body.classList.toggle('am-windows',!lights||side==='right');
+    if(lights){trafficBox||=trafficBuild();trafficBox.dataset.side=side;if(!trafficBox.isConnected)document.body.append(trafficBox);}
     else trafficBox?.remove();
+    if(drawn){drawnBox||=drawnBuild();if(!drawnBox.isConnected)document.body.append(drawnBox);}else drawnBox?.remove();
     if(want||was||hidden)syncCaption();
     // Spotify sets its strip again while it starts (and on a zoom); the wrapper catches what goes through it.
     if(want&&!was)for(const ms of [1000,2000,4000,8000])setTimeout(()=>trafficOn&&syncCaption(),ms);
   }
   defineSetting({key:'windowButtons',group:'general',section:T('Pencere','Window'),label:T('Pencere düğmeleri','Window buttons'),type:'choice',style:'segmented',default:'windows',
-    options:[['windows','Windows'],['left',T('macOS, solda','macOS, left')],['right',T('macOS, sağda','macOS, right')]],
+    options:[['windows','Windows'],['mcloud',T('Windows, mcloud','Windows, mcloud')],['left',T('macOS, solda','macOS, left')],['right',T('macOS, sağda','macOS, right')]],
     note:T('Küçült, büyüt ve kapat; Alt ile yeşil tam ekran yapar.','Minimise, maximise and close; Alt-click green for full screen.'),
     hidden:!onWindows,apply:()=>trafficSync()});
   // The backing behind Spotify's own caption glyphs and "…" (user.css body.am-windows): frosted (body ::before/::after,
   // light mode only) or the toolbar's Liquid Glass in a dark tint (syncCaptionGlass, below), in both modes.
   defineSetting({key:'captionGlass',group:'general',section:T('Pencere','Window'),label:T('Pencere düğmelerinin zemini','Window buttons backing'),type:'choice',style:'segmented',default:'frosted',
-    options:[['frosted',T('Buzlu','Frosted')],['liquid','Liquid Glass']],dim:()=>settings.windowButtons!=='windows',hidden:!onWindows});
+    options:[['frosted',T('Buzlu','Frosted')],['liquid','Liquid Glass']],dim:()=>!['windows','mcloud'].includes(settings.windowButtons)||settings.windowButtons==='mcloud'&&settings.captionShape==='flush',hidden:!onWindows});
+  defineSetting({key:'captionShape',group:'general',section:T('Pencere','Window'),label:T('mcloud düğmelerinin biçimi','mcloud buttons shape'),type:'choice',style:'segmented',default:'capsule',
+    options:[['capsule',T('Kapsül','Capsule')],['flush',T('Köşede','In the corner')]],dim:()=>settings.windowButtons!=='mcloud',hidden:!onWindows,
+    apply:v=>document.body.classList.toggle('am-caption-flush',v==='flush')});
   // A control clicked with the mouse keeps focus, and Chromium draws its :focus-visible ring once any key is pressed
   // (Space for play/pause). Focus that arrives without a key since the last pointer press gets .am-mouse-focus, which
   // hides the ring; text fields keep theirs.
@@ -2702,7 +2738,7 @@
   // through its light layer (user.css #am-caption-glass) so the white glyphs stay readable in light mode too.
   let captionRoot=null,captionGlasses=[],captionKey='';
   function syncCaptionGlass() {
-    const b=document.body.classList,want=onWindows&&settings.captionGlass==='liquid'&&b.contains('am-windows')&&!b.contains('am-traffic')&&glassShapes(),key=want?(glassLive()?'lens':'solid'):'';
+    const b=document.body.classList,want=onWindows&&settings.captionGlass==='liquid'&&b.contains('am-windows')&&!b.contains('am-traffic')&&!(b.contains('am-caption-drawn')&&b.contains('am-caption-flush'))&&glassShapes(),key=want?(glassLive()?'lens':'solid'):'';
     b.toggle('am-caption-liquid',want);if(key===captionKey)return;captionKey=key;
     captionGlasses.forEach(g=>g.destroy());captionGlasses=[];
     if(!want){captionRoot?.remove();captionRoot=null;return;}

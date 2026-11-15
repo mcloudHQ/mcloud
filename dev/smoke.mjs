@@ -3865,6 +3865,21 @@ try {
       await ws.pick('windowButtons', 'Windows');
       await ws.pick('captionGlass', 'Buzlu');
       assert.equal(await win.evaluate(() => !!document.getElementById('am-caption-glass') || document.body.classList.contains('am-caption-liquid')), false);
+      // Option C: the strip hidden, our own "…" and minimise/maximise/close (no-drag, under modals), which work as the lights do.
+      await ws.pick('windowButtons', 'Windows, mcloud');
+      assert.deepEqual(await native(), [false, 1, 'none']);
+      assert.deepEqual(await win.evaluate(() => { const c = document.getElementById('am-caption'), z = +getComputedStyle(c).zIndex;
+        return [[...c.querySelectorAll('.am-caption-strip button')].map(b => getComputedStyle(b).webkitAppRegion).join(), z > 60 && z < 65, document.body.classList.contains('am-traffic')]; }), ['no-drag,no-drag,no-drag', true, false]);
+      const before = await win.evaluate(() => window.__win.calls.length);
+      await win.click('#am-caption .am-caption-minimize'); await win.click('#am-caption .am-caption-zoom');
+      await win.waitForFunction(() => document.getElementById('am-caption').classList.contains('am-caption-max'));
+      await win.click('#am-caption .am-caption-zoom');
+      assert.deepEqual(await win.evaluate(n => window.__win.calls.slice(n).filter(c => c[0] === 'state'), before), [['state', 3], ['state', 2], ['state', 1]]);
+      await win.click('#am-caption .am-caption-more');
+      assert.equal(await win.evaluate(() => !document.getElementById('am-popover').hidden && document.getElementById('am-popover').textContent.includes('mcloud')), true);
+      await win.keyboard.press('Escape');
+      await ws.pick('windowButtons', 'Windows');
+      assert.deepEqual([await win.evaluate(() => !!document.getElementById('am-caption')), await native()], [false, [true, 80, 'block']]);
       // Saved: the lights come back on the next start and hide the buttons again (Spotify starts with them shown).
       await ws.pick('windowButtons', 'macOS, solda');
       await win.goto(url); await win.waitForSelector('#am-traffic');
