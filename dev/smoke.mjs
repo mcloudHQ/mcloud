@@ -2809,6 +2809,9 @@ try {
         assert.deepEqual(await rect('#am-nowplaying'), before, 'the pane stays on Spicy\'s page: ' + layout);
         assert.deepEqual(await paneParts(), [true, true, false], 'no lyrics in the pane on Spicy\'s page: ' + layout);
         assert.equal(await page.evaluate(() => document.querySelector('#am-nowplaying .am-np-line')), null, 'no lyrics loaded on Spicy\'s page');
+        // #182: with no lyrics there, the artwork stays at the top and the title and buttons sit at the bottom (the full-screen-only layout).
+        assert.ok(await page.evaluate(() => { const np = document.getElementById('am-nowplaying'), r = s => np.querySelector(s).getBoundingClientRect(), pane = np.getBoundingClientRect();
+          return r('.am-np-art').top - pane.top < 60 && pane.bottom - r('.am-np-actions').bottom < 30 && r('.am-np-actions').top - r('.am-np-meta').bottom < 30; }), 'title and buttons at the bottom on Spicy\'s page: ' + layout);
         await page.waitForFunction(() => document.querySelector('#am-nowplaying .am-np-fullscreen').title === 'Tam ekran');
         await page.click('#am-nowplaying .am-np-fullscreen');
         await page.click('#am-lyrics-toggle');
@@ -3000,6 +3003,20 @@ try {
       await page.click('#am-nowplaying .am-np-history .am-np-queue-row >> nth=2');
       assert.equal(await page.evaluate(() => window.__playedUri), 'spotify:track:h2');
       assert.ok((await hist()).next > 0, 'scrolled up, it stays where the user left it');
+      // #182: a song drags to a new place (Spotify's PlayerAPI.reorderQueue, by uid); dropped before a queued song it joins the
+      // queue. The row moves at once, the list then redraws in Spotify's order. A handle shows on hover.
+      const nextTitles = () => page.evaluate(() => [...document.querySelectorAll('#am-nowplaying .am-np-queue-next .am-np-queue-title')].map(t => t.textContent).join());
+      await page.hover('#am-nowplaying .am-np-queue-next .am-np-queue-row >> nth=2');
+      await page.waitForFunction(() => getComputedStyle(document.querySelectorAll('#am-nowplaying .am-np-queue-next .am-np-queue-grip')[2]).opacity === '1'); // the handle shows on hover
+      await page.dragAndDrop('#am-nowplaying .am-np-queue-next .am-np-queue-row >> nth=2', '#am-nowplaying .am-np-queue-next .am-np-queue-row >> nth=0', { targetPosition: { x: 40, y: 4 } });
+      assert.deepEqual(await page.evaluate(() => window.__queueMoves.pop()), { items: [{ uri: 'spotify:track:q2', uid: 'u2' }], place: { before: { uri: 'spotify:track:q0', uid: 'u0' } } });
+      assert.equal(await nextTitles(), 'Self Control,Pink + White,Ivy,Solo,Godspeed', 'the row moves at once');
+      await page.waitForFunction(() => document.querySelector('#am-nowplaying .am-np-queue-next .am-np-queue-row')?.dataset.uid === 'u2' && !document.querySelector('.am-np-queue-drop')?.isConnected);
+      await page.waitForTimeout(1200);
+      assert.equal(await nextTitles(), 'Self Control,Pink + White,Ivy,Solo,Godspeed', "Spotify's order after the redraw");
+      await page.dragAndDrop('#am-nowplaying .am-np-queue-next .am-np-queue-row >> nth=0', '#am-nowplaying .am-np-queue-next .am-np-queue-row >> nth=4', { targetPosition: { x: 40, y: 40 } });
+      assert.deepEqual((await page.evaluate(() => window.__queueMoves.pop())).place, { after: { uri: 'spotify:track:q5', uid: 'u5' } }, 'after the last song');
+      assert.equal(await nextTitles(), 'Pink + White,Ivy,Solo,Godspeed,Self Control');
       await page.click(queueButton);
       await page.waitForFunction(() => !document.body.classList.contains('am-np-queue-open'));
       assert.ok(await page.isVisible('#am-nowplaying .am-np-art') && await page.isVisible('#am-nowplaying .am-np-lyrics'), 'the artwork and lyrics come back');
@@ -3084,6 +3101,14 @@ try {
       // The frames are shared (srcObject); the clip shows once it plays, which headless Chrome may delay.
       await page.waitForFunction(() => document.querySelector('#am-nowplaying .am-np-bleed').srcObject instanceof MediaStream && document.getElementById('am-nowplaying').classList.contains('am-np-bleed-canvas'), null, { timeout: 10000 });
       assert.ok(!requests.some(u => u.includes('canvaz')), requests.join());
+      // #182: with Spicy Lyrics' card under the artwork the pane is cut where the lyrics start, so the clip plays inside the
+      // cover (it showed the still cover there before); back on Spotify's lyrics it runs behind the pane's top again.
+      await page.evaluate(() => document.getElementById('mock-canvas').closest('aside').insertAdjacentHTML('beforeend', '<div id="SpicyLyricsNPVCard" class="Expanded"><div class="CardHeader"><button id="NPVCardMaximize"></button></div></div><button id="SpicyLyrics_PageButton"></button>'));
+      await pick('npLyricsSource', 'Spicy Lyrics');
+      await page.waitForFunction(() => { const np = document.getElementById('am-nowplaying'); return document.body.classList.contains('am-np-spicy-split') && np.querySelector('.am-np-motion').srcObject instanceof MediaStream && !np.querySelector('.am-np-bleed').srcObject && !np.classList.contains('am-np-bleed-canvas'); }, null, { timeout: 10000 });
+      await pick('npLyricsSource', 'Spotify');
+      await page.evaluate(() => ['SpicyLyricsNPVCard', 'SpicyLyrics_PageButton'].forEach(id => document.getElementById(id).remove()));
+      await page.waitForFunction(() => { const np = document.getElementById('am-nowplaying'); return np.querySelector('.am-np-bleed').srcObject instanceof MediaStream && !np.querySelector('.am-np-motion').srcObject; }, null, { timeout: 10000 });
       // A track without Canvas: the still cover.
       await page.evaluate(() => { delete Spicetify.Player.data.item.metadata['canvas.url']; });
       await page.evaluate(() => window.__firePlayer('songchange'));
@@ -3510,6 +3535,19 @@ try {
       true, 'rgb(255, 255, 255)', '40px', 'none', true, true, 'blur(12px) saturate(1.4)']);
   });
 
+  await check('mix covers in the search suggestions (#218)', async () => {
+    const pick = 'https://pickasso.spotifycdn.com/image/ab67c0de0000deef/dt/v1/img/';
+    assert.deepEqual(await page.evaluate(async pick => {
+      const d = document.createElement('div');d.id = 'search-dropdown';
+      d.innerHTML = `<div role="row"><div><div><div class="mock-sdmix" style="position:relative;width:46px;height:46px"><img alt="" style="width:46px;height:46px" src="${pick}topic/chill/0ECwFtbIWEVNwjlrfc6xoL/en"></div><div id="m1-play"></div></div></div><div id="m1-title"><a href="/playlist/1">Chill Mix</a></div></div>`;
+      document.body.append(d);
+      const box = d.querySelector('.mock-sdmix');
+      for (let i = 0; i < 100 && !box.classList.contains('am-mix-ready'); i++) await new Promise(r => setTimeout(r, 20));
+      const out = [box.dataset.amMix, box.classList.contains('am-mix-ready'), getComputedStyle(box, '::after').content];
+      d.remove();return out;
+    }, pick), ['Chill Mix', true, '"Chill Mix"']);
+  });
+
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
     // Spotify's page for a mix: no artwork container, an empty slot before the text, the photo in .before-scroll-node,
     // and "About recommendations" as a button under the creator line. The cover comes from the playlist's metadata.
@@ -3682,6 +3720,41 @@ try {
       save.setAttribute('aria-checked', 'true');
       return [line === getComputedStyle(document.documentElement).getPropertyValue('--am-star-line').trim(), icon() !== line, getComputedStyle(save).color !== plain];
     }), [true, true, true]);
+    await page.evaluate(() => { document.getElementById('mock-feed').remove(); Spicetify.Platform.History.push('/'); });
+  });
+  await check('What\'s New: a podcast episode is Apple\'s episode card, as tall as the music cards (#136)', async () => {
+    // Spotify 1.3.9's episode row: the description (listRowDetails) in its own box, then one box holding the
+    // "Episode · 2 days ago · 43 min" line (the time in episode-progress-*) and the buttons. A started episode has the
+    // time left and a progress bar instead of the duration.
+    await page.evaluate(() => {
+      const buttons = save => `<div><div><button aria-label="${save}" aria-checked="false" data-encore-id="buttonTertiary"><span><svg></svg></span></button><button aria-label="Download" aria-checked="false" data-encore-id="buttonTertiary"><span><svg></svg></span></button><button aria-label="More" aria-haspopup="menu" data-encore-id="buttonTertiary"><span><svg></svg></span></button></div><div><div role="div"><button aria-label="Play" data-encore-id="buttonPrimary"><span><svg></svg></span></button></div></div></div>`;
+      const head = (href, title, sub) => `<div role="button"></div><div style="position:absolute;width:1px;height:1px;overflow:hidden"></div><div><div><div><div style="width:112px;height:112px"><img alt="" style="width:99px;height:99px"></div></div></div></div><div><div><h3 data-encore-id="listRowTitle"><span style="--encore-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--encore-line-clamp);overflow:hidden"><a href="${href}">${title}</a></span></h3><p data-encore-id="listRowSubtitle" style="padding-block-end:8px"><span><a href="/show/1">${sub}</a></span></p></div></div>`;
+      const time = started => started
+        ? '<div class="mock-progress" style="display:flex;flex-direction:column"><div><p data-encore-id="text">31 min left</p></div><div><div role="progressbar" aria-valuenow="720000" aria-valuemax="2580000"><div></div><div><div data-testid="progressBarFg" style="transform:translateX(-72%)"></div></div></div></div></div>'
+        : '<div><p data-encore-id="text" data-testid="episode-progress-not-played"><span>43 min</span></p></div>';
+      const episode = (n, started) => `<div><li role="row"><hr><div data-encore-id="listRow" role="group">${head('/episode/' + n, 'A rather long episode title that would wrap onto a second line / Part ' + n, 'The Show')}<div><p data-encore-id="listRowDetails" style="padding-block-end:4px"><span><span data-encore-id="text">${'A long description of the episode. '.repeat(12)}</span></span></p></div><div><div style="display:flex;flex-wrap:wrap;gap:8px"><span data-encore-id="text">Episode</span><span></span><span data-encore-id="text">2 days ago</span><span></span>${time(started)}</div>${buttons('Add to Your Episodes')}</div></div></li></div>`;
+      const album = n => `<div><li role="row"><hr><div data-encore-id="listRow" role="group">${head('/album/' + n, 'Album ' + n, 'Artist')}<div><span data-encore-id="text"><span><span data-encore-id="text">2 days ago</span></span></span></div><div>${buttons('Save to Your Library')}</div></div></li></div>`;
+      const chip = t => `<div role="presentation"><div role="option"><button data-encore-id="chip" role="checkbox" aria-checked="false">${t}</button></div></div>`;
+      const s = document.createElement('section');s.id = 'mock-feed';s.style.maxWidth = '960px';
+      s.innerHTML = `<div><h1>What's New</h1></div><div><div role="presentation"><div role="presentation"><div role="listbox">${chip('Music')}${chip('Podcasts')}</div></div></div></div>`
+        + `<ul role="treegrid"><div><div><li role="row"><h2>Earlier</h2></li></div>${episode(1)}${album(2)}${episode(3, true)}${album(4)}<div style="height:32px"></div></div></ul>`;
+      document.querySelector('.am-native-main main').prepend(s);
+      Spicetify.Platform.History.push('/content-feed');
+    });
+    await page.waitForFunction(() => document.querySelector('#mock-feed .am-feed-filter'));
+    const look = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('#mock-feed [data-encore-id="listRow"]')], [ep, album, started] = cards, box = e => e.getBoundingClientRect();
+      const meta = card => card.querySelector(':scope > div > [data-encore-id="text"], :scope > div > div > [data-encore-id="text"]').parentElement, title = card => card.querySelector('[data-encore-id="listRowTitle"]');
+      const visible = card => [...card.querySelectorAll('button')].filter(b => box(b).width > 0).map(b => b.getAttribute('aria-label')).join();
+      const bar = started.querySelector('[role="progressbar"]'), left = started.querySelector('.mock-progress p');
+      return { heights: [...new Set(cards.map(c => Math.round(box(c).height)))], description: getComputedStyle(ep.querySelector('[data-encore-id="listRowDetails"]').parentElement).display,
+        metaAbove: box(meta(ep)).bottom <= box(title(ep)).top + 1, metaLine: Math.round(box(meta(ep)).height), metaText: [ep, started].every(card => [...meta(card).querySelectorAll('p')].every(t => box(t).top >= box(meta(card)).top - 1 && box(t).bottom <= box(meta(card)).bottom + 1)), metaX: Math.round(box(meta(ep)).left - box(title(ep)).left),
+        titleLine: Math.round(box(title(ep)).height) === Math.round(box(title(album)).height), starRight: box(ep.querySelector('button[aria-checked]')).left > box(title(ep)).right,
+        buttons: visible(ep), bar: [Math.round(box(bar).width), Math.round(box(bar).height), box(bar).right <= box(left).left, Math.abs(box(bar).top + box(bar).height / 2 - (box(left).top + box(left).height / 2)) < 2],
+        startedLine: Math.round(box(meta(started)).height) };
+    });
+    assert.deepEqual(look, { heights: [124], description: 'none', metaAbove: true, metaLine: 18, metaText: true, metaX: 0, titleLine: true, starRight: true, buttons: 'Add to Your Episodes,Play', bar: [36, 4, true, true], startedLine: 18 });
+    await shot('feed-episodes');
     await page.evaluate(() => { document.getElementById('mock-feed').remove(); Spicetify.Platform.History.push('/'); });
   });
   await check('a track list, a shelf and Browse all without Spotify\'s readable class names get them back (#109)', async () => {
@@ -3860,6 +3933,12 @@ try {
       assert.deepEqual(b.rects, [[19, 25, 14, 14], [42, 25, 14, 14], [65, 25, 14, 14]]);
       assert.equal(b.body, 'am-traffic'); assert.equal(b.drag, 'no-drag');
       assert.deepEqual(await native(), [false, 1, 'none']);
+      // #214: the sidebar's drag strip comes after the lights in the document (they were appended first), so a no-drag
+      // hole inside it covers them; on the right (and with Windows' buttons) there is none.
+      assert.deepEqual(await win.evaluate(() => { const h = document.querySelector('#am-sidebar .am-drag > .am-drag-hole'), r = h.getBoundingClientRect(), d = document.querySelector('#am-traffic').getBoundingClientRect();
+        return [getComputedStyle(h).webkitAppRegion, r.left <= d.left && r.top <= d.top && r.right >= d.right && r.bottom >= d.bottom]; }), ['no-drag', true]);
+      // #216: under Spotify's modals and our settings window and sheets, over the player.
+      assert.deepEqual(await win.evaluate(() => { const z = +getComputedStyle(document.getElementById('am-traffic')).zIndex; return [z > 60, z < 65]; }), [true, true]);
       // Glyphs show on all three while the pointer is over the group.
       const glyph = () => win.evaluate(() => [...document.querySelectorAll('#am-traffic svg')].map(s => getComputedStyle(s).opacity).join());
       assert.equal(await glyph(), '0,0,0');
@@ -3877,11 +3956,11 @@ try {
       await win.evaluate(() => { Spicetify.Platform.NativeAPI.setWindowButtonsVisibility(true); Spicetify.Platform.ControlMessageAPI.setTitlebarHeight(80); });
       assert.deepEqual(await native(), [false, 1, 'none']);
       // In the background the discs turn grey, as on macOS.
-      const fill = () => win.evaluate(() => getComputedStyle(document.querySelector('#am-traffic .am-traffic-close')).backgroundImage);
+      const fill = () => win.evaluate(() => getComputedStyle(document.querySelector('#am-traffic .am-traffic-close')).backgroundColor);
       await win.mouse.move(700, 500);
       const active = await fill();
       await win.evaluate(() => { document.hasFocus = () => false; dispatchEvent(new Event('blur')); });
-      assert.notEqual(await fill(), active); assert.match(await fill(), /rgb\(73, 73, 73\)/);
+      assert.notEqual(await fill(), active); assert.match(await fill(), /rgb\(70, 70, 70\)/);
       await win.evaluate(() => { document.hasFocus = () => true; dispatchEvent(new Event('focus')); });
       if (shots) await win.screenshot({ path: path.join(shots, 'traffic-lights-left.png') });
       // On the right: the toolbar keeps clear of them, in less room than Windows' three buttons.
@@ -3890,11 +3969,21 @@ try {
       assert.equal(b.w - b.rects[2][0] - 14, 19);
       assert.equal(b.body, 'am-traffic,am-traffic-right,am-windows');
       assert.equal(await win.evaluate(() => getComputedStyle(document.getElementById('global-nav-bar')).right), '96px');
+      assert.equal(await win.evaluate(() => getComputedStyle(document.querySelector('.am-drag-hole')).display), 'none');
       // Back to Windows': the lights go and Spotify's buttons come back at the height it last asked for.
       await ws.pick('windowButtons', 'Windows');
       assert.equal(await box(), null);
       assert.deepEqual(await native(), [true, 80, 'block']);
       assert.equal(await win.evaluate(() => document.body.classList.contains('am-windows')), true);
+      // The caption backing as the toolbar's Liquid Glass: two shapes on the frosted capsules' slots, which go.
+      await ws.pick('captionGlass', 'Liquid Glass');
+      assert.deepEqual(await win.evaluate(() => [...document.querySelectorAll('#am-caption-glass > .am-tglass')].map(g => { const r = g.getBoundingClientRect(); return [r.top, r.height, Math.round(r.width)]; })), [[16, 32, 46], [16, 32, 134]]);
+      assert.equal(await win.evaluate(() => document.body.classList.contains('am-caption-liquid')), true);
+      await ws.pick('windowButtons', 'macOS, sağda');
+      assert.equal(await win.evaluate(() => !!document.getElementById('am-caption-glass')), false);
+      await ws.pick('windowButtons', 'Windows');
+      await ws.pick('captionGlass', 'Buzlu');
+      assert.equal(await win.evaluate(() => !!document.getElementById('am-caption-glass') || document.body.classList.contains('am-caption-liquid')), false);
       // Saved: the lights come back on the next start and hide the buttons again (Spotify starts with them shown).
       await ws.pick('windowButtons', 'macOS, solda');
       await win.goto(url); await win.waitForSelector('#am-traffic');

@@ -531,8 +531,8 @@
   function trafficState(max){trafficMax=max;trafficBox?.classList.toggle('am-traffic-max',max||!!document.fullscreenElement);}
   function trafficBuild() {
     const box=el('div','');box.id='am-traffic';box.setAttribute('role','group');box.setAttribute('aria-label',T('Pencere','Window'));
-    const glyphs={close:'<path d="M4.6 4.6l4.8 4.8M9.4 4.6l-4.8 4.8" stroke-width="2"/>',minimize:'<path d="M4.1 7h5.8" stroke-width="2"/>',
-      zoom:'<path class="am-traffic-out" d="M4 4h5L4 9zM10 10H5l5-5z"/><path class="am-traffic-in" d="M6.3 2.9v3.4H2.9zM7.7 11.1V7.7h3.4z"/>'};
+    const glyphs={close:'<path d="M4.6 4.6l4.8 4.8M9.4 4.6l-4.8 4.8" stroke-width="1.6"/>',minimize:'<path d="M4.1 7h5.8" stroke-width="1.6"/>',
+      zoom:'<path class="am-traffic-out" d="M4.2 4.2h4.5L4.2 8.7zM9.8 9.8H5.3l4.5-4.5z"/><path class="am-traffic-in" d="M6.3 2.9v3.4H2.9zM7.7 11.1V7.7h3.4z"/>'};
     for(const [kind,label] of [['close',T('Kapat','Close')],['minimize',T('Küçült','Minimise')],['zoom',T('Büyüt','Maximise')]]){
       const b=el('button','am-traffic-'+kind);b.type='button';b.tabIndex=-1;b.setAttribute('aria-label',label);
       b.innerHTML=`<svg viewBox="0 0 14 14" aria-hidden="true">${glyphs[kind]}</svg>`;b.addEventListener('click',event=>trafficAction(kind,event));box.append(b);
@@ -565,6 +565,10 @@
     options:[['windows','Windows'],['left',T('macOS, solda','macOS, left')],['right',T('macOS, sağda','macOS, right')]],
     note:T('Küçült, büyüt ve kapat; Alt ile yeşil tam ekran yapar.','Minimise, maximise and close; Alt-click green for full screen.'),
     hidden:!onWindows,apply:()=>trafficSync()});
+  // The backing behind Spotify's own caption glyphs and "…" (user.css body.am-windows): frosted (body ::before/::after,
+  // light mode only) or the toolbar's Liquid Glass in a dark tint (syncCaptionGlass, below), in both modes.
+  defineSetting({key:'captionGlass',group:'general',section:T('Pencere','Window'),label:T('Pencere düğmelerinin zemini','Window buttons backing'),type:'choice',style:'segmented',default:'frosted',
+    options:[['frosted',T('Buzlu','Frosted')],['liquid','Liquid Glass']],dim:()=>settings.windowButtons!=='windows',hidden:!onWindows});
   // A control clicked with the mouse keeps focus, and Chromium draws its :focus-visible ring once any key is pressed
   // (Space for play/pause). Focus that arrives without a key since the last pointer press gets .am-mouse-focus, which
   // hides the ring; text fields keep theirs.
@@ -748,7 +752,11 @@
   for (let i = 0; i < 120 && !bindLayout(); i++) await wait(250);
   if (!main) return;
   const sidebar = el('aside', '', ''); sidebar.id = 'am-sidebar'; sidebar.setAttribute('aria-label', T('Ana gezinme','Main navigation'));
-  const drag = el('div', 'am-drag'); sidebar.append(drag);
+  // The sidebar's top is the window's drag strip. With the traffic lights on the left (#200, #214) it lies under them,
+  // and Chromium applies app-regions in document order: when the lights were appended before the sidebar (Spotify's
+  // APIs ready at once), this later drag region took their clicks back for the OS. The hole is a no-drag child of the
+  // strip, so it always comes after it, wherever the lights are.
+  const drag = el('div', 'am-drag'); drag.append(el('div','am-drag-hole')); sidebar.append(drag);
   const nav = el('nav', 'am-navigation'); sidebar.append(nav);
   const navItems = [];
   // Search and Browse both open Spotify's /search page; the row that opened it stays selected there.
@@ -2712,6 +2720,20 @@
   addEventListener('resize',placeGlasses);
   document.addEventListener('am-settings',()=>{if(boundToolbar)syncToolbarGlass(boundToolbar);syncArtistGlass(...(artistGlassArgs?.[0].isConnected?artistGlassArgs:[null]));requestAnimationFrame(()=>requestAnimationFrame(placeGlasses));});
   document.addEventListener('transitionend',event=>{if(toolbarGlasses.length&&(boundToolbar?.contains(event.target)||event.target.closest?.('#am-sidebar')))placeGlasses();},true);
+  // Option B for the caption backing (settings.captionGlass 'liquid'): one ToolbarGlass per group of Spotify's native
+  // buttons, laid on fixed slots where the frosted capsules sit, each with its own lens (no shared pane), dark-tinted
+  // through its light layer (user.css #am-caption-glass) so the white glyphs stay readable in light mode too.
+  let captionRoot=null,captionGlasses=[],captionKey='';
+  function syncCaptionGlass() {
+    const b=document.body.classList,want=onWindows&&settings.captionGlass==='liquid'&&b.contains('am-windows')&&!b.contains('am-traffic')&&glassShapes(),key=want?(glassLive()?'lens':'solid'):'';
+    b.toggle('am-caption-liquid',want);if(key===captionKey)return;captionKey=key;
+    captionGlasses.forEach(g=>g.destroy());captionGlasses=[];
+    if(!want){captionRoot?.remove();captionRoot=null;return;}
+    if(!captionRoot){captionRoot=el('div','');captionRoot.id='am-caption-glass';captionRoot.setAttribute('aria-hidden','true');}
+    if(!captionRoot.isConnected)document.body.append(captionRoot);
+    captionGlasses=['menu','buttons'].map(kind=>{let slot=captionRoot.querySelector('.am-caption-'+kind);if(!slot){slot=el('div','am-caption-slot am-caption-'+kind);captionRoot.append(slot);}return new ToolbarGlass([slot],false,captionRoot,null);});
+  }
+  document.addEventListener('am-settings',syncCaptionGlass);addEventListener('resize',()=>captionGlasses.forEach(g=>g.place()));syncCaptionGlass();
   function spicyPage() { return document.getElementById('SpicyLyricsPage'); }
   function runSpicyControl(id) {
     const native=document.getElementById(id);
@@ -3003,14 +3025,46 @@
   const npHistOffset=()=>npQueueHead.getBoundingClientRect().top-npQueueList.getBoundingClientRect().top;
   const npHistPin=()=>{if(npHistPinned&&npQueueOn&&!npHistBox.hidden)npQueueList.scrollTop+=npHistOffset();};
   npQueueList.addEventListener('scroll',()=>{if(npQueueOn)npHistPinned=Math.abs(npHistOffset())<2;},{passive:true});
+  // Drag to reorder (#182), as Spotify's own queue panel does it: PlayerAPI.reorderQueue moves songs by uid before or after
+  // another one (a song dropped before a queued one joins the queue). The row moves at once; the list is not re-read while
+  // a song is dragged, nor until Spotify has the new order. The drag also carries the song's own data, so it can be
+  // dropped on a playlist in the sidebar.
+  icons.grip='<path d="M5 8h14M5 12h14M5 16h14"/>';
+  let npQueueDrag=null,npQueueHold=0;
+  const npQueueDrop=el('div','am-np-queue-drop');
+  function npQueueMovable(row,t) {
+    if(!S.Platform?.PlayerAPI?.reorderQueue||!t.uid)return;
+    const grip=el('span','am-np-queue-grip');grip.innerHTML=svg('grip');
+    row.draggable=true;row.dataset.uid=t.uid;row.dataset.uri=t.uri;row.append(grip);
+    row.addEventListener('dragstart',event=>{npQueueDrag=row;setDrag(event,[t.uri],row.querySelector('img'));event.dataTransfer.setData('text/x-am-queue',t.uid);requestAnimationFrame(()=>row.classList.add('am-dragging'));});
+    row.addEventListener('dragend',()=>{row.classList.remove('am-dragging');npQueueDrop.remove();npQueueDrag=null;});
+  }
+  // Where a drop lands: before or after the row under the pointer, by its half.
+  const npQueueTarget=event=>{const row=event.target.closest?.('.am-np-queue-row[data-uid]');if(!row||row.parentElement!==npNextBox)return null;const r=row.getBoundingClientRect();return {row,after:event.clientY>r.top+r.height/2};};
+  npNextBox.addEventListener('dragover',event=>{
+    if(!npQueueDrag)return;const at=npQueueTarget(event);if(!at)return;event.preventDefault();event.dataTransfer.dropEffect='move';
+    const ref=at.after?at.row.nextSibling:at.row;if(npQueueDrop.parentElement!==npNextBox||npQueueDrop.nextSibling!==ref&&npQueueDrop!==ref)npNextBox.insertBefore(npQueueDrop,ref);
+  });
+  npNextBox.addEventListener('dragleave',event=>{if(!npNextBox.contains(event.relatedTarget))npQueueDrop.remove();});
+  npNextBox.addEventListener('drop',async event=>{
+    const row=npQueueDrag,at=npQueueTarget(event);npQueueDrop.remove();if(!row||!at)return;event.preventDefault();
+    const ref=at.after?at.row.nextElementSibling:at.row;if(at.row===row||ref===row)return;
+    const place={[at.after?'after':'before']:{uri:at.row.dataset.uri,uid:at.row.dataset.uid}};
+    npNextBox.insertBefore(row,ref);npQueueHold=performance.now()+600;
+    try{await S.Platform.PlayerAPI.reorderQueue([{uri:row.dataset.uri,uid:row.dataset.uid}],place);}catch{notify(T('Sıra değiştirilemedi.','Couldn\'t move the song.'));}
+    // Spicetify.Queue follows a moment later; the next read draws Spotify's order (and the song's new place in the queue).
+    setTimeout(()=>{npQueueKey=null;if(npQueueOn)npQueueRender();},620);
+  });
   function npQueueRender() {
+    if(npQueueDrag||performance.now()<npQueueHold)return;
     const items=npQueueItems(),key=items.map(t=>t.uid||t.uri).join();if(key===npQueueKey)return;npQueueKey=key;
     releaseLazy(npQueueArt,npNextBox);
     const removeFromQueue=S.Platform?.PlayerAPI?.removeFromQueue;
     npNextBox.replaceChildren(...items.map(t=>{const m=t.metadata||{};
-      return npQueueRow({uri:t.uri,title:m.title,artist:m.artist_name,image:m.image_url||m.image_small_url,artistUri:m.artist_uri,albumUri:m.album_uri},
+      const row=npQueueRow({uri:t.uri,title:m.title,artist:m.artist_name,image:m.image_url||m.image_small_url,artistUri:m.artist_uri,albumUri:m.album_uri},
         ()=>S.Platform?.PlayerAPI?.skipTo?.({uri:t.uri,uid:t.uid}),
         t.queued&&removeFromQueue?async()=>{try{await removeFromQueue.call(S.Platform.PlayerAPI,[{uri:t.uri,uid:t.uid}]);}catch{notify(T('Sıradan çıkarılamadı.','Couldn\'t remove it from the queue.'));}npQueueKey=null;npQueueRender();}:null);
+      npQueueMovable(row,t);return row;
     }));
     if(!items.length)npNextBox.append(el('div','am-np-queue-empty',T('Sırada şarkı yok','Nothing playing next')));
     npQueueObserve();npHistPin();
@@ -3040,7 +3094,7 @@
     queueButton.classList.toggle('am-active',on);setAttributeIfChanged(queueButton,'aria-pressed',String(on));
     clearInterval(npQueueTimer);
     // While it shows, the list is read again each second (Spicetify fires nothing when the queue changes); unchanged, it is left alone.
-    if(on){npQueueKey=null;npHistPinned=true;npQueueRender();npHistKey=S.Player.data?.item?.uri;npHistoryLoad();
+    if(on){npQueueKey=null;npQueueHold=0;npHistPinned=true;npQueueRender();npHistKey=S.Player.data?.item?.uri;npHistoryLoad();
       npQueueTimer=setInterval(()=>{if(!document.hidden){npQueueRender();npHistoryWatch();}},1000);}
     else{releaseLazy(npQueueArt,npQueueList);clearTimeout(npHistTimer);}
     // Spicy Lyrics' card steps aside while the list shows (it stays mounted in Spotify's view) and comes back after.
@@ -3070,7 +3124,7 @@
     if(spicy!==npSpicyOn){npSpicyOn=spicy;b.toggle('am-np-spicy',spicy);npTrackKey='';npLyricUri=null;}
     // Plain has no artwork to keep above Spicy's view, but instead of the player its controls stay below it.
     const split=spicy&&(settings.npBg!=='plain'||mode==='only');
-    if(split!==npSpicySplit){npSpicySplit=split;b.toggle('am-np-spicy-split',split);npSplitObserver.disconnect();if(split){npSplitObserver.observe(np);npSplitObserver.observe(npLyricsBox);}}
+    if(split!==npSpicySplit){npSpicySplit=split;npCanvasFrom=null;npCanvasSrc='';b.toggle('am-np-spicy-split',split);npSplitObserver.disconnect();if(split){npSplitObserver.observe(np);npSplitObserver.observe(npLyricsBox);}}
     if(spicy)npSpicyFill();
     if(mode==='off'&&npFullOn){npFullOn=false;b.remove('am-np-full');npSyncFull();}
     b.toggle('am-np-open',open);b.toggle('am-np-only',mode==='only');b.toggle('am-np-beside',mode==='beside');b.toggle('am-np-docked',settings.npLayout==='docked');
@@ -3167,6 +3221,8 @@
   // Spotify Canvas: the clip is H.264 too, but Spotify's own Now Playing view (mounted, hidden by user.css) plays it
   // through Spotify's video player; its frames are shared through captureStream(), with no second download or decode.
   // Checked every player tick, since that view swaps its clip (or its element) a moment after the track changes.
+  // Full height behind the pane's top; with Spicy Lyrics' card under the artwork (npSpicySplit) the pane is cut where the
+  // lyrics start, so the clip plays inside the cover instead, as Music plays square motion artwork (#182).
   let npCanvasFrom=null,npCanvasSrc='';
   function npSyncCanvas() {
     if(settings.npArt!=='canvas'||!npVisible()||npCompact())return;
@@ -3174,7 +3230,7 @@
     const native=has?[...document.querySelectorAll('.am-native-right video')].find(v=>v.currentSrc||v.srcObject)||null:null,src=native?.currentSrc||(native?.srcObject?'stream':'');
     if(native===npCanvasFrom&&src===npCanvasSrc)return;
     npCanvasFrom=native;npCanvasSrc=src;npStopVideo();if(!native)return;
-    try{np.classList.add('am-np-bleed-canvas');npBleed.srcObject=native.captureStream();npPlayVideo();}catch{npStopVideo();}
+    try{const v=npSpicySplit?npMotion:npBleed;if(!npSpicySplit)np.classList.add('am-np-bleed-canvas');v.srcObject=native.captureStream();npPlayVideo();}catch{npStopVideo();}
   }
   // Apple's motion artwork: m8tec's index names the album's HLS master; its H.264 variant nearest the pane's size points
   // (EXT-X-MAP) at one fragmented MP4 that a plain <video> plays. Results, misses included (for a day), are kept.
@@ -4411,17 +4467,21 @@
   // The name drawn into the band: a card's title, a playlist page's h1, else the nearest link with text around the image
   // (Home's big "Made for you" cards and the shortcuts at the top have neither; their band was drawn empty, #194).
   function mixName(img) {
+    const own=img.closest('.am-card,.am-top-open'),row=!own&&img.closest('#search-dropdown [role="row"]');
+    if(own||row)return (own?own.title:row.querySelector('[id$="-title"]')?.textContent)?.trim()||'';
     const card=img.closest('[data-encore-id="card"]'),page=!card&&img.closest('[data-testid="playlist-page"]');
     if(card||page)return (card?card.querySelector('[data-encore-id="cardTitle"]'):page.querySelector('h1'))?.textContent.trim()||'';
     for(let node=img.parentElement,i=0;node&&i<5;node=node.parentElement,i++)for(const a of node.querySelectorAll('a[href]')){const text=(a.title||a.textContent).trim();if(text)return text;}
     return '';
   }
   // Apple's own pairing: radios as its stations (the photo in a circle), the other mixes as Essentials (the band).
+  // Where covers are redrawn: Spotify's pages and search suggestions (#218), and the theme's own search and artist pages.
+  const mixPlaces='.am-native-main,#search-dropdown [role="row"],#am-search :is(.am-card-art,.am-top-art),#am-artist .am-card-art';
   const mixStyle=url=>settings.mixCovers!=='apple'?settings.mixCovers:/\/img\/radio\//.test(url)?'station':'band';
   function markMix(img,radius) {
     // A card's image sits absolute in its square box (main-card-imageContainer, or the card's own image area); a page
-    // header's directly in its parent.
-    const box=img.closest('[data-encore-id="card"]')?img.parentElement?.parentElement:img.parentElement,url=img.getAttribute('src')||'';if(!box||!img.closest('.am-native-main'))return;
+    // header's directly in its parent, as do the search suggestions' thumbnails (#218) and the theme's own cards.
+    const box=img.closest('[data-encore-id="card"]')?img.parentElement?.parentElement:img.parentElement,url=img.getAttribute('src')||'';if(!box||!img.closest(mixPlaces))return;
     if(!mixUrl.test(url)||settings.mixCovers==='spotify'){if(box.classList.contains('am-mix'))box.classList.remove('am-mix','am-mix-ready','am-mix-plain');delete box.dataset.amMixSrc;return;}
     box.dataset.amMixStyle=mixStyle(url);
     const name=mixName(img);if(box.dataset.amMix!==name)box.dataset.amMix=name;
@@ -5009,9 +5069,10 @@
     if(settingsReturn?.isConnected)settingsReturn.focus?.({preventScroll:true});settingsReturn=null;
   }
   settingsBox.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();if(helpOpen)closeHelp();else closeSettings();}});
-  // ⌘⌥, (Ctrl+Alt+, on Windows) opens and closes it: ⌘, is Spotify's own Settings.
+  // ⌘⌥, (Ctrl+Alt+, on Windows) opens and closes it: ⌘, is Spotify's own Settings. The key too, not only its place:
+  // Turkish Q has the comma where US keyboards have the backslash (code 'Backslash', key ',').
   document.addEventListener('keydown',event=>{
-    if(event.code!=='Comma'||!event.altKey||!(event.metaKey||event.ctrlKey)||event.shiftKey)return;
+    if(event.code!=='Comma'&&event.key!==','||!event.altKey||!(event.metaKey||event.ctrlKey)||event.shiftKey)return;
     event.preventDefault();if(settingsBack.isConnected)closeSettings();else openSettings();
   },true);
   // Profile menu → mcloud opens the window. The old mcloud submenu, drawn from the same definitions, is the fallback for

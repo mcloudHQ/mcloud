@@ -66,6 +66,12 @@
         play: async () => {},
         skipTo: async item => { (window.__skips ||= []).push(item); },
         removeFromQueue: async items => { (window.__queueRemoves ||= []).push(...items); },
+        // Spotify's reorder: songs (by uid) move before or after another; dropped before a queued song, they join the queue.
+        reorderQueue: async (items, place) => { (window.__queueMoves ||= []).push({ items, place });
+          const next = Spicetify.Queue.nextTracks, same = (a, t) => t.contextTrack.uid === a.uid, target = next.find(t => same(place.after || place.before, t));
+          const moved = next.filter(t => items.some(i => same(i, t))); if (!target || moved.includes(target)) return;
+          const rest = next.filter(t => !moved.includes(t)); rest.splice(rest.indexOf(target) + (place.after ? 1 : 0), 0, ...moved.map(t => target.provider === 'queue' ? { ...t, provider: 'queue' } : t));
+          Spicetify.Queue.nextTracks = rest; },
       },
       // Spotify's play history (its queue panel's Recently played), newest first; the first is the song playing now.
       PlayHistoryAPI: { getContents: async () => ({ items: [['spotify:track:1', 'Nights', '#3d5a80'], ['spotify:track:h1', 'Thinkin Bout You', '#e07a5f'], ['spotify:track:h2', 'Lost', '#81b29a'], ['spotify:episode:h3', 'An episode', '#999'], ['spotify:track:h4', 'Super Rich Kids', '#f2cc8f']].map(([uri, name, color]) => ({ type: uri.split(':')[1], uri, name,
@@ -216,6 +222,10 @@
   // (top right) over the page, here a stand-in strip (#mock-caption) that follows the calls. The desktop services as
   // Spicetify resolves them from Spotify's registry: one DesktopUpdateUi client (methods on its prototype) behind
   // ControlMessageAPI and NativeAPI, and DesktopWindowState behind FocusMainWindowAPI. window.__win records it all.
+  // Without it the preview is not Windows on any host: headless Chromium on a Windows machine says "Windows" in its user agent,
+  // which would show the Windows-only rows and buttons and fail smoke there.
+  if (new URLSearchParams(location.search).get('os') !== 'windows' && /Windows/.test(navigator.userAgent))
+    Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent.replace(/\(Windows[^)]*\)/, '(X11; Linux x86_64)') });
   if (new URLSearchParams(location.search).get('os') === 'windows') {
     Object.defineProperty(navigator, 'userAgent', { value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Spotify/1.3.8.620 Safari/537.36' });
     document.documentElement.classList.add('spotify__os--is-windows', 'spotify__container--is-desktop');

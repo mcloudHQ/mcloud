@@ -75,6 +75,7 @@ spicetify apply
 - **The theme is gone after a Spotify update:** run the install command again.
 - **"Permission denied" on Linux:** the script prints the `chmod` commands Spicetify needs. The Snap version of Spotify does not work with Spicetify.
 - **Windows:** use Spotify from [spotify.com](https://www.spotify.com/download/windows/), not the Microsoft Store, and don't run PowerShell as administrator.
+- **Spicetify warns "sidebar_config is not supported when global navbar is enabled":** it is harmless and you can ignore it. That option reorders Spotify's own sidebar, which mcloud replaces with its own, so the theme does not need it.
 
 </details>
 
