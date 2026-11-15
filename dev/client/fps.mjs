@@ -69,9 +69,10 @@ async function setup(page, scenario, variant) {
     if (scenario === 'paused' && playing) P.pause(); if (scenario !== 'paused' && !playing) P.play();
     // Marquee: force the title to scroll as a long title does (28 CSS px/s, one step per device pixel).
     const t = document.querySelector('#am-player .am-marquee.am-track-title'), sub = document.querySelector('#am-player .am-marquee.am-track-subtitle');
-    for (const m of [t, sub]) if (m) m.classList.remove('am-marquee-on');
-    if (scenario === 'marquee' && t) { const first = t.querySelector('.am-marquee-inner > span'), wpx = 700; t.classList.add('am-marquee-on'); t.style.setProperty('--am-marquee-duration', ((wpx + 48) / 28).toFixed(1) + 's'); t.style.setProperty('--am-marquee-steps', String(Math.round((wpx + 48) * devicePixelRatio))); first.style.display = 'inline-block'; first.style.minWidth = wpx + 'px'; }
-    else if (t) { const first = t.querySelector('.am-marquee-inner > span'); first.style.minWidth = ''; first.style.display = ''; }
+    // theme.js re-fits a marquee when its box resizes: widen the text, then nudge the box.
+    const refit = m => { m.style.width = 'calc(100% - 1px)'; requestAnimationFrame(() => { m.style.width = ''; }); };
+    if (scenario === 'marquee' && t) { const first = t.querySelector('.am-marquee-inner > span'); first.style.display = 'inline-block'; first.style.minWidth = '700px'; refit(t); }
+    else if (t) { const first = t.querySelector('.am-marquee-inner > span'); first.style.minWidth = ''; first.style.display = ''; refit(t); }
     const seek = document.querySelector('#am-player .am-seek');
     seek?.dispatchEvent(new PointerEvent(scenario === 'hover' ? 'pointerenter' : 'pointerleave'));
     if (scenario === 'scroll') {

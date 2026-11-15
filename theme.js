@@ -191,7 +191,7 @@
   // its name there (else its aria-label). Any feature tags its own button the same way; data-am-locked ones always stay.
   function playerButton(node,id,label){node.dataset.amButton=id;if(label)node.dataset.amLabel=label;return node;}
   // Preferences are per Spotify profile on this computer; nothing leaves the client.
-  const settings={accent:'red',artwork:true,liquid:true,sort:'library',sidebar:0,lang:'auto',glass:'balanced',lists:false,recent:5,numbers:true,listFilter:'all',listSort:'played',listDesc:false};
+  const settings={accent:'red',artwork:true,liquid:true,sort:'library',sidebar:0,lang:'auto',glass:'balanced',optimized:false,lists:false,recent:5,numbers:true,listFilter:'all',listSort:'played',listDesc:false};
   // A value stored twice encoded (a JSON string of the JSON) is read through, and keys of digits only, left by spreading
   // such a string into an object, are dropped; anything but a plain object reads as nothing saved.
   function readSettings() {
@@ -231,9 +231,13 @@
     // Glass modes. Over a page that redraws every frame (Spicy Lyrics) each backdrop filter re-runs every frame, so
     // "balanced" draws glass without them there (body.am-balanced), "eco" (and the OS reduced-transparency setting)
     // swaps every blur and glass for solid surfaces (body.am-solid), "full" keeps the real glass everywhere.
+    // "light" (and Optimized mode, #217) is Balanced with the toolbar's and the player's lens as the lite layer on every
+    // page (body.am-glass-lite): those two lenses were nearly all the glass's cost while scrolling (Windows, 165Hz:
+    // 224 -> 148% of a core on Home, Eco 140); the sidebar's blur and glow, the bars and the menus cost next to nothing.
     if(!glassModes.includes(settings.glass))settings.glass='balanced';
-    const solid=settings.glass==='eco'||reducedTransparency.matches;
-    document.body.classList.toggle('am-solid',solid);document.body.classList.toggle('am-balanced',!solid&&settings.glass==='balanced');
+    const solid=settings.glass==='eco'||reducedTransparency.matches,lite=!solid&&(settings.glass==='light'||!!settings.optimized);
+    document.body.classList.toggle('am-solid',solid);document.body.classList.toggle('am-balanced',!solid&&(settings.glass==='balanced'||lite));
+    document.body.classList.toggle('am-glass-lite',lite);
     // 0 keeps the proportional default width from user.css.
     if(settings.sidebar>0)document.documentElement.style.setProperty('--am-side','min('+settings.sidebar+'px,40vw)');
     else document.documentElement.style.removeProperty('--am-side');
@@ -253,7 +257,7 @@
       return `<feColorMatrix data-am-tone="" values="${row(0)} ${row(1)} ${row(2)} ${k.map(v=>f(v/2)).join(' ')} 0 .5"/><feComponentTransfer data-am-tone=""><feFuncA type="table" tableValues="${U.map(u=>f(.5+.5*(u-lo)/s)).join(' ')}"/></feComponentTransfer>`
         +`<feColorMatrix data-am-tone="" values="1 0 0${add} 0 1 0${add} 0 0 1${add} 0 0 0 0 1"/><feComponentTransfer data-am-tone=""><feFuncR ${floor}/><feFuncG ${floor}/><feFuncB ${floor}/></feComponentTransfer>`;
   }
-  const glassModes=['full','balanced','eco'],reducedTransparency=matchMedia('(prefers-reduced-transparency: reduce)');reducedTransparency.addEventListener?.('change',applySettings);
+  const glassModes=['full','balanced','light','eco'],reducedTransparency=matchMedia('(prefers-reduced-transparency: reduce)');reducedTransparency.addEventListener?.('change',applySettings);
   applySettings();
   // Settings tiles (#179): each choice is a small drawing of the part of the window it changes, as System Settings draws
   // Light and Dark: the same framing on every tile of a row, only the setting's own difference changing, one sample album
@@ -377,9 +381,20 @@
   defineSetting({key:'accent',group:'general',rank:-2,label:T('Vurgu rengi','Accent colour'),type:'choice',default:'red',style:'swatches',options:Object.entries(accents).map(([key,[label,color]])=>[key,label,color])});
   // The value shown is the mode in effect: reduced transparency in the OS keeps Eco whatever is picked.
   defineSetting({key:'glass',group:'general',rank:-1,label:T('Cam efekti','Glass effect'),type:'choice',default:'balanced',style:'segmented',
-    options:[['full',T('Tam','Full')],['balanced',T('Dengeli','Balanced')],['eco',T('Eko','Eco')]],value:()=>reducedTransparency.matches?'eco':settings.glass,
-    note:T('Eko camı kapatır ve pili korur.','Eco turns the glass off and saves battery.'),
+    options:[['full',T('Tam','Full')],['balanced',T('Dengeli','Balanced')],['light',T('Hafif','Light')],['eco',T('Eko','Eco')]],value:()=>reducedTransparency.matches?'eco':settings.optimized?'light':settings.glass,dim:()=>!!settings.optimized,
+    note:T('Hafif camı korur ama daha az çizer; Eko camı kapatır.','Light keeps the glass but draws less of it; Eco turns it off.'),
     change:v=>{if(v!=='eco'&&reducedTransparency.matches)notify(T('Sistem ayarlarında saydamlık kapalı olduğu için cam efekti açılamıyor.','Transparency is reduced in your system settings, so the glass effect stays off.'));}});
+  // Reduce motion (#217): scrolling titles stand still (ellipsized), the progress bar moves once a second, panes and
+  // sheets switch without sliding, as with the system's Reduce Motion (which keeps it on whatever is picked).
+  const motionReduced=()=>!!(settings.reduceMotion||settings.optimized),marquees=new Set();
+  const syncMotion=()=>{document.body.classList.toggle('am-reduce-motion',motionReduced());marquees.forEach(fit=>fit());};
+  // Optimized mode (#217): one switch for less CPU and GPU that keeps the look, Light glass and Reduce motion together;
+  // the two rows show what it holds, dimmed, and keep their own value for when it is turned off.
+  defineSetting({key:'optimized',group:'general',rank:-1.5,label:T('Optimize mod','Optimized mode'),type:'toggle',default:false,
+    note:T('Hafif cam ve hareketsiz başlıklar: daha az işlemci ve ekran kartı.','Light glass and still titles, for less CPU and GPU.'),apply:syncMotion});
+  defineSetting({key:'reduceMotion',group:'general',rank:-.5,label:T('Hareketi azalt','Reduce motion'),type:'toggle',default:false,
+    value:()=>reducedMotionQuery.matches||motionReduced(),dim:()=>reducedMotionQuery.matches||!!settings.optimized,note:T('Kayan başlıklar ve geçişler durur, işlemci daha az çalışır.','Titles stop scrolling and transitions switch at once, for less CPU.'),
+    apply:syncMotion});
   defineSetting({key:'artwork',group:'player',rank:0,label:T('Albüm kapağı','Artwork'),type:'toggle',default:true,context:['player']});
   defineSetting({key:'liquid',group:'player',rank:1,label:'Liquid Glass',note:T('Kapalıyken oynatıcı düz buzlu cam olur.','Off, the player is plain frosted glass.'),type:'toggle',default:true,context:['player']});
   // Apple Music opens the song's menu wherever the player is right-clicked, and its title and artist — album line ask
@@ -1486,19 +1501,27 @@
   cover.addEventListener('load',()=>{cover.hidden=false;});
   const expand=el('span','am-art-expand');expand.innerHTML=svg('expand');
   fullscreenButton.append(cover,expand);fullscreenButton.addEventListener('click',toggleFullscreen);
-  const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+  // The system's Reduce Motion, or mcloud's own (#217, settings.reduceMotion): every check below reads .matches.
+  const reducedMotionQuery=matchMedia('(prefers-reduced-motion: reduce)'),reducedMotion={get matches(){return reducedMotionQuery.matches||motionReduced();}};
+  const marqueeStep=1000/28;
   function marquee(cls) {
     const root=el('div','am-marquee '+cls),inner=el('span','am-marquee-inner'),first=el('span',''),copy=el('span','');
     copy.setAttribute('aria-hidden','true');inner.append(first,copy);root.append(inner);
-    // Scroll only text that overflows, at a constant reading speed. It moves in whole device pixels:
-    // every frame in between would re-run the player's glass filter for no visible change.
+    // Scroll only text that overflows, at a constant reading speed (28px/s, a tenth of each loop resting at the start).
+    // It moves in whole device pixels: every frame in between would re-run the player's glass filter for no visible
+    // change. Every marquee steps on one beat (marqueeStep from the timeline's zero, the rest a whole number of steps),
+    // so the title and the subtitle scrolling together re-run the glass once a step, not twice (#217).
+    let anim=null;
     function fit() {
-      root.classList.remove('am-marquee-on');
-      const overflow=first.offsetWidth>root.clientWidth+1&&!reducedMotion.matches;
+      anim?.cancel();anim=null;root.classList.remove('am-marquee-on');
+      const width=first.offsetWidth,overflow=width>root.clientWidth+1&&!reducedMotion.matches;
       root.classList.toggle('am-marquee-on',overflow);
-      if(overflow){root.style.setProperty('--am-marquee-duration',((first.offsetWidth+48)/28).toFixed(1)+'s');root.style.setProperty('--am-marquee-steps',String(Math.max(1,Math.round((first.offsetWidth+48)*(window.devicePixelRatio||1)))));}
+      if(!overflow||!inner.animate)return;
+      const dpr=window.devicePixelRatio||1,step=marqueeStep/dpr,n=Math.max(1,Math.round((width+48)*dpr)),rest=Math.round(n/9);
+      anim=inner.animate([{transform:'translateX(0)'},{transform:'translateX(0)',offset:rest/(n+rest),easing:'steps('+n+')'},{transform:'translateX(-50%)'}],{duration:(n+rest)*step,iterations:Infinity});
+      const now=document.timeline?.currentTime;if(now!=null)anim.startTime=Math.ceil(now/step)*step;
     }
-    if(typeof ResizeObserver==='function')new ResizeObserver(fit).observe(root);
+    if(typeof ResizeObserver==='function')new ResizeObserver(fit).observe(root);marquees.add(fit);
     // parts: [{text,uri?}], the names that open their page (lcdLinks 'spotify').
     let shown=null;
     return {root,set(text,parts){const key=parts?JSON.stringify(parts):text;if(shown===key)return;shown=key;

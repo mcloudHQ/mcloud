@@ -10,7 +10,7 @@ execSync(`osascript -e 'tell application "Spotify" to activate'`);
 const browser = await chromium.connectOverCDP('http://127.0.0.1:9229');
 const page = browser.contexts().flatMap(c => c.pages()).find(p => p.url().includes('xpui'));
 await page.evaluate(css => { let s = document.getElementById('fps-variant'); if (!s) { s = document.createElement('style'); s.id = 'fps-variant'; document.head.append(s); } s.textContent = css;
-  const t = document.querySelector('#am-player .am-marquee.am-track-title'), first = t.querySelector('.am-marquee-inner > span'); t.classList.add('am-marquee-on'); t.style.setProperty('--am-marquee-duration', '26.7s'); t.style.setProperty('--am-marquee-steps', String(Math.round(748 * devicePixelRatio))); first.style.display = 'inline-block'; first.style.minWidth = '700px'; }, css);
+  const t = document.querySelector('#am-player .am-marquee.am-track-title'), first = t.querySelector('.am-marquee-inner > span'); first.style.display = 'inline-block'; first.style.minWidth = '700px'; t.style.width = 'calc(100% - 1px)'; requestAnimationFrame(() => { t.style.width = ''; }); }, css);
 await new Promise(r => setTimeout(r, 1500));
 const cdp = await browser.newBrowserCDPSession();
 const chunks = [];

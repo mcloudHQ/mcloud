@@ -60,6 +60,35 @@ try {
   });
   await shot('home');
 
+  await check('scrolling titles share one beat; Reduce motion stops them (#217)', async () => {
+    // Each step re-runs the player's glass: the title and the subtitle step together, one device pixel at a time.
+    const force = on => page.evaluate(on => Promise.all(['.am-track-title', '.am-track-subtitle'].map((s, i) => new Promise(r => {
+      const m = document.querySelector('#am-player ' + s), f = m.querySelector('.am-marquee-inner > span');
+      f.style.display = on ? 'inline-block' : ''; f.style.minWidth = on ? (900 + i * 130) + 'px' : '';
+      m.style.display = 'none'; setTimeout(() => { m.style.display = ''; setTimeout(r, 150); }, 80);
+    }))), on);
+    await force(true);
+    const beat = await page.evaluate(() => [...document.querySelectorAll('#am-player .am-marquee-on .am-marquee-inner')].map(n => {
+      const a = n.getAnimations()[0], step = 1000 / 28 / devicePixelRatio, k = x => Math.abs(x / step - Math.round(x / step)) < 1e-6;
+      return a && k(a.startTime) && k(a.effect.getTiming().duration) && a.effect.getKeyframes()[1].easing.startsWith('steps(');
+    }));
+    assert.deepEqual(beat, [true, true]);
+    await settingsWindow.pick('reduceMotion');
+    assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-reduce-motion'), document.querySelectorAll('#am-player .am-marquee-on').length,
+      getComputedStyle(document.querySelector('#am-player .am-track-title .am-marquee-inner')).textOverflow]), [true, 0, 'ellipsis']);
+    await settingsWindow.pick('reduceMotion');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#am-player .am-marquee-on').length), 2);
+    // Optimized mode holds Light glass and Reduce motion; the two rows show it, dimmed, and keep their own values.
+    await settingsWindow.pick('optimized');
+    assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-glass-lite'), document.body.classList.contains('am-reduce-motion'), document.querySelectorAll('#am-player .am-marquee-on').length]), [true, true, 0]);
+    assert.deepEqual([await settingsWindow.state('glass'), await settingsWindow.state('reduceMotion')], ['Hafif', true]);
+    assert.equal(await page.evaluate(() => ['glass', 'reduceMotion'].every(k => document.querySelector(`#am-settings .am-settings-row[data-key="${k}"]`).matches('.am-dim,[aria-disabled="true"]') || !!document.querySelector(`#am-settings .am-settings-row[data-key="${k}"] [disabled]`))), true);
+    await settingsWindow.close();
+    await settingsWindow.pick('optimized');
+    assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-glass-lite'), document.body.classList.contains('am-reduce-motion'), document.querySelectorAll('#am-player .am-marquee-on').length]), [false, false, 2]);
+    await force(false);
+  });
+
   await check('Spotify\'s green play buttons take the accent', async () => {
     const bg = await page.evaluate(() => {
       const b = document.body.appendChild(document.createElement('span'));
@@ -1727,7 +1756,7 @@ try {
     // General: the look in pictures, the accent, glass with a one-line note (no "?"), the language on a card of its own,
     // and last the version and Restore Defaults…, which asks in place first.
     await page.click('#am-settings .am-settings-tab:has-text("Genel")');
-    assert.deepEqual(await page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key)), ['appearance', 'accent', 'glass', 'lang']);
+    assert.deepEqual(await page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key)), ['appearance', 'accent', 'optimized', 'glass', 'reduceMotion', 'lang']);
     assert.deepEqual([await page.locator('#am-settings .am-settings-card').count(), await page.locator('#am-settings .am-settings-section').count(), await page.locator('#am-settings .am-settings-help-button').count()], [3, 0, 0]);
     assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-tile-label').allTextContents(), ['Koyu', 'Açık']);
     await page.click('#am-settings [data-key="accent"] [aria-label="Mavi"]');
@@ -2008,7 +2037,7 @@ try {
     const state = () => page.evaluate(() => {
       const shown = e => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
       const layers = sel => { const host = document.querySelector(sel); return host ? [...host.querySelectorAll('.am-tglass-layer')].filter(shown).map(l => l.classList[1].slice(10)).join() : null; };
-      return { mode: ['am-balanced', 'am-solid'].filter(c => document.body.classList.contains(c)).join() || 'full', player: layers('#am-player .am-player-face'), toolbar: layers('#am-toolbar-glass > .am-tglass-pane'),
+      return { mode: ['am-balanced', 'am-glass-lite', 'am-solid'].filter(c => document.body.classList.contains(c)).join() || 'full', player: layers('#am-player .am-player-face'), toolbar: layers('#am-toolbar-glass > .am-tglass-pane'),
         rims: [...document.querySelectorAll('#am-player > .am-tglass-rim, #am-toolbar-glass > .am-tglass-pane-rim')].filter(e => shown(e) && getComputedStyle(e).backdropFilter !== 'none').length,
         sidebar: /blur/.test(getComputedStyle(document.getElementById('am-sidebar')).backdropFilter), glow: shown(document.getElementById('am-sidebar-glow')) };
     });
@@ -2041,6 +2070,10 @@ try {
     await page.evaluate(() => Spicetify.Platform.History.push('/'));
     await page.waitForSelector('#am-toolbar-glass > .am-tglass-pane');
     assert.deepEqual(await state(), { mode: 'am-balanced', ...glass });
+    // Light (#217): the lite lens on every page (here Home), the sidebar's blur and glow kept.
+    await pick('glass', 'Hafif');
+    assert.deepEqual(await state(), { mode: 'am-balanced,am-glass-lite', player: 'lite', toolbar: 'lite', rims: 0, sidebar: true, glow: true });
+    await pick('glass', 'Dengeli');
     // Reduced transparency in the OS keeps Eco: the window shows Eco and says why another pick changes nothing.
     const checks = async () => { const v = await settingsWindow.state('glass'); await settingsWindow.close(); return v; };
     assert.equal(await checks(), 'Dengeli');
@@ -3299,6 +3332,19 @@ try {
       assert.deepEqual(await other.evaluate(() => { const s = JSON.parse(localStorage.getItem('mcloud:settings')); return [s.futureKey, s.artwork]; }), ['kept', !artwork]);
       assert.deepEqual(otherErrors, []);
     } finally { await other.close(); }
+  });
+
+  await check('stored Optimized mode applies its glass and motion at startup (#217)', async () => {
+    // applySettings runs before defineSetting reads the rest of the saved values: Optimized must be among the first.
+    const other = await browser.newPage({ viewport: { width: 1440, height: 900 } }), otherErrors = [];
+    other.on('pageerror', e => otherErrors.push(e.message));
+    await other.addInitScript(() => { if (!sessionStorage.getItem('am-seeded')) { sessionStorage.setItem('am-seeded', '1'); localStorage.setItem('mcloud:settings', JSON.stringify({ optimized: true })); } });
+    try {
+      await other.goto(pathToFileURL(path.join(here, 'preview.html')).href);
+      await other.waitForSelector('body.am-ready #am-sidebar');
+      assert.deepEqual(await other.evaluate(() => ['am-balanced', 'am-glass-lite', 'am-reduce-motion', 'am-solid'].map(c => document.body.classList.contains(c))), [true, true, true, false]);
+      assert.deepEqual(otherErrors, []);
+    } finally { await other.evaluate(() => localStorage.removeItem('mcloud:settings')).catch(() => {}); await other.close(); }
   });
 
   await check('stored settings: a twice-encoded value is read through, digit keys from a spread string are dropped', async () => {
