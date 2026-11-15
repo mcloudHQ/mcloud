@@ -2114,6 +2114,37 @@ body.am-caption-liquid::before,body.am-caption-liquid::after {content:none!impor
 #am-caption-glass .am-caption-buttons {right:2px;width:134px}
 #am-caption-glass .am-tglass-light {background:rgb(0 0 0/.18)}
 body.am-light #am-caption-glass .am-tglass-light {background:rgb(0 0 0/.46)}
+/* Option C (settings.windowButtons 'mcloud', theme.js drawnBuild, prototype): Spotify's strip is hidden and the theme
+   draws Windows 11's buttons (46x32 in the corner, or 42px segments of a capsule where the native ones sat), so the glyphs
+   follow the theme: dark on a light capsule in light mode. Under modals like the lights (#216); the glass under it. */
+body.am-caption-drawn::before,body.am-caption-drawn::after {content:none!important}
+body.am-caption-drawn #am-caption-glass {z-index:61}
+body.am-caption-drawn #am-caption-glass .am-caption-buttons {right:12px;width:126px}
+body.am-caption-drawn.am-light #am-caption-glass .am-tglass-light {background:rgb(255 255 255/.3)}
+#am-caption {--am-cap-glyph:#fff;--am-cap-hover:rgb(255 255 255/.1);--am-cap-press:rgb(255 255 255/.06);--am-cap-fill:rgb(38 38 38/.55);position:fixed;inset:0 0 auto;height:0;z-index:62}
+body.am-light #am-caption {--am-cap-glyph:#1a1a1a;--am-cap-hover:rgb(0 0 0/.07);--am-cap-press:rgb(0 0 0/.04);--am-cap-fill:rgb(255 255 255/.62)}
+#am-caption button {display:grid;place-items:center;border:0;padding:0;margin:0;background:transparent;color:var(--am-cap-glyph);-webkit-app-region:no-drag;transition:background-color .1s}
+#am-caption svg {width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:1;overflow:visible}
+#am-caption .am-caption-more svg {width:16px;height:16px;fill:currentColor;stroke:none}
+#am-caption .am-caption-more,#am-caption .am-caption-strip {position:fixed;top:16px;height:32px;border-radius:16px;overflow:hidden;background:var(--am-cap-fill);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);box-shadow:inset 0 0 0 .5px rgb(255 255 255/.14),0 1px 3px rgb(0 0 0/.12)}
+#am-caption .am-caption-more {left:12px;width:46px}
+#am-caption .am-caption-strip {right:12px;display:flex}
+#am-caption .am-caption-strip button {width:42px;height:32px}
+body.am-caption-liquid #am-caption :is(.am-caption-more,.am-caption-strip),body.am-solid #am-caption :is(.am-caption-more,.am-caption-strip) {-webkit-backdrop-filter:none;backdrop-filter:none}
+body.am-caption-liquid #am-caption :is(.am-caption-more,.am-caption-strip) {background:transparent;box-shadow:none}
+#am-caption button:hover {background:var(--am-cap-hover)}
+#am-caption button:active {background:var(--am-cap-press)}
+#am-caption .am-caption-close:hover {background:#c42b1c;color:#fff}
+#am-caption .am-caption-close:active {background:#c42b1ce6;color:#fff}
+#am-caption.am-caption-inactive button:not(:hover) {color:color-mix(in srgb,var(--am-cap-glyph) 40%,transparent)}
+#am-caption .am-caption-in,#am-caption.am-caption-max .am-caption-out {display:none}
+#am-caption.am-caption-max .am-caption-in {display:inline}
+/* In the corner: Windows' own geometry, flat, no backing; "…" flat over the sidebar's top-left. */
+body.am-caption-flush #am-caption :is(.am-caption-more,.am-caption-strip) {top:0;height:32px;border-radius:0;background:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+body.am-caption-flush #am-caption .am-caption-strip {right:0}
+body.am-caption-flush #am-caption .am-caption-more {left:0}
+body.am-caption-flush #am-caption .am-caption-strip button {width:46px}
+body.am-caption-flush.am-windows.am-ready #global-nav-bar {right:146px!important}
 /* macOS traffic lights on Windows (#200, theme.js trafficSync): the native buttons are hidden, so their capsules go; on
    the right the lights need less room than Windows' three buttons. Colours read off macOS 27's own buttons (AppKit,
    2x, and docs/screenshot.png): a flat fill lit from below by a soft radial glow, a bright rim toward the bottom, a darker
