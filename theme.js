@@ -231,9 +231,13 @@
     // Glass modes. Over a page that redraws every frame (Spicy Lyrics) each backdrop filter re-runs every frame, so
     // "balanced" draws glass without them there (body.am-balanced), "eco" (and the OS reduced-transparency setting)
     // swaps every blur and glass for solid surfaces (body.am-solid), "full" keeps the real glass everywhere.
+    // "light" (and Optimized mode, #217) is Balanced with the toolbar's and the player's lens as the lite layer on every
+    // page (body.am-glass-lite): those two lenses were nearly all the glass's cost while scrolling (Windows, 165Hz:
+    // 224 -> 148% of a core on Home, Eco 140); the sidebar's blur and glow, the bars and the menus cost next to nothing.
     if(!glassModes.includes(settings.glass))settings.glass='balanced';
-    const solid=settings.glass==='eco'||settings.optimized||reducedTransparency.matches;
-    document.body.classList.toggle('am-solid',solid);document.body.classList.toggle('am-balanced',!solid&&settings.glass==='balanced');
+    const solid=settings.glass==='eco'||reducedTransparency.matches,lite=!solid&&(settings.glass==='light'||!!settings.optimized);
+    document.body.classList.toggle('am-solid',solid);document.body.classList.toggle('am-balanced',!solid&&(settings.glass==='balanced'||lite));
+    document.body.classList.toggle('am-glass-lite',lite);
     // 0 keeps the proportional default width from user.css.
     if(settings.sidebar>0)document.documentElement.style.setProperty('--am-side','min('+settings.sidebar+'px,40vw)');
     else document.documentElement.style.removeProperty('--am-side');
@@ -253,7 +257,7 @@
       return `<feColorMatrix data-am-tone="" values="${row(0)} ${row(1)} ${row(2)} ${k.map(v=>f(v/2)).join(' ')} 0 .5"/><feComponentTransfer data-am-tone=""><feFuncA type="table" tableValues="${U.map(u=>f(.5+.5*(u-lo)/s)).join(' ')}"/></feComponentTransfer>`
         +`<feColorMatrix data-am-tone="" values="1 0 0${add} 0 1 0${add} 0 0 1${add} 0 0 0 0 1"/><feComponentTransfer data-am-tone=""><feFuncR ${floor}/><feFuncG ${floor}/><feFuncB ${floor}/></feComponentTransfer>`;
   }
-  const glassModes=['full','balanced','eco'],reducedTransparency=matchMedia('(prefers-reduced-transparency: reduce)');reducedTransparency.addEventListener?.('change',applySettings);
+  const glassModes=['full','balanced','light','eco'],reducedTransparency=matchMedia('(prefers-reduced-transparency: reduce)');reducedTransparency.addEventListener?.('change',applySettings);
   applySettings();
   // Settings tiles (#179): each choice is a small drawing of the part of the window it changes, as System Settings draws
   // Light and Dark: the same framing on every tile of a row, only the setting's own difference changing, one sample album
@@ -377,17 +381,17 @@
   defineSetting({key:'accent',group:'general',rank:-2,label:T('Vurgu rengi','Accent colour'),type:'choice',default:'red',style:'swatches',options:Object.entries(accents).map(([key,[label,color]])=>[key,label,color])});
   // The value shown is the mode in effect: reduced transparency in the OS keeps Eco whatever is picked.
   defineSetting({key:'glass',group:'general',rank:-1,label:T('Cam efekti','Glass effect'),type:'choice',default:'balanced',style:'segmented',
-    options:[['full',T('Tam','Full')],['balanced',T('Dengeli','Balanced')],['eco',T('Eko','Eco')]],value:()=>reducedTransparency.matches||settings.optimized?'eco':settings.glass,dim:()=>!!settings.optimized,
-    note:T('Eko camı kapatır ve pili korur.','Eco turns the glass off and saves battery.'),
+    options:[['full',T('Tam','Full')],['balanced',T('Dengeli','Balanced')],['light',T('Hafif','Light')],['eco',T('Eko','Eco')]],value:()=>reducedTransparency.matches?'eco':settings.optimized?'light':settings.glass,dim:()=>!!settings.optimized,
+    note:T('Hafif camı korur ama daha az çizer; Eko camı kapatır.','Light keeps the glass but draws less of it; Eco turns it off.'),
     change:v=>{if(v!=='eco'&&reducedTransparency.matches)notify(T('Sistem ayarlarında saydamlık kapalı olduğu için cam efekti açılamıyor.','Transparency is reduced in your system settings, so the glass effect stays off.'));}});
   // Reduce motion (#217): scrolling titles stand still (ellipsized), the progress bar moves once a second, panes and
   // sheets switch without sliding, as with the system's Reduce Motion (which keeps it on whatever is picked).
   const motionReduced=()=>!!(settings.reduceMotion||settings.optimized),marquees=new Set();
   const syncMotion=()=>{document.body.classList.toggle('am-reduce-motion',motionReduced());marquees.forEach(fit=>fit());};
-  // Optimized mode (#217): one switch for the least CPU and GPU, Eco's solid surfaces and Reduce motion together; the
-  // two rows show what it holds, dimmed, and keep their own value for when it is turned off.
+  // Optimized mode (#217): one switch for less CPU and GPU that keeps the look, Light glass and Reduce motion together;
+  // the two rows show what it holds, dimmed, and keep their own value for when it is turned off.
   defineSetting({key:'optimized',group:'general',rank:-1.5,label:T('Optimize mod','Optimized mode'),type:'toggle',default:false,
-    note:T('Camı ve hareketleri kapatır: en az işlemci ve ekran kartı.','Turns the glass and motion off, for the least CPU and GPU.'),apply:syncMotion});
+    note:T('Hafif cam ve hareketsiz başlıklar: daha az işlemci ve ekran kartı.','Light glass and still titles, for less CPU and GPU.'),apply:syncMotion});
   defineSetting({key:'reduceMotion',group:'general',rank:-.5,label:T('Hareketi azalt','Reduce motion'),type:'toggle',default:false,
     value:()=>reducedMotionQuery.matches||motionReduced(),dim:()=>reducedMotionQuery.matches||!!settings.optimized,note:T('Kayan başlıklar ve geçişler durur, işlemci daha az çalışır.','Titles stop scrolling and transitions switch at once, for less CPU.'),
     apply:syncMotion});

@@ -78,14 +78,14 @@ try {
       getComputedStyle(document.querySelector('#am-player .am-track-title .am-marquee-inner')).textOverflow]), [true, 0, 'ellipsis']);
     await settingsWindow.pick('reduceMotion');
     assert.equal(await page.evaluate(() => document.querySelectorAll('#am-player .am-marquee-on').length), 2);
-    // Optimized mode holds Eco and Reduce motion; the two rows show it, dimmed, and keep their own values.
+    // Optimized mode holds Light glass and Reduce motion; the two rows show it, dimmed, and keep their own values.
     await settingsWindow.pick('optimized');
-    assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-solid'), document.body.classList.contains('am-reduce-motion'), document.querySelectorAll('#am-player .am-marquee-on').length]), [true, true, 0]);
-    assert.deepEqual([await settingsWindow.state('glass'), await settingsWindow.state('reduceMotion')], ['Eko', true]);
+    assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-glass-lite'), document.body.classList.contains('am-reduce-motion'), document.querySelectorAll('#am-player .am-marquee-on').length]), [true, true, 0]);
+    assert.deepEqual([await settingsWindow.state('glass'), await settingsWindow.state('reduceMotion')], ['Hafif', true]);
     assert.equal(await page.evaluate(() => ['glass', 'reduceMotion'].every(k => document.querySelector(`#am-settings .am-settings-row[data-key="${k}"]`).matches('.am-dim,[aria-disabled="true"]') || !!document.querySelector(`#am-settings .am-settings-row[data-key="${k}"] [disabled]`))), true);
     await settingsWindow.close();
     await settingsWindow.pick('optimized');
-    assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-solid'), document.body.classList.contains('am-reduce-motion'), document.querySelectorAll('#am-player .am-marquee-on').length]), [false, false, 2]);
+    assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-glass-lite'), document.body.classList.contains('am-reduce-motion'), document.querySelectorAll('#am-player .am-marquee-on').length]), [false, false, 2]);
     await force(false);
   });
 
@@ -2037,7 +2037,7 @@ try {
     const state = () => page.evaluate(() => {
       const shown = e => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
       const layers = sel => { const host = document.querySelector(sel); return host ? [...host.querySelectorAll('.am-tglass-layer')].filter(shown).map(l => l.classList[1].slice(10)).join() : null; };
-      return { mode: ['am-balanced', 'am-solid'].filter(c => document.body.classList.contains(c)).join() || 'full', player: layers('#am-player .am-player-face'), toolbar: layers('#am-toolbar-glass > .am-tglass-pane'),
+      return { mode: ['am-balanced', 'am-glass-lite', 'am-solid'].filter(c => document.body.classList.contains(c)).join() || 'full', player: layers('#am-player .am-player-face'), toolbar: layers('#am-toolbar-glass > .am-tglass-pane'),
         rims: [...document.querySelectorAll('#am-player > .am-tglass-rim, #am-toolbar-glass > .am-tglass-pane-rim')].filter(e => shown(e) && getComputedStyle(e).backdropFilter !== 'none').length,
         sidebar: /blur/.test(getComputedStyle(document.getElementById('am-sidebar')).backdropFilter), glow: shown(document.getElementById('am-sidebar-glow')) };
     });
@@ -2070,6 +2070,10 @@ try {
     await page.evaluate(() => Spicetify.Platform.History.push('/'));
     await page.waitForSelector('#am-toolbar-glass > .am-tglass-pane');
     assert.deepEqual(await state(), { mode: 'am-balanced', ...glass });
+    // Light (#217): the lite lens on every page (here Home), the sidebar's blur and glow kept.
+    await pick('glass', 'Hafif');
+    assert.deepEqual(await state(), { mode: 'am-balanced,am-glass-lite', player: 'lite', toolbar: 'lite', rims: 0, sidebar: true, glow: true });
+    await pick('glass', 'Dengeli');
     // Reduced transparency in the OS keeps Eco: the window shows Eco and says why another pick changes nothing.
     const checks = async () => { const v = await settingsWindow.state('glass'); await settingsWindow.close(); return v; };
     assert.equal(await checks(), 'Dengeli');
