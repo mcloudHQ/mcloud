@@ -1946,12 +1946,13 @@ body:not(.am-np-only) #am-nowplaying .am-np-actions {margin-top:auto}
 #am-nowplaying .am-np-actions .am-active {color:var(--am-np-text);background:var(--am-np-chip)}
 #am-player .am-np-toggle.am-active {color:var(--am-accent-focus)}
 /* #182: with the lyrics only in full screen, the artwork stays at the top and the title and controls sit at the bottom,
-   spaced as iOS's Now Playing, instead of following the artwork down the middle. */
-body:not(.am-np-lyrics-below,.am-np-full,.am-np-plain):not(.am-np-blend) #am-nowplaying .am-np-art {flex:0 1 calc(var(--am-np-w) - 44px);place-items:start center}
-body:not(.am-np-lyrics-below,.am-np-full,.am-np-plain) #am-nowplaying .am-np-meta {margin-top:auto}
-body:not(.am-np-lyrics-below,.am-np-full,.am-np-plain):not(.am-np-only) #am-nowplaying .am-np-actions {margin-top:4px}
-body.am-np-only:not(.am-np-lyrics-below,.am-np-full,.am-np-plain) #am-nowplaying .am-np-controls {gap:16px;margin-top:4px}
-body.am-np-only:not(.am-np-lyrics-below,.am-np-full,.am-np-plain) #am-nowplaying .am-np-actions {margin-top:8px}
+   spaced as iOS's Now Playing, instead of following the artwork down the middle. On Spicy Lyrics' page the pane shows no
+   lyrics either (the page has them), so it takes the same layout (#182, 2026-11-14). */
+body:is(:not(.am-np-lyrics-below,.am-np-plain),.am-spicy-route):not(.am-np-full,.am-np-blend) #am-nowplaying .am-np-art {flex:0 1 calc(var(--am-np-w) - 44px);place-items:start center}
+body:is(:not(.am-np-lyrics-below,.am-np-plain),.am-spicy-route):not(.am-np-full) #am-nowplaying .am-np-meta {margin-top:auto}
+body:is(:not(.am-np-lyrics-below,.am-np-plain),.am-spicy-route):not(.am-np-full,.am-np-only) #am-nowplaying .am-np-actions {margin-top:4px}
+body.am-np-only:is(:not(.am-np-lyrics-below,.am-np-plain),.am-spicy-route):not(.am-np-full) #am-nowplaying .am-np-controls {gap:16px;margin-top:4px}
+body.am-np-only:is(:not(.am-np-lyrics-below,.am-np-plain),.am-spicy-route):not(.am-np-full) #am-nowplaying .am-np-actions {margin-top:8px}
 /* Playing Next inside the pane (the queue button, theme.js npQueueShow), as Music on iOS: the cover shrinks
    beside the title at the top and the list takes the artwork's and the lyrics' room. */
 .am-np-queue {display:none;flex:1 1 0;min-height:0;flex-direction:column;margin:0 -22px}
@@ -1978,6 +1979,12 @@ body.am-np-queue-open.am-np-blend.am-np-beside:not(.am-np-full) #am-nowplaying .
 /* Regular weight, as Spotify's queue panel and Music's Playing Next set their rows (#210); the heading stays bold. */
 .am-np-queue-title {font-size:14px;font-weight:400;color:var(--am-np-text)}
 .am-np-queue-artist {font-size:13px;color:var(--am-np-sub)}
+/* Drag to reorder (#182): Music's handle at the row's end on hover, a line where the song will land. */
+.am-np-queue-grip {flex:0 0 auto;display:grid;place-items:center;width:24px;height:24px;margin-left:auto;color:var(--am-np-sub);opacity:0;transition:opacity .15s;cursor:grab}
+.am-np-queue-grip svg {width:18px;height:18px}
+#am-nowplaying .am-np-queue-row:is(:hover,:focus-visible) .am-np-queue-grip {opacity:1}
+#am-nowplaying .am-np-queue-row.am-dragging {opacity:.35}
+.am-np-queue-drop {height:2px;margin:-1px 10px;border-radius:1px;background:var(--am-accent);pointer-events:none}
 .am-np-queue-empty {padding:24px 10px;text-align:center;font-size:14px;color:var(--am-np-sub)}
 /* Beside the player the pane has its own close button, at the top left as macOS's (Windows' caption buttons sit at the top right). */
 #am-nowplaying .am-np-close {display:none;position:absolute;z-index:2;top:10px;left:12px;width:24px;height:24px;border-radius:50%;background:var(--am-np-chip);color:var(--am-np-sub)}
