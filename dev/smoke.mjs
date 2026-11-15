@@ -3814,6 +3814,12 @@ try {
       assert.deepEqual(b.rects, [[19, 25, 14, 14], [42, 25, 14, 14], [65, 25, 14, 14]]);
       assert.equal(b.body, 'am-traffic'); assert.equal(b.drag, 'no-drag');
       assert.deepEqual(await native(), [false, 1, 'none']);
+      // #214: the sidebar's drag strip comes after the lights in the document (they were appended first), so a no-drag
+      // hole inside it covers them; on the right (and with Windows' buttons) there is none.
+      assert.deepEqual(await win.evaluate(() => { const h = document.querySelector('#am-sidebar .am-drag > .am-drag-hole'), r = h.getBoundingClientRect(), d = document.querySelector('#am-traffic').getBoundingClientRect();
+        return [getComputedStyle(h).webkitAppRegion, r.left <= d.left && r.top <= d.top && r.right >= d.right && r.bottom >= d.bottom]; }), ['no-drag', true]);
+      // #216: under Spotify's modals and our settings window and sheets, over the player.
+      assert.deepEqual(await win.evaluate(() => { const z = +getComputedStyle(document.getElementById('am-traffic')).zIndex; return [z > 60, z < 65]; }), [true, true]);
       // Glyphs show on all three while the pointer is over the group.
       const glyph = () => win.evaluate(() => [...document.querySelectorAll('#am-traffic svg')].map(s => getComputedStyle(s).opacity).join());
       assert.equal(await glyph(), '0,0,0');
@@ -3831,11 +3837,11 @@ try {
       await win.evaluate(() => { Spicetify.Platform.NativeAPI.setWindowButtonsVisibility(true); Spicetify.Platform.ControlMessageAPI.setTitlebarHeight(80); });
       assert.deepEqual(await native(), [false, 1, 'none']);
       // In the background the discs turn grey, as on macOS.
-      const fill = () => win.evaluate(() => getComputedStyle(document.querySelector('#am-traffic .am-traffic-close')).backgroundImage);
+      const fill = () => win.evaluate(() => getComputedStyle(document.querySelector('#am-traffic .am-traffic-close')).backgroundColor);
       await win.mouse.move(700, 500);
       const active = await fill();
       await win.evaluate(() => { document.hasFocus = () => false; dispatchEvent(new Event('blur')); });
-      assert.notEqual(await fill(), active); assert.match(await fill(), /rgb\(73, 73, 73\)/);
+      assert.notEqual(await fill(), active); assert.match(await fill(), /rgb\(70, 70, 70\)/);
       await win.evaluate(() => { document.hasFocus = () => true; dispatchEvent(new Event('focus')); });
       if (shots) await win.screenshot({ path: path.join(shots, 'traffic-lights-left.png') });
       // On the right: the toolbar keeps clear of them, in less room than Windows' three buttons.
@@ -3844,11 +3850,21 @@ try {
       assert.equal(b.w - b.rects[2][0] - 14, 19);
       assert.equal(b.body, 'am-traffic,am-traffic-right,am-windows');
       assert.equal(await win.evaluate(() => getComputedStyle(document.getElementById('global-nav-bar')).right), '96px');
+      assert.equal(await win.evaluate(() => getComputedStyle(document.querySelector('.am-drag-hole')).display), 'none');
       // Back to Windows': the lights go and Spotify's buttons come back at the height it last asked for.
       await ws.pick('windowButtons', 'Windows');
       assert.equal(await box(), null);
       assert.deepEqual(await native(), [true, 80, 'block']);
       assert.equal(await win.evaluate(() => document.body.classList.contains('am-windows')), true);
+      // The caption backing as the toolbar's Liquid Glass: two shapes on the frosted capsules' slots, which go.
+      await ws.pick('captionGlass', 'Liquid Glass');
+      assert.deepEqual(await win.evaluate(() => [...document.querySelectorAll('#am-caption-glass > .am-tglass')].map(g => { const r = g.getBoundingClientRect(); return [r.top, r.height, Math.round(r.width)]; })), [[16, 32, 46], [16, 32, 134]]);
+      assert.equal(await win.evaluate(() => document.body.classList.contains('am-caption-liquid')), true);
+      await ws.pick('windowButtons', 'macOS, sağda');
+      assert.equal(await win.evaluate(() => !!document.getElementById('am-caption-glass')), false);
+      await ws.pick('windowButtons', 'Windows');
+      await ws.pick('captionGlass', 'Buzlu');
+      assert.equal(await win.evaluate(() => !!document.getElementById('am-caption-glass') || document.body.classList.contains('am-caption-liquid')), false);
       // Saved: the lights come back on the next start and hide the buttons again (Spotify starts with them shown).
       await ws.pick('windowButtons', 'macOS, solda');
       await win.goto(url); await win.waitForSelector('#am-traffic');
