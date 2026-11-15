@@ -222,6 +222,10 @@
   // (top right) over the page, here a stand-in strip (#mock-caption) that follows the calls. The desktop services as
   // Spicetify resolves them from Spotify's registry: one DesktopUpdateUi client (methods on its prototype) behind
   // ControlMessageAPI and NativeAPI, and DesktopWindowState behind FocusMainWindowAPI. window.__win records it all.
+  // Without it the preview is not Windows on any host: headless Chromium on a Windows machine says "Windows" in its user agent,
+  // which would show the Windows-only rows and buttons and fail smoke there.
+  if (new URLSearchParams(location.search).get('os') !== 'windows' && /Windows/.test(navigator.userAgent))
+    Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent.replace(/\(Windows[^)]*\)/, '(X11; Linux x86_64)') });
   if (new URLSearchParams(location.search).get('os') === 'windows') {
     Object.defineProperty(navigator, 'userAgent', { value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Spotify/1.3.8.620 Safari/537.36' });
     document.documentElement.classList.add('spotify__os--is-windows', 'spotify__container--is-desktop');

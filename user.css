@@ -170,6 +170,10 @@ body.am-light .am-native-main .am-chevron:not(:hover) {--text-base:#272727}
    screenshots, (54,50,49) over a black cover and (77,74,73) over a lighter one in dark; 150 to 182 in light. */
 body.am-liquid:not(.am-solid) .am-native-main [data-shelf] .am-chevron {--chevrons-button-color:rgb(58 58 58/.72);--chevrons-button-backdrop-filter:blur(10px) url(#am-glass-chevron);box-shadow:none}
 body.am-liquid.am-light:not(.am-solid) .am-native-main [data-shelf] .am-chevron:not(:hover) {--chevrons-button-color:rgb(185 185 185/.6)}
+/* Spicy Lyrics' Now Playing background (body.SpicyLyrics_NPVDynamicBackground) sets every carousel button transparent with
+   its own blur(6px), !important, which left only the chevron: the capsule keeps the theme's fill and glass. */
+html body .am-native-main .am-chevron.am-chevron {background-color:var(--chevrons-button-color)!important;-webkit-backdrop-filter:var(--chevrons-button-backdrop-filter)!important;backdrop-filter:var(--chevrons-button-backdrop-filter)!important}
+html body .am-native-main .am-chevron.am-chevron:hover {background-color:var(--chevrons-button-hover-color)!important}
 .am-chevron-probe {position:fixed;left:-100px;top:0;width:22px;height:40px;visibility:hidden;pointer-events:none}
 .am-chevron-probe.am-arrow-probe {width:30px;height:30px}
 /* Spotify's artwork shadow (0 8px 24px at 50% black) turned into a grey haze around covers in light, cut hard where the
@@ -2117,6 +2121,9 @@ body.am-light #am-caption-glass .am-tglass-light {background:rgb(0 0 0/.46)}
 body.am-traffic.am-light::before,body.am-traffic.am-light::after {content:none}
 body.am-windows.am-traffic-right.am-ready #global-nav-bar {right:96px!important}
 body.am-windows.am-traffic-right #am-artist .am-artist-actions {right:96px}
+/* Docked Now Playing covers the window's right edge, caption buttons included: the toolbar clears the pane, as elsewhere. */
+body.am-windows.am-np-open.am-np-docked.am-ready #global-nav-bar {right:max(150px,calc(var(--am-right) + 20px))!important}
+body.am-windows.am-traffic-right.am-np-open.am-np-docked.am-ready #global-nav-bar {right:max(96px,calc(var(--am-right) + 20px))!important}
 /* #216: over the page, the sidebar, the toolbar and the player (60), under Spotify's modals (65), menus and toasts (70)
    and our sheets and settings (75, 76), as macOS draws a sheet over its window's buttons. */
 #am-traffic {position:fixed;top:25px;left:19px;z-index:62;display:flex;gap:9px;padding:0;-webkit-app-region:no-drag;transition:opacity .2s}
@@ -2293,6 +2300,23 @@ body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"
 body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"] :is([data-testid="play-button"],button[data-encore-id="buttonPrimary"]) > span {box-sizing:border-box;inline-size:34px!important;block-size:34px!important;min-block-size:0!important;padding:0!important;border-radius:50%!important;background:rgb(0 0 0/.42)!important;-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);color:#fff!important;box-shadow:none!important;transform:none!important}
 body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"] :is([data-testid="play-button"],button[data-encore-id="buttonPrimary"]):hover > span {background:var(--am-accent)!important}
 body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"] :is([data-testid="play-button"],button[data-encore-id="buttonPrimary"]) svg {width:14px!important;height:14px!important;fill:#fff!important}
+/* A podcast episode's row adds the episode's description (listRowDetails) and puts "Episode · 2 days ago · 43 min" in the
+   buttons' box, so the text column fell to a few pixels (#136). Apple's new-episode card: no description, that line where
+   music says "Single · 2 days ago", the star on the right, the same 124px; a started episode shows a short bar and the
+   time left. The buttons' box gives way (display:contents) so the line and the buttons take their areas; the line's
+   height is fixed, as the grid sizes it at no width, where its parts wrap. */
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) > div:has(> [data-encore-id="listRowDetails"]) {display:none!important}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) > div:has(> div > span[data-encore-id="text"]) {display:contents!important}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) > div > div:has(> span[data-encore-id="text"]) {grid-area:meta;display:flex;flex-wrap:nowrap;align-items:center;block-size:18px;min-width:0;overflow:hidden;white-space:nowrap;margin:0!important}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) > div > div:has(> span[data-encore-id="text"]) :is(span,p) {margin:0!important;font-size:13px!important;line-height:1.35!important;color:var(--am-sub)!important;white-space:nowrap}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) > div > div:has(> div > :is([data-testid="add-button"],button[aria-checked])) {grid-area:add;margin:0!important}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) [data-encore-id="listRowSubtitle"] {padding-block-end:0!important}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) [data-encore-id="listRowTitle"] > span {--encore-line-clamp:1!important}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) div:has(> div > [role="progressbar"]) {display:flex!important;flex-direction:row!important;align-items:center;gap:6px;min-width:0;margin:0!important}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) div:has(> [role="progressbar"]) {order:-1;flex:none;display:flex;align-items:center;margin:0!important;padding:0!important}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) [role="progressbar"] {position:relative;flex:none;inline-size:36px!important;block-size:4px!important;margin:0!important;border-radius:2px;overflow:hidden;background:rgb(var(--am-ink,255 255 255)/.2)!important}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) [role="progressbar"] > div {position:absolute!important;inset:0!important;margin:0!important;background:none!important;overflow:hidden;border-radius:inherit}
+body.am-feed .am-native-main ul[role="treegrid"] > div [data-encore-id="listRow"]:has(> div > [data-encore-id="listRowDetails"]) [role="progressbar"] [data-testid="progressBarFg"] {position:absolute!important;inset:0!important;block-size:100%!important;border-radius:inherit;background:var(--am-sub)!important}
 /* The Music / Podcasts chips give way to the pop-up button theme.js puts before them. */
 body.am-feed .am-feed-filter {margin:2px 0 0}
 body.am-feed .am-feed-filter + * {display:none!important}
