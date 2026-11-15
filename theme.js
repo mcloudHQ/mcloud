@@ -4986,9 +4986,10 @@
     if(settingsReturn?.isConnected)settingsReturn.focus?.({preventScroll:true});settingsReturn=null;
   }
   settingsBox.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();if(helpOpen)closeHelp();else closeSettings();}});
-  // ⌘⌥, (Ctrl+Alt+, on Windows) opens and closes it: ⌘, is Spotify's own Settings.
+  // ⌘⌥, (Ctrl+Alt+, on Windows) opens and closes it: ⌘, is Spotify's own Settings. The key too, not only its place:
+  // Turkish Q has the comma where US keyboards have the backslash (code 'Backslash', key ',').
   document.addEventListener('keydown',event=>{
-    if(event.code!=='Comma'||!event.altKey||!(event.metaKey||event.ctrlKey)||event.shiftKey)return;
+    if(event.code!=='Comma'&&event.key!==','||!event.altKey||!(event.metaKey||event.ctrlKey)||event.shiftKey)return;
     event.preventDefault();if(settingsBack.isConnected)closeSettings();else openSettings();
   },true);
   // Profile menu → mcloud opens the window. The old mcloud submenu, drawn from the same definitions, is the fallback for
