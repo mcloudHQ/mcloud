@@ -380,6 +380,12 @@
     options:[['full',T('Tam','Full')],['balanced',T('Dengeli','Balanced')],['eco',T('Eko','Eco')]],value:()=>reducedTransparency.matches?'eco':settings.glass,
     note:T('Eko camı kapatır ve pili korur.','Eco turns the glass off and saves battery.'),
     change:v=>{if(v!=='eco'&&reducedTransparency.matches)notify(T('Sistem ayarlarında saydamlık kapalı olduğu için cam efekti açılamıyor.','Transparency is reduced in your system settings, so the glass effect stays off.'));}});
+  // Reduce motion (#217): scrolling titles stand still (ellipsized), the progress bar moves once a second, panes and
+  // sheets switch without sliding, as with the system's Reduce Motion (which keeps it on whatever is picked).
+  const motionReduced=()=>!!settings.reduceMotion,marquees=new Set();
+  defineSetting({key:'reduceMotion',group:'general',rank:-.5,label:T('Hareketi azalt','Reduce motion'),type:'toggle',default:false,
+    value:()=>reducedMotionQuery.matches||settings.reduceMotion,dim:()=>reducedMotionQuery.matches,note:T('Kayan başlıklar ve geçişler durur, işlemci daha az çalışır.','Titles stop scrolling and transitions switch at once, for less CPU.'),
+    apply:v=>{document.body.classList.toggle('am-reduce-motion',v);marquees.forEach(fit=>fit());}});
   defineSetting({key:'artwork',group:'player',rank:0,label:T('Albüm kapağı','Artwork'),type:'toggle',default:true,context:['player']});
   defineSetting({key:'liquid',group:'player',rank:1,label:'Liquid Glass',note:T('Kapalıyken oynatıcı düz buzlu cam olur.','Off, the player is plain frosted glass.'),type:'toggle',default:true,context:['player']});
   // Apple Music opens the song's menu wherever the player is right-clicked, and its title and artist — album line ask
@@ -1442,7 +1448,8 @@
   cover.addEventListener('load',()=>{cover.hidden=false;});
   const expand=el('span','am-art-expand');expand.innerHTML=svg('expand');
   fullscreenButton.append(cover,expand);fullscreenButton.addEventListener('click',toggleFullscreen);
-  const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+  // The system's Reduce Motion, or mcloud's own (#217, settings.reduceMotion): every check below reads .matches.
+  const reducedMotionQuery=matchMedia('(prefers-reduced-motion: reduce)'),reducedMotion={get matches(){return reducedMotionQuery.matches||motionReduced();}};
   const marqueeStep=1000/28;
   function marquee(cls) {
     const root=el('div','am-marquee '+cls),inner=el('span','am-marquee-inner'),first=el('span',''),copy=el('span','');
@@ -1461,7 +1468,7 @@
       anim=inner.animate([{transform:'translateX(0)'},{transform:'translateX(0)',offset:rest/(n+rest),easing:'steps('+n+')'},{transform:'translateX(-50%)'}],{duration:(n+rest)*step,iterations:Infinity});
       const now=document.timeline?.currentTime;if(now!=null)anim.startTime=Math.ceil(now/step)*step;
     }
-    if(typeof ResizeObserver==='function')new ResizeObserver(fit).observe(root);
+    if(typeof ResizeObserver==='function')new ResizeObserver(fit).observe(root);marquees.add(fit);
     // parts: [{text,uri?}], the names that open their page (lcdLinks 'spotify').
     let shown=null;
     return {root,set(text,parts){const key=parts?JSON.stringify(parts):text;if(shown===key)return;shown=key;

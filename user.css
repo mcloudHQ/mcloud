@@ -749,6 +749,9 @@ body.am-search-open section[data-shelf]:has(> [data-am-genres] > [role="listitem
 .am-marquee-on {mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 28px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 28px),transparent)}
 .am-marquee-on .am-marquee-inner > span {padding-right:48px}
 .am-marquee-on .am-marquee-inner > span + span {display:inline}
+/* Standing still (Reduce motion), a long line ends in an ellipsis. */
+body.am-reduce-motion .am-marquee-inner {display:block;overflow:hidden;text-overflow:ellipsis}
+@media(prefers-reduced-motion:reduce){.am-marquee-inner {display:block;overflow:hidden;text-overflow:ellipsis}}
 .am-swap .am-lcd-text,.am-swap .am-track-art {animation:am-swap .45s ease-out}
 @keyframes am-swap {from{opacity:0;filter:blur(6px)}}
 .am-scrub {position:absolute;inset:0;pointer-events:none}
@@ -984,6 +987,8 @@ body.am-ready .main-view-container__scroll-node {padding-bottom:100px}
 body.am-ready .am-native-main [data-testid="album-page"] {padding-bottom:100px}
 @media(max-width:900px){:root{--am-side:200px;--am-font:13px}#am-player{--am-player-w:round(down,calc(100vw - var(--am-side) - 24px),2px);gap:8px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}#am-player .am-play svg,.ReactModalPortal [role="dialog"],dialog[open],dialog[open] > div,dialog[open]::backdrop,.am-edit-box,.am-edit-back{animation:none}}
+/* Reduce motion in mcloud's settings (#217): the same as the system's, plus the artist page's two rules further down. */
+body.am-reduce-motion,body.am-reduce-motion *{transition:none!important;scroll-behavior:auto!important}body.am-reduce-motion :is(#am-player .am-play svg,.ReactModalPortal [role="dialog"],dialog[open],dialog[open] > div,.am-edit-box,.am-edit-back,#am-artist-info),body.am-reduce-motion dialog[open]::backdrop{animation:none}
 
 
 body:not(.am-library-open) #am-library {display:none!important}
@@ -1468,6 +1473,7 @@ body:not(.am-artist-open) .am-scroll-artist,body:not(.am-library-open) .am-scrol
 #am-artist-info .am-info-close svg {width:20px;height:20px;stroke-width:1.5}
 #am-artist-info .am-info-close:focus-visible {outline:2px solid white;outline-offset:2px}
 @media(prefers-reduced-motion:reduce){#am-artist-info{animation:none}.am-info-stage{position:static;animation:none}}
+body.am-reduce-motion .am-info-stage{position:static;animation:none}
 .am-artist-body {display:flex;flex-direction:column;gap:30px;padding:10px 0 0 var(--am-side)}
 .am-shelf {position:relative}
 :is(#am-artist,#am-search) .am-shelf-title {display:flex;align-items:center;gap:3px;margin:0 0 10px;padding:0 32px;font-size:17px;font-weight:700;letter-spacing:-.01em}
@@ -1628,6 +1634,7 @@ body.am-search-results .am-native-main {visibility:hidden!important;opacity:0!im
 #am-search .am-table-link:hover {color:rgb(var(--am-ink));text-decoration:underline}
 .am-table-row > .am-table-time,.am-table-head > .am-table-time {text-align:right;padding-right:6px;font-variant-numeric:tabular-nums;color:rgb(var(--am-ink)/.6)}
 @media(prefers-reduced-motion:reduce){.am-hero-image{transform:none}#am-artist .am-hero-haze{display:none}}
+body.am-reduce-motion .am-hero-image{transform:none}body.am-reduce-motion #am-artist .am-hero-haze{display:none}
 
 /* Liquid Glass player: toolbarLens in theme.js (state 'player'), fitted to macOS's own glass and to Music's own player
    frames, already carries its blur, lens and tone, so there is no tint, border or shadow on top. */
