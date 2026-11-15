@@ -170,6 +170,10 @@ body.am-light .am-native-main .am-chevron:not(:hover) {--text-base:#272727}
    screenshots, (54,50,49) over a black cover and (77,74,73) over a lighter one in dark; 150 to 182 in light. */
 body.am-liquid:not(.am-solid) .am-native-main [data-shelf] .am-chevron {--chevrons-button-color:rgb(58 58 58/.72);--chevrons-button-backdrop-filter:blur(10px) url(#am-glass-chevron);box-shadow:none}
 body.am-liquid.am-light:not(.am-solid) .am-native-main [data-shelf] .am-chevron:not(:hover) {--chevrons-button-color:rgb(185 185 185/.6)}
+/* Spicy Lyrics' Now Playing background (body.SpicyLyrics_NPVDynamicBackground) sets every carousel button transparent with
+   its own blur(6px), !important, which left only the chevron: the capsule keeps the theme's fill and glass. */
+html body .am-native-main .am-chevron.am-chevron {background-color:var(--chevrons-button-color)!important;-webkit-backdrop-filter:var(--chevrons-button-backdrop-filter)!important;backdrop-filter:var(--chevrons-button-backdrop-filter)!important}
+html body .am-native-main .am-chevron.am-chevron:hover {background-color:var(--chevrons-button-hover-color)!important}
 .am-chevron-probe {position:fixed;left:-100px;top:0;width:22px;height:40px;visibility:hidden;pointer-events:none}
 .am-chevron-probe.am-arrow-probe {width:30px;height:30px}
 /* Spotify's artwork shadow (0 8px 24px at 50% black) turned into a grey haze around covers in light, cut hard where the
