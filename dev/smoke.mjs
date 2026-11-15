@@ -60,6 +60,27 @@ try {
   });
   await shot('home');
 
+  await check('scrolling titles share one beat; Reduce motion stops them (#217)', async () => {
+    // Each step re-runs the player's glass: the title and the subtitle step together, one device pixel at a time.
+    const force = on => page.evaluate(on => Promise.all(['.am-track-title', '.am-track-subtitle'].map((s, i) => new Promise(r => {
+      const m = document.querySelector('#am-player ' + s), f = m.querySelector('.am-marquee-inner > span');
+      f.style.display = on ? 'inline-block' : ''; f.style.minWidth = on ? (900 + i * 130) + 'px' : '';
+      m.style.display = 'none'; setTimeout(() => { m.style.display = ''; setTimeout(r, 150); }, 80);
+    }))), on);
+    await force(true);
+    const beat = await page.evaluate(() => [...document.querySelectorAll('#am-player .am-marquee-on .am-marquee-inner')].map(n => {
+      const a = n.getAnimations()[0], step = 1000 / 28 / devicePixelRatio, k = x => Math.abs(x / step - Math.round(x / step)) < 1e-6;
+      return a && k(a.startTime) && k(a.effect.getTiming().duration) && a.effect.getKeyframes()[1].easing.startsWith('steps(');
+    }));
+    assert.deepEqual(beat, [true, true]);
+    await settingsWindow.pick('reduceMotion');
+    assert.deepEqual(await page.evaluate(() => [document.body.classList.contains('am-reduce-motion'), document.querySelectorAll('#am-player .am-marquee-on').length,
+      getComputedStyle(document.querySelector('#am-player .am-track-title .am-marquee-inner')).textOverflow]), [true, 0, 'ellipsis']);
+    await settingsWindow.pick('reduceMotion');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#am-player .am-marquee-on').length), 2);
+    await force(false);
+  });
+
   await check('Spotify\'s green play buttons take the accent', async () => {
     const bg = await page.evaluate(() => {
       const b = document.body.appendChild(document.createElement('span'));
@@ -1727,7 +1748,7 @@ try {
     // General: the look in pictures, the accent, glass with a one-line note (no "?"), the language on a card of its own,
     // and last the version and Restore Defaults…, which asks in place first.
     await page.click('#am-settings .am-settings-tab:has-text("Genel")');
-    assert.deepEqual(await page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key)), ['appearance', 'accent', 'glass', 'lang']);
+    assert.deepEqual(await page.locator('#am-settings .am-settings-row[data-key]').evaluateAll(r => r.map(n => n.dataset.key)), ['appearance', 'accent', 'glass', 'reduceMotion', 'lang']);
     assert.deepEqual([await page.locator('#am-settings .am-settings-card').count(), await page.locator('#am-settings .am-settings-section').count(), await page.locator('#am-settings .am-settings-help-button').count()], [3, 0, 0]);
     assert.deepEqual(await page.locator('#am-settings [data-key="appearance"] .am-settings-tile-label').allTextContents(), ['Koyu', 'Açık']);
     await page.click('#am-settings [data-key="accent"] [aria-label="Mavi"]');
