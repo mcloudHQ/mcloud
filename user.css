@@ -2336,9 +2336,11 @@ body.am-mix-titles [data-encore-id="card"]:has(img:is([src^="https://pickasso.sp
    containing block in Spotify's cards, so its overflow does not clip them: ::before rounds itself (#84). */
 .am-mix-ready[data-am-mix-style="band"]:not(.am-mix-plain)::before {background:linear-gradient(var(--am-mix-band),var(--am-mix-band)) top/100% 31.5cqw no-repeat,var(--am-mix-photo) 50% 18cqw/100% auto no-repeat,var(--am-mix-band)}
 .am-mix-ready[data-am-mix-style="band"]::after {content:attr(data-am-mix);left:0;right:0;bottom:calc(100% - 31.5cqw);padding:0 4.6cqw 1.7cqw 4.1cqw;color:#000000e0;font-size:12.9cqw;font-weight:550;line-height:1.08;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-/* Gradient: Apple's personal mixes, the name large on a two-colour gradient (no photo). */
+/* Gradient: Apple's personal mixes, the name large on a two-colour gradient (no photo). The leading stays Apple's 1.02;
+   at it Inter's descenders (g, p, y: .21em) end ~.09em below the last line box, so .11em above and below (the name stays
+   centred) keeps them inside the clip (#215). A fourth line's ascenders start .13em down, so it still stays hidden. */
 .am-mix-ready.am-mix-plain[data-am-mix-style]::before,.am-mix-ready[data-am-mix-style="gradient"]::before {background:radial-gradient(120% 90% at 0 0,var(--am-mix-from),transparent 70%),linear-gradient(135deg,var(--am-mix-from),var(--am-mix-to))}
-.am-mix-ready.am-mix-plain[data-am-mix-style]::after,.am-mix-ready[data-am-mix-style="gradient"]::after {content:attr(data-am-mix);left:0;right:0;top:50%;bottom:auto;translate:0 -50%;min-height:0;padding:0 8cqw;background:none;color:#fff;font-size:15cqw;font-weight:700;line-height:1.02;letter-spacing:-.02em;text-wrap:balance;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.am-mix-ready.am-mix-plain[data-am-mix-style]::after,.am-mix-ready[data-am-mix-style="gradient"]::after {content:attr(data-am-mix);left:0;right:0;top:50%;bottom:auto;translate:0 -50%;min-height:0;padding:.11em 8cqw;background:none;color:#fff;font-size:15cqw;font-weight:700;line-height:1.02;letter-spacing:-.02em;text-wrap:balance;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
 /* Station: the photo in a circle on its colour, as Apple's artist stations. */
 .am-mix-ready[data-am-mix-style="station"]:not(.am-mix-plain)::before {background:var(--am-mix-band)}
 .am-mix-ready[data-am-mix-style="station"]:not(.am-mix-plain)::after {content:"";left:17%;top:17%;width:66%;aspect-ratio:1;border-radius:50%;background:var(--am-mix-photo) center 22%/cover no-repeat;box-shadow:0 2cqw 6cqw rgb(0 0 0/.28)}
