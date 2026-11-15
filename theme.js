@@ -1443,16 +1443,23 @@
   const expand=el('span','am-art-expand');expand.innerHTML=svg('expand');
   fullscreenButton.append(cover,expand);fullscreenButton.addEventListener('click',toggleFullscreen);
   const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+  const marqueeStep=1000/28;
   function marquee(cls) {
     const root=el('div','am-marquee '+cls),inner=el('span','am-marquee-inner'),first=el('span',''),copy=el('span','');
     copy.setAttribute('aria-hidden','true');inner.append(first,copy);root.append(inner);
-    // Scroll only text that overflows, at a constant reading speed. It moves in whole device pixels:
-    // every frame in between would re-run the player's glass filter for no visible change.
+    // Scroll only text that overflows, at a constant reading speed (28px/s, a tenth of each loop resting at the start).
+    // It moves in whole device pixels: every frame in between would re-run the player's glass filter for no visible
+    // change. Every marquee steps on one beat (marqueeStep from the timeline's zero, the rest a whole number of steps),
+    // so the title and the subtitle scrolling together re-run the glass once a step, not twice (#217).
+    let anim=null;
     function fit() {
-      root.classList.remove('am-marquee-on');
-      const overflow=first.offsetWidth>root.clientWidth+1&&!reducedMotion.matches;
+      anim?.cancel();anim=null;root.classList.remove('am-marquee-on');
+      const width=first.offsetWidth,overflow=width>root.clientWidth+1&&!reducedMotion.matches;
       root.classList.toggle('am-marquee-on',overflow);
-      if(overflow){root.style.setProperty('--am-marquee-duration',((first.offsetWidth+48)/28).toFixed(1)+'s');root.style.setProperty('--am-marquee-steps',String(Math.max(1,Math.round((first.offsetWidth+48)*(window.devicePixelRatio||1)))));}
+      if(!overflow||!inner.animate)return;
+      const dpr=window.devicePixelRatio||1,step=marqueeStep/dpr,n=Math.max(1,Math.round((width+48)*dpr)),rest=Math.round(n/9);
+      anim=inner.animate([{transform:'translateX(0)'},{transform:'translateX(0)',offset:rest/(n+rest),easing:'steps('+n+')'},{transform:'translateX(-50%)'}],{duration:(n+rest)*step,iterations:Infinity});
+      const now=document.timeline?.currentTime;if(now!=null)anim.startTime=Math.ceil(now/step)*step;
     }
     if(typeof ResizeObserver==='function')new ResizeObserver(fit).observe(root);
     // parts: [{text,uri?}], the names that open their page (lcdLinks 'spotify').

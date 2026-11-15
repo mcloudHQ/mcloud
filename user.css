@@ -747,10 +747,8 @@ body.am-search-open section[data-shelf]:has(> [data-am-genres] > [role="listitem
 .am-marquee-inner {display:inline-flex}
 .am-marquee-inner > span + span {display:none}
 .am-marquee-on {mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 28px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 28px),transparent)}
-.am-marquee-on .am-marquee-inner {animation:am-marquee var(--am-marquee-duration,12s) steps(var(--am-marquee-steps,400)) infinite}
 .am-marquee-on .am-marquee-inner > span {padding-right:48px}
 .am-marquee-on .am-marquee-inner > span + span {display:inline}
-@keyframes am-marquee {0%,10% {transform:translateX(0)} 100% {transform:translateX(-50%)}}
 .am-swap .am-lcd-text,.am-swap .am-track-art {animation:am-swap .45s ease-out}
 @keyframes am-swap {from{opacity:0;filter:blur(6px)}}
 .am-scrub {position:absolute;inset:0;pointer-events:none}
