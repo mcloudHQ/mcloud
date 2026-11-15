@@ -3002,14 +3002,46 @@
   const npHistOffset=()=>npQueueHead.getBoundingClientRect().top-npQueueList.getBoundingClientRect().top;
   const npHistPin=()=>{if(npHistPinned&&npQueueOn&&!npHistBox.hidden)npQueueList.scrollTop+=npHistOffset();};
   npQueueList.addEventListener('scroll',()=>{if(npQueueOn)npHistPinned=Math.abs(npHistOffset())<2;},{passive:true});
+  // Drag to reorder (#182), as Spotify's own queue panel does it: PlayerAPI.reorderQueue moves songs by uid before or after
+  // another one (a song dropped before a queued one joins the queue). The row moves at once; the list is not re-read while
+  // a song is dragged, nor until Spotify has the new order. The drag also carries the song's own data, so it can be
+  // dropped on a playlist in the sidebar.
+  icons.grip='<path d="M5 8h14M5 12h14M5 16h14"/>';
+  let npQueueDrag=null,npQueueHold=0;
+  const npQueueDrop=el('div','am-np-queue-drop');
+  function npQueueMovable(row,t) {
+    if(!S.Platform?.PlayerAPI?.reorderQueue||!t.uid)return;
+    const grip=el('span','am-np-queue-grip');grip.innerHTML=svg('grip');
+    row.draggable=true;row.dataset.uid=t.uid;row.dataset.uri=t.uri;row.append(grip);
+    row.addEventListener('dragstart',event=>{npQueueDrag=row;setDrag(event,[t.uri],row.querySelector('img'));event.dataTransfer.setData('text/x-am-queue',t.uid);requestAnimationFrame(()=>row.classList.add('am-dragging'));});
+    row.addEventListener('dragend',()=>{row.classList.remove('am-dragging');npQueueDrop.remove();npQueueDrag=null;});
+  }
+  // Where a drop lands: before or after the row under the pointer, by its half.
+  const npQueueTarget=event=>{const row=event.target.closest?.('.am-np-queue-row[data-uid]');if(!row||row.parentElement!==npNextBox)return null;const r=row.getBoundingClientRect();return {row,after:event.clientY>r.top+r.height/2};};
+  npNextBox.addEventListener('dragover',event=>{
+    if(!npQueueDrag)return;const at=npQueueTarget(event);if(!at)return;event.preventDefault();event.dataTransfer.dropEffect='move';
+    const ref=at.after?at.row.nextSibling:at.row;if(npQueueDrop.parentElement!==npNextBox||npQueueDrop.nextSibling!==ref&&npQueueDrop!==ref)npNextBox.insertBefore(npQueueDrop,ref);
+  });
+  npNextBox.addEventListener('dragleave',event=>{if(!npNextBox.contains(event.relatedTarget))npQueueDrop.remove();});
+  npNextBox.addEventListener('drop',async event=>{
+    const row=npQueueDrag,at=npQueueTarget(event);npQueueDrop.remove();if(!row||!at)return;event.preventDefault();
+    const ref=at.after?at.row.nextElementSibling:at.row;if(at.row===row||ref===row)return;
+    const place={[at.after?'after':'before']:{uri:at.row.dataset.uri,uid:at.row.dataset.uid}};
+    npNextBox.insertBefore(row,ref);npQueueHold=performance.now()+600;
+    try{await S.Platform.PlayerAPI.reorderQueue([{uri:row.dataset.uri,uid:row.dataset.uid}],place);}catch{notify(T('Sıra değiştirilemedi.','Couldn\'t move the song.'));}
+    // Spicetify.Queue follows a moment later; the next read draws Spotify's order (and the song's new place in the queue).
+    setTimeout(()=>{npQueueKey=null;if(npQueueOn)npQueueRender();},620);
+  });
   function npQueueRender() {
+    if(npQueueDrag||performance.now()<npQueueHold)return;
     const items=npQueueItems(),key=items.map(t=>t.uid||t.uri).join();if(key===npQueueKey)return;npQueueKey=key;
     releaseLazy(npQueueArt,npNextBox);
     const removeFromQueue=S.Platform?.PlayerAPI?.removeFromQueue;
     npNextBox.replaceChildren(...items.map(t=>{const m=t.metadata||{};
-      return npQueueRow({uri:t.uri,title:m.title,artist:m.artist_name,image:m.image_url||m.image_small_url,artistUri:m.artist_uri,albumUri:m.album_uri},
+      const row=npQueueRow({uri:t.uri,title:m.title,artist:m.artist_name,image:m.image_url||m.image_small_url,artistUri:m.artist_uri,albumUri:m.album_uri},
         ()=>S.Platform?.PlayerAPI?.skipTo?.({uri:t.uri,uid:t.uid}),
         t.queued&&removeFromQueue?async()=>{try{await removeFromQueue.call(S.Platform.PlayerAPI,[{uri:t.uri,uid:t.uid}]);}catch{notify(T('Sıradan çıkarılamadı.','Couldn\'t remove it from the queue.'));}npQueueKey=null;npQueueRender();}:null);
+      npQueueMovable(row,t);return row;
     }));
     if(!items.length)npNextBox.append(el('div','am-np-queue-empty',T('Sırada şarkı yok','Nothing playing next')));
     npQueueObserve();npHistPin();
@@ -3039,7 +3071,7 @@
     queueButton.classList.toggle('am-active',on);setAttributeIfChanged(queueButton,'aria-pressed',String(on));
     clearInterval(npQueueTimer);
     // While it shows, the list is read again each second (Spicetify fires nothing when the queue changes); unchanged, it is left alone.
-    if(on){npQueueKey=null;npHistPinned=true;npQueueRender();npHistKey=S.Player.data?.item?.uri;npHistoryLoad();
+    if(on){npQueueKey=null;npQueueHold=0;npHistPinned=true;npQueueRender();npHistKey=S.Player.data?.item?.uri;npHistoryLoad();
       npQueueTimer=setInterval(()=>{if(!document.hidden){npQueueRender();npHistoryWatch();}},1000);}
     else{releaseLazy(npQueueArt,npQueueList);clearTimeout(npHistTimer);}
     // Spicy Lyrics' card steps aside while the list shows (it stays mounted in Spotify's view) and comes back after.
@@ -3069,7 +3101,7 @@
     if(spicy!==npSpicyOn){npSpicyOn=spicy;b.toggle('am-np-spicy',spicy);npTrackKey='';npLyricUri=null;}
     // Plain has no artwork to keep above Spicy's view, but instead of the player its controls stay below it.
     const split=spicy&&(settings.npBg!=='plain'||mode==='only');
-    if(split!==npSpicySplit){npSpicySplit=split;b.toggle('am-np-spicy-split',split);npSplitObserver.disconnect();if(split){npSplitObserver.observe(np);npSplitObserver.observe(npLyricsBox);}}
+    if(split!==npSpicySplit){npSpicySplit=split;npCanvasFrom=null;npCanvasSrc='';b.toggle('am-np-spicy-split',split);npSplitObserver.disconnect();if(split){npSplitObserver.observe(np);npSplitObserver.observe(npLyricsBox);}}
     if(spicy)npSpicyFill();
     if(mode==='off'&&npFullOn){npFullOn=false;b.remove('am-np-full');npSyncFull();}
     b.toggle('am-np-open',open);b.toggle('am-np-only',mode==='only');b.toggle('am-np-beside',mode==='beside');b.toggle('am-np-docked',settings.npLayout==='docked');
@@ -3166,6 +3198,8 @@
   // Spotify Canvas: the clip is H.264 too, but Spotify's own Now Playing view (mounted, hidden by user.css) plays it
   // through Spotify's video player; its frames are shared through captureStream(), with no second download or decode.
   // Checked every player tick, since that view swaps its clip (or its element) a moment after the track changes.
+  // Full height behind the pane's top; with Spicy Lyrics' card under the artwork (npSpicySplit) the pane is cut where the
+  // lyrics start, so the clip plays inside the cover instead, as Music plays square motion artwork (#182).
   let npCanvasFrom=null,npCanvasSrc='';
   function npSyncCanvas() {
     if(settings.npArt!=='canvas'||!npVisible()||npCompact())return;
@@ -3173,7 +3207,7 @@
     const native=has?[...document.querySelectorAll('.am-native-right video')].find(v=>v.currentSrc||v.srcObject)||null:null,src=native?.currentSrc||(native?.srcObject?'stream':'');
     if(native===npCanvasFrom&&src===npCanvasSrc)return;
     npCanvasFrom=native;npCanvasSrc=src;npStopVideo();if(!native)return;
-    try{np.classList.add('am-np-bleed-canvas');npBleed.srcObject=native.captureStream();npPlayVideo();}catch{npStopVideo();}
+    try{const v=npSpicySplit?npMotion:npBleed;if(!npSpicySplit)np.classList.add('am-np-bleed-canvas');v.srcObject=native.captureStream();npPlayVideo();}catch{npStopVideo();}
   }
   // Apple's motion artwork: m8tec's index names the album's HLS master; its H.264 variant nearest the pane's size points
   // (EXT-X-MAP) at one fragmented MP4 that a plain <video> plays. Results, misses included (for a day), are kept.
