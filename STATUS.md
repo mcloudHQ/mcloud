@@ -141,9 +141,7 @@ Working notes for the next session (people and agents). Read after AGENTS.md. Wo
 
 ## Gotchas found the hard way
 
-- **`git worktree remove --force` follows a junction inside the worktree** and deletes what it points to. On 2026-11-15 a temporary worktree with `node_modules` linked (`mklink /J`) to `C:\dev\mcloud
-ode_modules` emptied the shared one when it was removed (reinstalled with `npm i --no-save playwright`). Remove the junction first (`cmd /c rmdir <worktree>
-ode_modules`, which drops the link only), or let Node find the parent's `node_modules` by running from a folder under `C:\dev\mcloud`.
+- **`git worktree remove --force` follows a junction inside the worktree** and deletes what it points to. On 2026-11-15 a temporary worktree with `node_modules` linked (`mklink /J`) to `C:\dev\mcloud\node_modules` emptied the shared one when it was removed (reinstalled with `npm i --no-save playwright`). Remove the junction first (`cmd /c rmdir <worktree>\node_modules`, which drops the link only), or let Node find the parent's `node_modules` by running from a folder under `C:\dev\mcloud`.
 - **Screenshots over the DevTools port are off by Spotify's zoom.** Spotify runs zoomed (~0.91, `devicePixelRatio` ≈ 1.83 on a 2x screen) while Playwright's `screenshot({ clip })` assumes 2x, so a clip in CSS px lands short and left (a full shot shows an empty strip on the right). Scale clips by `devicePixelRatio / 2`, or crop a full shot at `css * devicePixelRatio`.
 - **jsDelivr throttles purges.** After several merges within half an hour the purge API answered `"throttled": true` with a `throttlingReset` that grew to ~50 minutes, and `purge-cdn.yml` (which purges on every attempt) failed twice while `@main` kept serving #37's `theme.js` with an older `user.css`. One purge after the reset fixed it. Batch merges, and don't hammer the purge endpoint.
 - **`Spicetify.GraphQL.Request` can be missing after launch** while `Definitions` exist; the artist page then falls back to Spotify's (see Next up). In scripts over the DevTools port, wait for it or reload the UI (`location.reload()`).
