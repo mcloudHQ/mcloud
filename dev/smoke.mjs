@@ -3489,6 +3489,19 @@ try {
       true, 'rgb(255, 255, 255)', '40px', 'none', true, true, 'blur(12px) saturate(1.4)']);
   });
 
+  await check('mix covers in the search suggestions (#218)', async () => {
+    const pick = 'https://pickasso.spotifycdn.com/image/ab67c0de0000deef/dt/v1/img/';
+    assert.deepEqual(await page.evaluate(async pick => {
+      const d = document.createElement('div');d.id = 'search-dropdown';
+      d.innerHTML = `<div role="row"><div><div><div class="mock-sdmix" style="position:relative;width:46px;height:46px"><img alt="" style="width:46px;height:46px" src="${pick}topic/chill/0ECwFtbIWEVNwjlrfc6xoL/en"></div><div id="m1-play"></div></div></div><div id="m1-title"><a href="/playlist/1">Chill Mix</a></div></div>`;
+      document.body.append(d);
+      const box = d.querySelector('.mock-sdmix');
+      for (let i = 0; i < 100 && !box.classList.contains('am-mix-ready'); i++) await new Promise(r => setTimeout(r, 20));
+      const out = [box.dataset.amMix, box.classList.contains('am-mix-ready'), getComputedStyle(box, '::after').content];
+      d.remove();return out;
+    }, pick), ['Chill Mix', true, '"Chill Mix"']);
+  });
+
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
     // Spotify's page for a mix: no artwork container, an empty slot before the text, the photo in .before-scroll-node,
     // and "About recommendations" as a button under the creator line. The cover comes from the playlist's metadata.
