@@ -191,7 +191,7 @@
   // its name there (else its aria-label). Any feature tags its own button the same way; data-am-locked ones always stay.
   function playerButton(node,id,label){node.dataset.amButton=id;if(label)node.dataset.amLabel=label;return node;}
   // Preferences are per Spotify profile on this computer; nothing leaves the client.
-  const settings={accent:'red',artwork:true,liquid:true,sort:'library',sidebar:0,lang:'auto',glass:'balanced',lists:false,recent:5,numbers:true,listFilter:'all',listSort:'played',listDesc:false};
+  const settings={accent:'red',artwork:true,liquid:true,sort:'library',sidebar:0,lang:'auto',glass:'balanced',optimized:false,lists:false,recent:5,numbers:true,listFilter:'all',listSort:'played',listDesc:false};
   // A value stored twice encoded (a JSON string of the JSON) is read through, and keys of digits only, left by spreading
   // such a string into an object, are dropped; anything but a plain object reads as nothing saved.
   function readSettings() {

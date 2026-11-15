@@ -3309,6 +3309,19 @@ try {
     } finally { await other.close(); }
   });
 
+  await check('stored Optimized mode applies its glass and motion at startup (#217)', async () => {
+    // applySettings runs before defineSetting reads the rest of the saved values: Optimized must be among the first.
+    const other = await browser.newPage({ viewport: { width: 1440, height: 900 } }), otherErrors = [];
+    other.on('pageerror', e => otherErrors.push(e.message));
+    await other.addInitScript(() => { if (!sessionStorage.getItem('am-seeded')) { sessionStorage.setItem('am-seeded', '1'); localStorage.setItem('mcloud:settings', JSON.stringify({ optimized: true })); } });
+    try {
+      await other.goto(pathToFileURL(path.join(here, 'preview.html')).href);
+      await other.waitForSelector('body.am-ready #am-sidebar');
+      assert.deepEqual(await other.evaluate(() => ['am-balanced', 'am-glass-lite', 'am-reduce-motion', 'am-solid'].map(c => document.body.classList.contains(c))), [true, true, true, false]);
+      assert.deepEqual(otherErrors, []);
+    } finally { await other.evaluate(() => localStorage.removeItem('mcloud:settings')).catch(() => {}); await other.close(); }
+  });
+
   await check('stored settings: a twice-encoded value is read through, digit keys from a spread string are dropped', async () => {
     const other = await browser.newPage({ viewport: { width: 1440, height: 900 } }), otherErrors = [];
     other.on('pageerror', e => otherErrors.push(e.message));
