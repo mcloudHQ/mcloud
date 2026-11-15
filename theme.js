@@ -514,7 +514,7 @@
     }catch(e){console.warn('[AppleMusicMac] Window',kind,e);}
   }
   function trafficState(max){trafficMax=max;trafficBox?.classList.toggle('am-traffic-max',max||!!document.fullscreenElement);drawnBox?.classList.toggle('am-caption-max',max);}
-  // Option C (settings.windowButtons 'mcloud', prototype): Spotify's strip hidden as for the lights, and Windows 11's
+  // settings.windowButtons 'mcloud' (option C of 15 Nov): Spotify's strip hidden as for the lights, and Windows 11's
   // minimise/maximise/close drawn by the theme (Segoe Fluent's 10px glyphs, close hovers #c42b1c), in a capsule where
   // the native ones sit or flush in the corner (settings.captionShape). Spotify gives no call that opens its app menu, so
   // "…" opens ours instead.

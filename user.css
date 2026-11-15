@@ -2007,6 +2007,12 @@ body.am-windows.am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-co
 body.am-windows.am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:44px}
 body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:44px}
 body.am-windows.am-np-beside.am-np-docked:is(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:76px}
+/* Spotify's own strip paints a grey block behind its glyphs that the page cannot change, so the artwork starts below it
+   (64px); mcloud's capsule ends 48px down (52px). The corner shape and the lights fit the 44px above. */
+body.am-windows.am-np-beside.am-np-docked:not(.am-traffic,.am-caption-drawn):not(.am-np-full,.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:72px}
+body.am-windows.am-np-beside.am-np-docked:not(.am-traffic,.am-caption-drawn):not(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:64px}
+body.am-caption-drawn:not(.am-caption-flush).am-np-beside.am-np-docked:not(.am-np-full,.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-close {top:60px}
+body.am-caption-drawn:not(.am-caption-flush).am-np-beside.am-np-docked:not(.am-np-plain,.am-np-compact,.am-np-queue-open) #am-nowplaying .am-np-body {padding-top:52px}
 /* Full screen without Spicy Lyrics (with it, Spicy's page; theme.js npFullscreen): the pane fills the window as
    Apple Music's full-screen player, the artwork and title on the left and the lyrics large on the right. The floating
    player stays above it. Its button moves to the top right corner. */
@@ -2114,7 +2120,7 @@ body.am-caption-liquid::before,body.am-caption-liquid::after {content:none!impor
 #am-caption-glass .am-caption-buttons {right:2px;width:134px}
 #am-caption-glass .am-tglass-light {background:rgb(0 0 0/.18)}
 body.am-light #am-caption-glass .am-tglass-light {background:rgb(0 0 0/.46)}
-/* Option C (settings.windowButtons 'mcloud', theme.js drawnBuild, prototype): Spotify's strip is hidden and the theme
+/* settings.windowButtons 'mcloud' (theme.js drawnBuild): Spotify's strip is hidden and the theme
    draws Windows 11's buttons (46x32 in the corner, or 42px segments of a capsule where the native ones sat), so the glyphs
    follow the theme: dark on a light capsule in light mode. Under modals like the lights (#216); the glass under it. */
 body.am-caption-drawn::before,body.am-caption-drawn::after {content:none!important}

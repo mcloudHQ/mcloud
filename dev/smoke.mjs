@@ -3951,7 +3951,12 @@ try {
       await win.click('#am-caption .am-caption-more');
       assert.equal(await win.evaluate(() => !document.getElementById('am-popover').hidden && document.getElementById('am-popover').textContent.includes('mcloud')), true);
       await win.keyboard.press('Escape');
+      // Docked Now Playing: the artwork starts under the capsule (52px), and under Spotify's grey strip (64px) with its buttons.
+      const dockedTop = () => win.evaluate(() => { const b = document.body.classList, had = ['am-np-beside', 'am-np-docked'].filter(c => !b.contains(c));
+        b.add(...had); const v = getComputedStyle(document.querySelector('#am-nowplaying .am-np-body')).paddingTop; b.remove(...had); return v; });
+      assert.equal(await dockedTop(), '52px');
       await ws.pick('windowButtons', 'Windows');
+      assert.equal(await dockedTop(), '64px');
       assert.deepEqual([await win.evaluate(() => !!document.getElementById('am-caption')), await native()], [false, [true, 80, 'block']]);
       // Saved: the lights come back on the next start and hide the buttons again (Spotify starts with them shown).
       await ws.pick('windowButtons', 'macOS, solda');
