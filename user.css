@@ -616,7 +616,7 @@ body.am-pv-color [data-am-preview] > [data-testid="watch-feed-view"]::before {co
 /* Spotify's menus open inside the card, which clips them (theme.js watches it for menuGlass; without its clip Popper
    opens them to the left, under the sidebar, and they run under the player). Only Add to playlist is too tall for a
    small card: it starts near the middle, so submenus take at most half the card's height (cqi: the card's width) and scroll. */
-[data-am-preview] [data-tippy-root] [data-tippy-root] ul[role="menu"] {max-height:calc(52cqi/(var(--aspect-ratio,1.6)))!important}
+:is([data-am-preview] [data-tippy-root] [data-tippy-root] ul,[data-am-preview] [data-tippy-root] [data-encore-id="popover"] > [data-encore-id="menu"])[role="menu"] {max-height:calc(52cqi/(var(--aspect-ratio,1.6)))!important}
 /* Frosted, not the menus' bending glass (menuGlass): its nine-piece map left dark seams on 40px circles and along a
    36px capsule's straight edges (tried in the client, 2026-11-02). In Eco they are plain fills. */
 body.am-solid [data-am-preview] :is(button,div) {backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
@@ -820,22 +820,38 @@ body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-me
    macOS 27's menu (research/menus/REPORT.md §10-12). theme.js gives each menu a filter (data-am-glass) with the bend
    and the tone, so the glass has no fill; the shadows are its rim: a near-black device pixel outside the glass, then
    1pt brighter, strongest along top and bottom. Without Liquid Glass menus stay frosted, in Eco solid. */
-:is(#am-popover,#am-popover-sub),[data-tippy-root][data-am-glass]::before {border:0;border-radius:13px;background:var(--am-menu-fill,var(--am-menu-solid-a));backdrop-filter:var(--am-menu-filter,blur(24px));-webkit-backdrop-filter:var(--am-menu-filter,blur(24px));
+:is(#am-popover,#am-popover-sub),:is([data-tippy-root],[data-encore-id="popover"])[data-am-glass]::before {border:0;border-radius:13px;background:var(--am-menu-fill,var(--am-menu-solid-a));backdrop-filter:var(--am-menu-filter,blur(24px));-webkit-backdrop-filter:var(--am-menu-filter,blur(24px));
  box-shadow:inset 0 0 0 .5px var(--am-rim-edge),var(--am-rim-lines),0 14px 36px #00000080}
 /* Spotify's: the glass behind the list (theme.js puts it on the root, which its transform already makes the stacking
    context and the submenus' containing block); a list the theme has not reached keeps a plain box. */
-[data-tippy-root][data-am-glass]::before {content:'';position:absolute;inset:0;z-index:-1;pointer-events:none}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] {border-radius:13px!important;padding:5px!important;background:var(--am-menu-solid-a)!important}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"][data-am-glass-list] {background:none!important;box-shadow:none!important}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button) {border-radius:8px!important}
+:is([data-tippy-root],[data-encore-id="popover"])[data-am-glass]::before {content:'';position:absolute;inset:0;z-index:-1;pointer-events:none}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] {border-radius:13px!important;padding:5px!important;background:var(--am-menu-solid-a)!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"][data-am-glass-list] {background:none!important;box-shadow:none!important}
+/* Spotify 1.3.10's Encore menus: a submenu is a popover (z-index, so its own stacking context) inside the parent's root,
+   its search above the list; the popover is the box and takes the glass, the list in it none. Rows are menuRow divs
+   (a link row has no li), separators menuDivider, a submenu row ends in its trailing slot and a hidden svg. */
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="popover"]:has(> [role="menu"]) {border-radius:13px!important;padding:5px!important;background:var(--am-menu-solid-a)!important;box-shadow:none!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="popover"][data-am-glass] {background:none!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="popover"] > [role="menu"] {padding:0!important;border-radius:0!important;background:none!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuDivider"] {width:auto!important;height:1px!important;margin:5px 11px!important;padding:0!important;border:0!important;background:rgb(var(--am-ink)/.141)!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"][data-has-submenu] > div:last-of-type svg {display:none!important}
+/* The trailing slot (a shortcut letter, the chevron) is 20px tall and made rows 26px; a row is a label's 24px. Lists
+   neither scroll sideways (a row ran 3px past) nor show Windows' scrollbar: the theme's thin one, as in its own menus. */
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"] > div {min-height:0!important;max-height:18px!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"] {overflow-x:hidden!important;scrollbar-width:auto!important;scrollbar-color:auto!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"]::-webkit-scrollbar {width:5px}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"]::-webkit-scrollbar-button {display:none}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"]::-webkit-scrollbar-thumb {background:rgb(var(--am-ink)/.149);border-radius:3px}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"][data-has-submenu] > div:last-of-type::after {content:'›';font-size:15px;line-height:1;opacity:.6}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]) {border-radius:8px!important}
 /* Spotify's menus in the theme's (macOS) measure, so right-click menus read the same everywhere: 13px labels on 24px
    rows (Spotify's: 14px on 40px), the same inset and separators. A row that opens a page outside (Report) is a
    role="link" row, the others role="menuitem…". Separators are empty divs in the list; submenus nested in a list
    are [data-tippy-root] divs and keep their own layout. A few menus open inside a sheet (Shared with's Listener ▾). */
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button) {min-height:0!important;height:auto!important;padding:3px 10px!important;gap:8px!important}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button) :is(span,p) {font-size:13px!important;line-height:18px!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]) {min-height:0!important;height:auto!important;padding:3px 10px!important;gap:8px!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]) :is(span,p) {font-size:13px!important;line-height:18px!important}
 /* Icons stay small, so a row keeps the 24px of a label (Spicetify's rows drew a 24px check). */
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button) :is(svg,img):not([data-encore-id="listRow"] *) {max-width:16px!important;max-height:16px!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]) :is(svg,img):not([data-encore-id="listRow"] *) {max-width:16px!important;max-height:16px!important}
 /* Your Updates (profile menu): the unread dot in the accent, white on the highlighted row. Spotify drew it in its
    notification colour, the scheme's dark grey (color.ini), which other banners use too. It is the empty element in
    the Encore list row's trailing slot. */
@@ -844,10 +860,10 @@ body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-me
 /* A long list (Add to playlist, Your Updates) scrolls inside its glass and feathers out at the edges it can scroll past:
    theme.js gives the rows within 20px of such an edge a gradient (--am-mask) that fades their text to nothing there,
    instead of slicing it. On the rows, not the list: a mask on the list would also cut the submenus nested in it. */
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) :is([role^="menuitem"],li > [role="link"],li > button),.am-popover-item {-webkit-mask-image:var(--am-mask,none);mask-image:var(--am-mask,none)}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]),.am-popover-item {-webkit-mask-image:var(--am-mask,none);mask-image:var(--am-mask,none)}
 /* "Opens outside" marks (Account, Support, Report) are smaller and quieter than the labels: Spotify's external-link
    icon carries an aria-label, a check does not. */
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button) > :last-child:not(:first-child) svg[aria-label] {width:11px!important;height:11px!important;opacity:.5}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]) > :last-child:not(:first-child) svg[aria-label] {width:11px!important;height:11px!important;opacity:.5}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] > div:empty:not([data-tippy-root]),:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] > div:not([data-tippy-root]) > div:empty {width:auto!important;height:1px!important;margin:5px 11px!important;padding:0!important;border:0!important;background:rgb(var(--am-ink)/.141)!important}
 /* Spotify gives a long submenu's list (Add to playlist, Move to folder) a height counted in its own rows, 40px each with
    a 32px search, so ours left that much empty glass under the last row. Counted in the theme's rows instead (a
@@ -855,20 +871,20 @@ body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-me
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) {--context-menu-submenu-item-height:24px;--context-menu-submenu-filter-height:30px;--context-menu-submenu-divider-height:11px}
 /* Add to playlist: a folder's submenu without Spotify's "New playlist" and its separator (theme.js marks them, #202), as
    tall as the rows left; a folder with nothing else opens no submenu. */
-[data-tippy-root] [data-tippy-root] [data-tippy-root] [data-am-folder-new],[data-tippy-root][data-am-folder-empty] {display:none!important}
+[data-tippy-root] [data-tippy-root] [data-tippy-root] [data-am-folder-new],[data-tippy-root] [data-encore-id="popover"] [data-am-folder-new],:is([data-tippy-root],[data-encore-id="popover"])[data-am-folder-empty] {display:none!important}
 [data-tippy-root] [data-tippy-root] [data-tippy-root] > ul[role="menu"]:has([data-am-folder-new]) {height:auto!important}
 /* Rows answer as the theme's do: the accent under the pointer, grey while their submenu is open, the thin › for a
    submenu instead of Spotify's filled triangle (submenu rows carry aria-expanded). */
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button):not([aria-disabled="true"],:disabled,:has([role="search"])):is(:hover,:focus-visible) {background:var(--am-accent)!important;color:#fff!important}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button):not([aria-disabled="true"],:disabled,:has([role="search"])):is(:hover,:focus-visible) :is(span,p) {color:#fff!important}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button)[aria-expanded="true"]:not(:hover) {background:rgb(var(--am-ink)/.122)!important}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] [aria-expanded] > :last-child:not(:first-child) svg {display:none!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]):not([aria-disabled="true"],:disabled,:has([role="search"])):is(:hover,:focus-visible) {background:var(--am-accent)!important;color:#fff!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]):not([aria-disabled="true"],:disabled,:has([role="search"])):is(:hover,:focus-visible) :is(span,p) {color:#fff!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"])[aria-expanded="true"]:not(:hover) {background:rgb(var(--am-ink)/.122)!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] [aria-expanded] > :last-child:not(:first-child) svg {display:none!important}
 /* A submenu that opens down from its row (popper anchors it by its top) sits 5px higher, so its first row is level
    with the row it came from, as macOS places them; at the side it already meets that row's highlight. One pushed up
    to fit the window (anchored by its bottom) stays where popper put it. */
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] [data-tippy-root][style*="inset: 0px auto auto"] {margin-top:-5px!important}
 /* A submenu row keeps its icon inside the label, at the same gap as the other rows. */
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] [aria-expanded] > :first-child:not(:last-child) {gap:8px!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] [aria-expanded] > :first-child:not(:last-child) {gap:8px!important}
 /* "Find a playlist" (Add to playlist's submenu) as a macOS search field: 24px, 7px corners, a 12px magnifier, the
    accent ring while typing. Its icon and clear button are overlays the height of the field. */
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role^="menuitem"]:has([role="search"]) {background:none!important;padding:3px 5px 5px!important;cursor:default}
@@ -880,9 +896,9 @@ body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-me
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="search"] input {height:24px!important;padding:0 28px 0 27px!important;border-radius:7px!important;background:rgb(var(--am-ink)/.09)!important;box-shadow:none!important;color:var(--am-label)!important;font-size:13px!important;line-height:24px!important;outline:0!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="search"] input::placeholder {color:rgb(var(--am-ink)/.451)!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="search"] input:focus {box-shadow:inset 0 0 0 1.5px var(--am-accent)!important}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] [aria-expanded] > :last-child:not(:first-child)::after {content:'›';font-size:15px;line-height:1;opacity:.6}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] [aria-expanded] > :last-child:not(:first-child)::after {content:'›';font-size:15px;line-height:1;opacity:.6}
 /* Spotify draws its menu icons a fixed grey (150) under near-white text; macOS draws them in the label colour. */
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) ul[role="menu"] :is([role^="menuitem"],li > [role="link"],li > button) svg {fill:currentColor!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]) svg {fill:currentColor!important}
 /* Icons stand as in Apple Music's menus (macOS 27): centred in a 14px column where a plain row's text starts, the
    label 22px from that start, the glyph about the label's cap height (Apple's Play 9pt, Shuffle 10pt; Spotify's 16px
    icons, which fill their box, drawn at 12px). A row without an icon keeps its text at the column, no indent, as in
@@ -2103,6 +2119,9 @@ body.am-np-spicy-split.am-solid:not(.am-panel-open).am-ready .am-native-right::b
 /* Spicy's own moving background (its "Animated Background", painted over the whole view, the cut included) shows with
    the "Spicy Lyrics" background only; the cover's colours stay under it for when it is off. */
 body.am-np-spicy:not(.am-np-spicybg):not(.am-panel-open).am-ready .am-native-right aside > .spicy-dynamic-bg {display:none!important}
+/* Spicy rounds it by var(--section-border-radius, 8px); Spotify 1.3.10 dropped the variable, so its top corners showed
+   the panel's grey under the toolbar. The docked panel is square, as in Music. */
+body.am-ready .am-native-right aside > .spicy-dynamic-bg {border-radius:0!important}
 /* Spotify's view paints its own background (the aside's ::before, white in light mode) and the card's hosts, which Spicy marks. */
 body.am-np-spicy:not(.am-panel-open).am-ready .am-native-right :is(.SpicyLyrics_NPVStretch,[data-am-np-fill]) {background:transparent!important;border-radius:0!important}
 body.am-np-spicy:not(.am-panel-open).am-ready .am-native-right aside[data-am-np-fill]::before {background:transparent!important}

@@ -1868,23 +1868,26 @@
       for(const tip of document.querySelectorAll('body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]')){if(!watched.has(tip)){watched.add(tip);tips.observe(tip,{childList:true,subtree:true});}
         // Spotify puts a closed submenu (Add to playlist) back when it opens again, still marked with a slot another
         // menu took meanwhile: its glass then drew that menu's map. A root is attached whenever its slot is not its own.
-        for(const menu of tip.querySelectorAll('ul[role="menu"]')){const root=menu.closest('[data-tippy-root]');menu.dataset.amGlassList='';if(slots[root.dataset.amGlass]?.node!==root)attach(root);}
+        // Spotify 1.3.10's Encore menus: the list is a div, and a submenu opens in a popover inside the parent's root,
+        // which is its box and takes the glass.
+        for(const menu of tip.querySelectorAll('ul[role="menu"],[data-encore-id="menu"][role="menu"]')){const root=menu.closest('[data-encore-id="popover"],[data-tippy-root]');menu.dataset.amGlassList='';if(slots[root.dataset.amGlass]?.node!==root)attach(root);}
         // Add to playlist: a folder's submenu (a list two levels down) starts with Spotify's "New playlist" and a
         // separator, so hovering a folder on the way to a playlist offered to make one. Music offers New Playlist once,
         // at the top of Add to Playlist (#202): both go (user.css), and a folder with nothing else opens nothing.
-        if(fresh)for(const sub of tip.querySelectorAll('[data-tippy-root] [data-tippy-root] [data-tippy-root]')){
-          for(const row of sub.querySelectorAll('[role="menuitem"]'))if(row.closest('[data-tippy-root]')===sub&&row.textContent.trim()===fresh){
-            const li=row.closest('li');if(!li||li.hasAttribute('data-am-folder-new'))continue;li.dataset.amFolderNew='';
-            if(li.nextElementSibling?.matches('div:empty:not([data-tippy-root])'))li.nextElementSibling.dataset.amFolderNew='';
+        const subOf='[data-tippy-root],[data-encore-id="popover"]';
+        if(fresh)for(const sub of tip.querySelectorAll('[data-tippy-root] [data-tippy-root] [data-tippy-root],[data-encore-id="popover"]:has(> [role="menu"]:not([data-depth="1"]))')){
+          for(const row of sub.querySelectorAll('[role="menuitem"]'))if(row.closest(subOf)===sub&&row.textContent.trim()===fresh){
+            const li=row.closest('li')||(row.matches('[data-encore-id="menuRow"]')&&row);if(!li||li.hasAttribute('data-am-folder-new'))continue;li.dataset.amFolderNew='';
+            if(li.nextElementSibling?.matches('div:empty:not([data-tippy-root]),[data-encore-id="menuDivider"]'))li.nextElementSibling.dataset.amFolderNew='';
           }
-          const rest=[...sub.querySelectorAll('li')].some(li=>li.closest('[data-tippy-root]')===sub&&!li.hasAttribute('data-am-folder-new'));
+          const rest=[...sub.querySelectorAll('li,[data-encore-id="menuRow"]')].some(li=>li.closest(subOf)===sub&&!li.hasAttribute('data-am-folder-new'));
           if(rest)delete sub.dataset.amFolderEmpty;else sub.dataset.amFolderEmpty='';
         }
         // Spotify's (and Spicetify's) leading icons, which user.css sets in Apple Music's icon column, as in the theme's
         // menus: a row's first part when it holds no text (an icon, or the empty slot of one), else the first icon
         // before the label's text, taken with its wrappers up to the one that holds text. Trailing icons (submenu
         // chevrons, checks, "opens outside") stay where they are.
-        for(const item of tip.querySelectorAll(':is([role^="menuitem"],li > [role="link"],li > button):not([data-am-iconed])')){
+        for(const item of tip.querySelectorAll(':is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]):not([data-am-iconed])')){
           item.dataset.amIconed='';const first=item.firstElementChild;
           // Liked Songs: Spotify's purple tile, the same for adding and removing, becomes the theme's star (as in the
           // player), filled when the row removes the song, which only its text tells. The first menu after a launch
@@ -1910,7 +1913,7 @@
     // A scrolling list feathers out at its edges: rows within 20px of an edge it can scroll past get a mask (--am-mask,
     // user.css) that fades their text to nothing at the edge, as one gradient across the rows. On the rows, not the list:
     // a mask on the list would also cut the submenus nested in it (a folder's).
-    const feathered=new WeakSet(),featherRows=':is([role^="menuitem"],li > [role="link"],li > button,.am-popover-item)';
+    const feathered=new WeakSet(),featherRows=':is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"],.am-popover-item)';
     function scrollParent(node,root) { for(let n=node;n&&n!==root;n=n.parentElement)if(n.scrollHeight>n.clientHeight+1&&/auto|scroll/.test(getComputedStyle(n).overflowY))return n;return null; }
     function feather(list) {
       // The fade ends where the list's padding starts, so no text reaches the glass's rim (it slid under it, looking outside).

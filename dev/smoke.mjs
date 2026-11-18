@@ -1641,6 +1641,26 @@ try {
     assert.deepEqual(out, [true, false, false, true, true, false]);
   });
 
+  await check('Spotify 1.3.10\'s Encore menus get the glass, rows, separators and submenus of the old lists', async () => {
+    // 1.3.10's shape: the list is a div[data-encore-id="menu"] of menuRow divs (a link row without li, an empty icon slot),
+    // menuDivider separators, a submenu row ending in its trailing slot and a hidden svg; a submenu opens in a popover
+    // inside the parent's root, its list marked by depth. A folder's popover (depth 2) holding only New playlist opens nothing.
+    const out = await page.evaluate(async () => {
+      const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const row = (text, more = '', icon = '<svg width="16" height="16"></svg>') => `<div data-encore-id="menuRow" role="menuitem" ${more} style="display:flex;padding:8px 12px;gap:12px;min-height:32px"><div>${icon}</div><div><span>${text}</span></div><div style="min-height:20px"><div style="width:16px;height:16px"><svg></svg></div></div>${more.includes('submenu') ? '<svg style="display:none"></svg>' : ''}</div>`;
+      const popover = (depth, rows) => `<div><div data-encore-id="popover" style="position:absolute;z-index:100000;top:0;left:300px;padding:8px;background:#292929;border-radius:8px"><div data-encore-id="menu" role="menu" data-depth="${depth}">${rows}</div></div></div>`;
+      const tip = document.createElement('div'); tip.id = 'mock-encore-tip'; tip.setAttribute('data-tippy-root', ''); tip.style.cssText = 'position:absolute;inset:0px auto auto 0px;z-index:9999;transform:translate(200px,200px)';
+      tip.innerHTML = `<div id="context-menu"><div data-encore-id="menu" role="menu" style="padding:8px;background:#292929;border-radius:8px;overflow-y:auto">${row('Add to queue')}${row('Report', 'role="link" aria-disabled="true"', '')}<div data-encore-id="menuDivider" role="separator"></div>${row('Add to playlist', 'aria-haspopup="menu" aria-expanded="true" data-has-submenu="true"', '')}</div>`
+        + popover(1, row('New playlist') + '<div data-encore-id="menuDivider" role="separator"></div>' + row('Folder', 'aria-haspopup="menu" data-has-submenu="true"', '')) + popover(2, row('New playlist') + '<div data-encore-id="menuDivider" role="separator"></div>') + '</div>';
+      document.body.append(tip); await frame();
+      const [sub, folder] = tip.querySelectorAll('[data-encore-id="popover"]'), rows = tip.querySelectorAll('#context-menu > [role="menu"] > [data-encore-id="menuRow"]'), divider = tip.querySelector('[data-encore-id="menuDivider"]');
+      const result = [/^\d+$/.test(tip.dataset.amGlass), /^\d+$/.test(sub.dataset.amGlass), getComputedStyle(sub, '::before').backdropFilter.startsWith('url('), getComputedStyle(sub).borderRadius,
+        Math.round(rows[0].getBoundingClientRect().height) <= 26, getComputedStyle(rows[1].firstElementChild).height !== '1px', getComputedStyle(divider).marginLeft,
+        getComputedStyle(rows[2].querySelector(':scope > div:last-of-type'), '::after').content, getComputedStyle(sub.querySelector('[data-encore-id="menuRow"]')).display !== 'none', getComputedStyle(folder).display];
+      tip.remove(); return result; });
+    assert.deepEqual(out, [true, true, true, '13px', true, true, '11px', '"›"', true, 'none']);
+  });
+
   await check('a Spotify menu that opens inside a sheet gets the theme\'s menu (#59)', async () => {
     // Shared with: the Listener ▾ menu (Leave playlist) is a [data-tippy-root] inside the react-modal's dialog.
     await page.evaluate(() => { const portal = document.createElement('div'); portal.className = 'ReactModalPortal'; portal.id = 'mock-sheet-menu';
