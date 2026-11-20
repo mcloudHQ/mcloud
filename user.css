@@ -842,6 +842,11 @@ body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-me
    ran into each other (#236). Lists neither scroll sideways (a row ran 3px past) nor show Windows' scrollbar: the
    theme's thin one, as in its own menus. */
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"]:not(:has([data-encore-id="listRow"])) > div {min-height:0!important;max-height:18px!important}
+/* Their picture and text keep the other rows' 10px from the row's edges: Spotify puts an empty 16px icon slot (and the
+   row's 8px gap) before the list row, and the list row pads itself 12px each side, which left 46px on the left and 22px
+   on the right. */
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"]:has([data-encore-id="listRow"]) > div:empty {display:none!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"] [data-encore-id="listRow"] {padding-inline:0!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"] {overflow-x:hidden!important;scrollbar-width:auto!important;scrollbar-color:auto!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"]::-webkit-scrollbar {width:5px}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"]::-webkit-scrollbar-button {display:none}
@@ -910,6 +915,10 @@ body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-me
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-am-icon] {flex:0 0 14px!important;width:14px!important;height:18px!important;display:inline-flex!important;align-items:center;justify-content:center}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) :is(svg,img)[data-am-icon] {flex-basis:12px!important;width:12px!important;height:12px!important;margin:0 1px!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-am-icon] :is(svg,img) {width:12px!important;height:12px!important}
+/* The account menu's icons (theme.js, accountGlyph, #236): the theme's line set as a mask on each row's icon slot, in
+   place of Spicetify's own two, so every label sits behind the same column. */
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-am-glyph]::before {content:"";flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:var(--am-glyph) center/contain no-repeat;mask:var(--am-glyph) center/contain no-repeat}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-am-glyph] > * {display:none!important}
 /* Liked Songs' cover is Music's Favourite Songs one, fitted to Music's (macOS 27): a light grey square and Apple's red rounded
    star (53% of the width, inner radius .47, area 12%), wherever Spotify draws its purple heart tile (Home, library, page, search). */
 img[src*="/liked-songs/"] {content:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23edeef0'/%3E%3Cpath d='M50.00 26.98L56.00 44.43L74.44 44.74L59.70 55.83L65.11 73.47L50.00 62.88L34.89 73.47L40.30 55.83L25.56 44.74L44.00 44.43Z' fill='%23fa233b' stroke='%23fa233b' stroke-width='4.5' stroke-linejoin='round'/%3E%3C/svg%3E")}
