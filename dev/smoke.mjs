@@ -2145,17 +2145,18 @@ try {
 
   // Compact album rows (#175): Spotify 1.3.10's list, which sets --row-height and places everything by index × 56 in
   // inline styles. An album of up to 50 rows gets Music's 48px with each of those mirrored; a longer one, and Spotify's
-  // own Compact view, keep theirs, and the rows are Spotify's again with "Artist only on guest tracks" off.
+  // own Compact view, keep theirs, as does a list whose rows aren't placed by translateY, and the rows are Spotify's
+  // again with "Artist only on guest tracks" off.
   await check('compact album rows (#175): 48px on albums of up to 50 rows, Spotify\'s own arithmetic mirrored', async () => {
     assert.deepEqual(await page.evaluate(async () => {
       const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      const album = (id, n, height = 56) => {
+      const album = (id, n, height = 56, shift = 'transform: translateY(0px);') => {
         const s = document.createElement('section'); s.dataset.testid = 'album-page'; s.id = id;
         const rows = Array.from({ length: Math.min(n, 13) }, (_, i) => `<div role="presentation"><div role="row" aria-rowindex="${i + 2}" style="height:var(--row-height)">Song ${i + 1}</div></div>`).join('');
-        s.innerHTML = `<div role="grid" aria-rowcount="${n + 1}" style="--row-height: ${height}px"><div><div role="row" aria-rowindex="1"><div role="columnheader">Title</div></div></div><div style="height: ${n * height}px"><div style="height: 1008px"></div><div style="transform: translateY(0px);">${rows}</div><div style="height: calc(100% - 728px);"></div></div></div>`;
+        s.innerHTML = `<div role="grid" aria-rowcount="${n + 1}" style="--row-height: ${height}px"><div><div role="row" aria-rowindex="1"><div role="columnheader">Title</div></div></div><div style="height: ${n * height}px"><div style="height: 1008px"></div><div style="${shift}">${rows}</div><div style="height: calc(100% - 728px);"></div></div></div>`;
         document.querySelector('.am-native-main main').append(s); return s;
       };
-      const short = album('mock-rows13', 13), long = album('mock-rows102', 102), compact = album('mock-rows32', 13, 32);
+      const short = album('mock-rows13', 13), long = album('mock-rows102', 102), compact = album('mock-rows32', 13, 32), moved = album('mock-rowsTop', 13, 56, 'position: relative; top: 0px;');
       await frame();
       const grid = short.querySelector('[role="grid"]'), box = grid.children[1], [top, shift, rest] = box.children, row = () => getComputedStyle(short.querySelector('[aria-rowindex="2"]')).height;
       const out = [grid.classList.contains('am-rows-compact'), row(), getComputedStyle(box).height, getComputedStyle(top).height];
@@ -2163,9 +2164,11 @@ try {
       out.push(new DOMMatrix(getComputedStyle(shift).transform).m42, rest.style.getPropertyValue('--am-rows-h'));
       out.push(long.querySelector('[role="grid"]').classList.contains('am-rows-compact'), getComputedStyle(long.querySelector('[aria-rowindex="2"]')).height);
       out.push(compact.querySelector('[role="grid"]').classList.contains('am-rows-compact'));
+      // Rows placed another way (no translateY offset to mirror): the list keeps Spotify's own height.
+      out.push(moved.querySelector('[role="grid"]').classList.contains('am-rows-compact'), getComputedStyle(moved.querySelector('[aria-rowindex="2"]')).height);
       document.body.classList.remove('am-album-clean'); out.push(row(), getComputedStyle(box).height); document.body.classList.add('am-album-clean');
-      short.remove(); long.remove(); compact.remove(); return out;
-    }), [true, '48px', '624px', '864px', 480, 'calc(100% - 1104px)', false, '56px', false, '56px', '728px']);
+      short.remove(); long.remove(); compact.remove(); moved.remove(); return out;
+    }), [true, '48px', '624px', '864px', 480, 'calc(100% - 1104px)', false, '56px', false, false, '56px', '56px', '728px']);
   });
 
   await check('album page: artwork, title column and play controls laid out like Apple Music', async () => {

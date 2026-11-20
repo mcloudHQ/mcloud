@@ -733,7 +733,6 @@
     const box=cover.getBoundingClientRect(),y=Math.round(box.top-pair.getBoundingClientRect().top+box.height/2)+'px';
     if(box.height&&pair.style.getPropertyValue('--am-chev-y')!==y)pair.style.setProperty('--am-chev-y',y);
   },{passive:true});
-  // A track list's grid, header and rows: the same names Spotify gave them before it hashed its classes.
   // Compact album rows (#175): Music's are ~48px where Spotify's are 56 (measured on the reporter's two captures, row
   // pitch against the same title's width). Spotify fixes that height in its code: the grid's --row-height, and the list's
   // height, the drawn rows' offset and its skeleton layers as index × 56 in inline styles. On an album of up to 50 rows
@@ -746,19 +745,25 @@
     if(compactGrids.has(grid)||!grid.closest('[data-testid="album-page"]'))return;compactGrids.add(grid);
     const set=(node,name,value)=>{if(node.style.getPropertyValue(name)!==value)node.style.setProperty(name,value);};
     const px=value=>`${Math.round(parseFloat(value)*48/56*100)/100}px`;
+    // The grid is marked only once the list's height and the rows' offset are found and mirrored: were Spotify to place
+    // its rows another way, 48px rows at its 56px offsets would overlap, so the list keeps Spotify's own height instead.
     const sync=()=>{
-      const on=grid.style.getPropertyValue('--row-height').trim()==='56px'&&+grid.getAttribute('aria-rowcount')<=51;
+      let on=grid.style.getPropertyValue('--row-height').trim()==='56px'&&+grid.getAttribute('aria-rowcount')<=51;
+      const box=on&&[...grid.children].find(node=>/^[\d.]+px$/.test(node.style.height));
+      if(box){
+        let shifted=false;set(box,'--am-rows-h',px(box.style.height));tag(box,'am-rows-h');
+        for(const node of box.children){
+          const shift=/^translateY\(([-\d.]+)px\)$/.exec(node.style.transform),fill=/^calc\(100% ([-+]) ([\d.]+)px\)$/.exec(node.style.height);
+          if(shift){shifted=true;set(node,'--am-rows-y',px(shift[1]));tag(node,'am-rows-y');}
+          else if(fill||/^[\d.]+px$/.test(node.style.height)){set(node,'--am-rows-h',fill?`calc(100% ${fill[1]} ${px(fill[2])})`:px(node.style.height));tag(node,'am-rows-h');}
+        }
+        on=shifted;
+      }else on=false;
       if(grid.classList.contains('am-rows-compact')!==on)grid.classList.toggle('am-rows-compact',on);
-      const box=on&&[...grid.children].find(node=>node.style.height);if(!box)return;
-      tag(box,'am-rows-h');set(box,'--am-rows-h',px(box.style.height));
-      for(const node of box.children){
-        const shift=/translateY\(([-\d.]+)px\)/.exec(node.style.transform),fill=/^calc\(100% ([-+]) ([\d.]+)px\)$/.exec(node.style.height);
-        if(shift){tag(node,'am-rows-y');set(node,'--am-rows-y',px(shift[1]));}
-        else if(node.style.height){tag(node,'am-rows-h');set(node,'--am-rows-h',fill?`calc(100% ${fill[1]} ${px(fill[2])})`:px(node.style.height));}
-      }
     };
     sync();new MutationObserver(sync).observe(grid,{subtree:true,childList:true,attributes:true,attributeFilter:['style','aria-rowcount']});
   }
+  // A track list's grid, header and rows: the same names Spotify gave them before it hashed its classes.
   function tagTrackList(grid) {
     if(grid.classList.contains('main-trackList-trackList')||!grid.querySelector('[role="columnheader"]'))return;
     const header=grid.querySelector('[role="row"]:has([role="columnheader"])');

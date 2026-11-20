@@ -184,7 +184,9 @@ body.am-light :is(.main-cardImage-imageWrapper,[data-encore-id="card"] div:has(>
    it and the play controls along the artwork's bottom edge. Spotify's action bar is a sibling below the header, so
    its scroll host is pulled up into the header's text column (the text column keeps that strip free); everything
    stays Spotify's own nodes, matched by test id rather than tagged, so re-renders cannot drop the styling.
-   Pages whose header is a full-width photo instead of artwork ("Made for" mixes) keep Spotify's header. Rows keep Spotify's 56px height, which its virtual list depends on.
+   Pages whose header is a full-width photo instead of artwork ("Made for" mixes) keep Spotify's header. Rows keep
+   Spotify's 56px height, which its virtual list depends on (but clean albums of up to 50 rows, whose arithmetic theme.js
+   mirrors at 48px, #175).
    The artwork is Music's 270pt (macOS 27, the same at every window width; #97), smaller only once the page is too narrow. */
 body.am-ready .am-native-main :is([data-testid="playlist-page"],[data-testid="album-page"]):has(> [data-testid="entity-header"] :is(.main-entityHeader-imageContainer,.am-photo-art)) {--am-art:clamp(150px,45cqi,270px);--am-btn:36px;--am-art-gap:clamp(20px,2.4cqi,32px)}
 body.am-ready .am-native-main :is([data-testid="playlist-page"],[data-testid="album-page"]):has(> [data-testid="entity-header"] :is(.main-entityHeader-imageContainer,.am-photo-art)) > [style*="--background-base"],body.am-ready .am-native-main :is([data-testid="playlist-page"],[data-testid="album-page"]):has(> [data-testid="entity-header"] :is(.main-entityHeader-imageContainer,.am-photo-art)) :is([data-testid="entity-header"],.playlist-playlist-playlistContent) > :is([style*="--background-base"],[style*="background-color"]) {display:none!important}
