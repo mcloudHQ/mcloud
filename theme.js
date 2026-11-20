@@ -147,7 +147,15 @@
     sidebar:'<rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M9.5 4.5v15M5.5 8.5h1.5M5.5 11.5h1.5"/>',
     swap:'<path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/>',
     sliders:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
-    popup:'<rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="11.5" y="11" width="7" height="6" rx="1.2" fill="currentColor" stroke="none"/>'
+    popup:'<rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="11.5" y="11" width="7" height="6" rx="1.2" fill="currentColor" stroke="none"/>',
+    // The account menu's (#236): Support, Private session, Log out, mcloud's own row and Spicetify's two.
+    help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.9"/><path d="M12 17.3v.2"/>',
+    eyeOff:'<path d="M4.5 8.6C3.6 9.7 3 11 3 12c0 0 3.3 6 9 6 1.3 0 2.5-.3 3.6-.8M9 6.5c.9-.3 1.9-.5 3-.5 5.7 0 9 6 9 6-.5.9-1.2 1.9-2 2.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m4 4 16 16"/>',
+    logout:'<path d="M14 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7"/><path d="M10 12h10M17 9l3 3-3 3"/>',
+    // mcloud's own row: its app icon drawn in line, a rounded square with three arcs narrowing downward.
+    mcloud:'<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M7.2 9.6c3.2-1.1 6.5-.8 9.6.8M7.9 12.8c2.6-.8 5.4-.6 7.9.6M8.7 15.9c2-.5 4.1-.3 6.1.5"/>',
+    flask:'<path d="M9.5 3h5M10.2 3v6.4L5 18.3A1.8 1.8 0 0 0 6.6 21h10.8a1.8 1.8 0 0 0 1.6-2.7l-5.2-8.9V3"/><path d="M7.3 15.5h9.4"/>',
+    layout:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>'
   };
   const svg = name => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">${icons[name] || icons.music}</svg>`;
   function el(tag, cls, text) { const e = document.createElement(tag); e.className = cls; if (text) e.textContent = text; return e; }
@@ -1919,6 +1927,7 @@
         // menus: a row's first part when it holds no text (an icon, or the empty slot of one), else the first icon
         // before the label's text, taken with its wrappers up to the one that holds text. Trailing icons (submenu
         // chevrons, checks, "opens outside") stay where they are.
+        const account=!!tip.querySelector('a[href="/preferences"]');
         for(const item of tip.querySelectorAll(':is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]):not([data-am-iconed])')){
           item.dataset.amIconed='';const first=item.firstElementChild;
           // Liked Songs: Spotify's purple tile, the same for adding and removing, becomes the theme's star (as in the
@@ -1931,7 +1940,10 @@
           }
           // Rich rows (Your Updates: a picture, two lines, a dot) are Encore list rows: their picture is content.
           if(item.querySelector('[data-encore-id="listRow"]'))continue;
-          if(first&&first!==item.lastElementChild&&!first.textContent.trim()){first.dataset.amIcon='';continue;}
+          if(first&&first!==item.lastElementChild&&!first.textContent.trim()){
+            const glyph=account&&accountGlyph(item);if(glyph){first.dataset.amGlyph='';first.style.setProperty('--am-glyph',glyphMask(glyph));}
+            first.dataset.amIcon='';continue;
+          }
           const text=document.createTreeWalker(item,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.data.trim()?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_SKIP}).nextNode();
           let icon=text&&[...item.querySelectorAll('svg,img')].find(i=>i.compareDocumentPosition(text)&Node.DOCUMENT_POSITION_FOLLOWING);
           while(icon&&icon.parentElement!==item&&!icon.parentElement.textContent.trim())icon=icon.parentElement;
@@ -2008,6 +2020,27 @@
   // With the pointer in the submenu its parent row turns grey, as on macOS; back on the parent it is the accent again.
   subPopover.addEventListener('pointerenter',()=>{clearTimeout(subTimer);subAnchor?.classList.add('am-parent');});
   subPopover.addEventListener('pointerleave',()=>{subAnchor?.classList.remove('am-parent');subTimer=setTimeout(closeSubPopover,140);});
+  // The account menu gives its rows no icon but Spicetify's two (hairline, of another set), so their labels sat behind an
+  // empty column and those two looked pushed out (#236). Each row it has gets one of the theme's, as in a macOS menu,
+  // found by its link, its role or Spotify's own label (any language); another extension's row keeps the empty slot.
+  // The icon is a mask on the row's icon slot (user.css), so no node is added to Spotify's.
+  function accountGlyph(row) {
+    const href=row.getAttribute('href')||'',text=row.textContent.trim();
+    if(/^\/user\//.test(href))return 'person';
+    if(href==='/recents')return 'clock';
+    if(href==='/preferences')return 'gear';
+    if(/\/premium\b/.test(href))return 'star';
+    if(/^https:\/\/support\.spotify\.com/.test(href))return 'help';
+    if(row.getAttribute('role')==='menuitemcheckbox')return 'eyeOff';
+    if(text===spotifyText('user.account'))return 'profile';
+    if(text===spotifyText('user.log-out'))return 'logout';
+    if(text==='Experimental features')return 'flask';
+    if(text==='Home config')return 'layout';
+    if(text==='mcloud Ayarları'||text==='mcloud Settings')return 'mcloud';
+    return '';
+  }
+  const glyphMasks=new Map();
+  const glyphMask=name=>{if(!glyphMasks.has(name))glyphMasks.set(name,`url("data:image/svg+xml,${encodeURIComponent(svg(name).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" '))}")`);return glyphMasks.get(name);};
   // Each row of our menus carries its icon, as Spotify's rows do, in Apple Music's icon column (user.css).
   const menuIcons=Object.fromEntries([['Çal','Play','play'],['Sanatçıyı Çal','Play Artist','play'],['Sıraya Ekle','Add to Queue','addQueue'],['Çalma Listesine Ekle','Add to Playlist','plus'],
     ['Albüme Git','Go to Album','disc'],['Sanatçıya Git','Go to Artist','person'],['Bağlantıyı Kopyala','Copy Link','link'],['Şarkı Bağlantısını Kopyala','Copy Song Link','link'],

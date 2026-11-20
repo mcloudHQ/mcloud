@@ -1677,6 +1677,8 @@ try {
     // 1.3.10's shape: the list is a div[data-encore-id="menu"] of menuRow divs (a link row without li, an empty icon slot),
     // menuDivider separators, a submenu row ending in its trailing slot and a hidden svg; a submenu opens in a popover
     // inside the parent's root, its list marked by depth. A folder's popover (depth 2) holding only New playlist opens nothing.
+    // The account menu's Your Updates rows hold a 64px Encore listRow after an empty icon slot; they keep their height and
+    // sit 10px in from both edges (#236).
     const out = await page.evaluate(async () => {
       const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       const row = (text, more = '', icon = '<svg width="16" height="16"></svg>') => `<div data-encore-id="menuRow" role="menuitem" ${more} style="display:flex;padding:8px 12px;gap:12px;min-height:32px"><div>${icon}</div><div><span>${text}</span></div><div style="min-height:20px"><div style="width:16px;height:16px"><svg></svg></div></div>${more.includes('submenu') ? '<svg style="display:none"></svg>' : ''}</div>`;
@@ -1684,13 +1686,45 @@ try {
       const tip = document.createElement('div'); tip.id = 'mock-encore-tip'; tip.setAttribute('data-tippy-root', ''); tip.style.cssText = 'position:absolute;inset:0px auto auto 0px;z-index:9999;transform:translate(200px,200px)';
       tip.innerHTML = `<div id="context-menu"><div data-encore-id="menu" role="menu" style="padding:8px;background:#292929;border-radius:8px;overflow-y:auto">${row('Add to queue')}${row('Report', 'role="link" aria-disabled="true"', '')}<div data-encore-id="menuDivider" role="separator"></div>${row('Add to playlist', 'aria-haspopup="menu" aria-expanded="true" data-has-submenu="true"', '')}</div>`
         + popover(1, row('New playlist') + '<div data-encore-id="menuDivider" role="separator"></div>' + row('Folder', 'aria-haspopup="menu" data-has-submenu="true"', '')) + popover(2, row('New playlist') + '<div data-encore-id="menuDivider" role="separator"></div>') + '</div>';
+      const update = text => `<div data-encore-id="menuRow" role="menuitem" style="display:flex;padding:8px 12px;margin:0 -8px"><div></div><div style="flex:1"><div data-encore-id="listRow" role="group" style="display:flex;gap:12px;height:64px;padding-inline:12px"><img alt="" width="48" height="48"><div><span>${text}</span><span>3w</span></div></div></div></div>`;
+      tip.querySelector('#context-menu > [role="menu"]').insertAdjacentHTML('beforeend', '<div data-encore-id="menuDivider" role="separator"></div><section data-encore-id="menuSection" role="presentation" style="display:flex;flex-direction:column;padding:8px;overflow-y:scroll;max-height:300px"><h2>Your Updates</h2>' + update('Someone saved your playlist') + update('A concert near you') + '</section>');
       document.body.append(tip); await frame();
       const [sub, folder] = tip.querySelectorAll('[data-encore-id="popover"]'), rows = tip.querySelectorAll('#context-menu > [role="menu"] > [data-encore-id="menuRow"]'), divider = tip.querySelector('[data-encore-id="menuDivider"]');
       const result = [/^\d+$/.test(tip.dataset.amGlass), /^\d+$/.test(sub.dataset.amGlass), getComputedStyle(sub, '::before').backdropFilter.startsWith('url('), getComputedStyle(sub).borderRadius,
         Math.round(rows[0].getBoundingClientRect().height) <= 26, getComputedStyle(rows[1].firstElementChild).height !== '1px', getComputedStyle(divider).marginLeft,
         getComputedStyle(rows[2].querySelector(':scope > div:last-of-type'), '::after').content, getComputedStyle(sub.querySelector('[data-encore-id="menuRow"]')).display !== 'none', getComputedStyle(folder).display];
+      const updates = [...tip.querySelectorAll('#context-menu [data-encore-id="menuRow"]')].filter(r => r.querySelector('[data-encore-id="listRow"]')), [first, second] = updates.map(r => r.getBoundingClientRect());
+      // In their section (Spotify's overflow-y:scroll and 8px padding, the rows pulled out by -8px) they span the menu as
+      // its other rows do: no scrollbar gutter on the right while the section doesn't scroll.
+      const menuBox = tip.querySelector('#context-menu > [role="menu"]').getBoundingClientRect(), plain = rows[0].getBoundingClientRect();
+      // The picture and the list row's end sit the row's own 10px in, as the other rows' icons do (no empty slot, no list padding).
+      const list = updates[0].querySelector('[data-encore-id="listRow"]').getBoundingClientRect(), picture = updates[0].querySelector('img').getBoundingClientRect();
+      result.push(Math.round(first.height) >= 64, second.top >= first.bottom - .5, Math.round(picture.left - first.left), Math.round(first.right - list.right),
+        Math.round(first.left - plain.left), Math.round(plain.right - first.right), Math.round(first.left - menuBox.left) === Math.round(menuBox.right - first.right),
+        // Headless Chromium hides scrollbars, so the gutter itself is checked by its cause.
+        getComputedStyle(updates[0].closest('[data-encore-id="menuSection"]')).overflowY);
       tip.remove(); return result; });
-    assert.deepEqual(out, [true, true, true, '13px', true, true, '11px', '"›"', true, 'none']);
+    assert.deepEqual(out, [true, true, true, '13px', true, true, '11px', '"›"', true, 'none', true, true, 10, 10, 0, 0, true, 'auto']);
+  });
+
+  // The account menu (#236): its rows get the theme's line icons in their empty slot (found by link, role and Spotify's
+  // own label), Spicetify's own icon gives way to the theme's, an unknown extension's row keeps its empty slot, and a menu
+  // that isn't the account menu gets none.
+  await check('the account menu\'s rows get the theme\'s icons, one column (#236)', async () => {
+    assert.deepEqual(await page.evaluate(async () => {
+      const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const row = (label, attrs = 'role="menuitem"', tag = 'div', slot = '') => `<${tag} data-encore-id="menuRow" ${attrs} style="display:flex;gap:8px"><div>${slot}</div><div><span>${label}</span></div></${tag}>`;
+      const menu = (id, rows) => { const tip = document.createElement('div'); tip.id = id; tip.setAttribute('data-tippy-root', ''); tip.style.cssText = 'position:absolute;inset:0px auto auto 0px;z-index:9999;transform:translate(200px,200px)';
+        tip.innerHTML = `<div><div data-encore-id="menu" role="menu">${rows}</div></div>`; document.body.append(tip); return tip; };
+      const account = menu('mock-account', row('Experimental features', undefined, 'div', '<svg viewBox="0 0 16 16" width="16" height="16"><path d="M1 1h14v14H1z"/></svg>') + row('Account') + row('Profile', 'role="menuitem" href="/user/someone"', 'a') + row('Settings', 'role="menuitem" href="/preferences"', 'a') + row('Private session', 'role="menuitemcheckbox" aria-checked="false"') + row('Log out') + row('Another extension'));
+      const other = menu('mock-not-account', row('Add to queue') + row('Log out'));
+      await frame();
+      const rows = [...account.querySelectorAll('[data-encore-id="menuRow"]')], slot = r => r.firstElementChild;
+      const out = rows.map(r => slot(r).hasAttribute('data-am-glyph'));
+      out.push(/data:image\/svg\+xml/.test(getComputedStyle(slot(rows[0]), '::before').maskImage || getComputedStyle(slot(rows[0]), '::before').webkitMaskImage), getComputedStyle(slot(rows[0]).firstElementChild).display);
+      out.push(new Set(rows.map(r => Math.round(r.lastElementChild.getBoundingClientRect().left))).size, [...other.querySelectorAll('[data-am-glyph]')].length);
+      account.remove(); other.remove(); return out;
+    }), [true, true, true, true, true, true, false, true, 'none', 1, 0]);
   });
 
   await check('a Spotify menu that opens inside a sheet gets the theme\'s menu (#59)', async () => {
