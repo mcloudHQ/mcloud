@@ -974,7 +974,7 @@ dialog[open]::backdrop {background:#00000059!important;animation:am-dim-in .24s 
 @keyframes am-dim-in {from{opacity:0}}
 @keyframes am-dim-bg-in {from{background-color:transparent}}
 .am-edit-back {animation:am-dim-bg-in .24s ease-out}
-:is(dialog[open] > div:only-child,dialog[open]:has(> :nth-child(2)),.ReactModalPortal [role="dialog"] > [data-testid$="modal"],.am-edit-box) {animation:am-sheet-in .24s cubic-bezier(.2,.8,.2,1);border-radius:16px!important;background:var(--am-sheet-fill)!important;backdrop-filter:blur(40px) saturate(1.8);-webkit-backdrop-filter:blur(40px) saturate(1.8);
+:is(dialog[open] > div:only-child,dialog[open]:has(> :nth-child(2)),.ReactModalPortal [role="dialog"] > [data-testid$="modal"],.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]),.am-edit-box) {animation:am-sheet-in .24s cubic-bezier(.2,.8,.2,1);border-radius:16px!important;background:var(--am-sheet-fill)!important;backdrop-filter:blur(40px) saturate(1.8);-webkit-backdrop-filter:blur(40px) saturate(1.8);
  box-shadow:inset 0 0 0 .5px var(--am-rim-edge),var(--am-rim-lines),0 22px 70px #0000008c!important}
 .am-edit-title {margin:0;font-size:17px;font-weight:600}
 .am-edit-name,.am-edit-desc {box-sizing:border-box;width:100%;padding:8px 10px;border:0;border-radius:8px;background:rgb(var(--am-ink)/.078);color:inherit;font:inherit;outline:0}
@@ -984,7 +984,7 @@ dialog[open]::backdrop {background:#00000059!important;animation:am-dim-in .24s 
 .am-edit-actions button {padding:6px 16px;border:0;border-radius:999px;font:inherit;cursor:pointer}
 .am-edit-cancel {background:rgb(var(--am-ink)/.122);color:inherit}
 .am-edit-save {background:var(--am-accent);color:#fff}
-body.am-solid :is(dialog[open] > div:only-child,dialog[open]:has(> :nth-child(2)),.ReactModalPortal [role="dialog"] > [data-testid$="modal"],.am-edit-box) {background:var(--am-menu-solid)!important;backdrop-filter:none;-webkit-backdrop-filter:none}
+body.am-solid :is(dialog[open] > div:only-child,dialog[open]:has(> :nth-child(2)),.ReactModalPortal [role="dialog"] > [data-testid$="modal"],.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]),.am-edit-box) {background:var(--am-menu-solid)!important;backdrop-filter:none;-webkit-backdrop-filter:none}
 /* Credits as Apple lists them (iOS, music.apple.com; Music on the Mac has none): grey captions over rounded groups of
    rows, hairlines between rows inset to the text. Encore's listRow ids, not Spotify's hashed classes. */
 dialog[open] [data-encore-id="text"]:has(+ [data-encore-id="listRow"]) {padding:0 16px 6px!important;font-size:12px!important;font-weight:500!important;letter-spacing:.03em!important;text-transform:uppercase;color:rgb(var(--am-ink)/.502)!important}
@@ -1001,6 +1001,49 @@ dialog[open] [data-encore-id="listRow"] [data-encore-id="buttonSecondary"] {anim
 /* Report error, under the groups: a link lined up with the rows' text, as Apple's links under a list. */
 dialog[open] [data-encore-id="listRow"] ~ [data-encore-id="buttonTertiary"] {margin:10px 0 0 16px!important;padding:0!important;min-block-size:0!important;gap:5px!important;font-size:13px!important;font-weight:500!important;color:var(--am-accent)!important}
 dialog[open] [data-encore-id="listRow"] ~ [data-encore-id="buttonTertiary"] svg {width:12px!important;height:12px!important;fill:currentColor!important}
+/* Confirmations ("Delete from Your Library?", #233): Spotify's light card with a title, a line, Cancel and Delete,
+   drawn as a macOS alert: the sheet's glass, the app's icon over centred text, and two equal buttons, Cancel then the
+   default one in the accent. Encore's ids, not Spotify's hashed classes; a react-modal card with a testid is another sheet. */
+.ReactModalPortal:has([role="dialog"] > div:not([data-testid]) > h2 ~ div > [data-encore-id="buttonPrimary"]) > div {background-color:#00000059!important;animation:am-dim-bg-in .24s ease-out}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) {box-sizing:border-box;width:260px!important;display:flex;flex-direction:column;align-items:center;padding:20px 16px 16px!important;text-align:center;color:var(--am-label)}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"])::before {content:"";width:64px;height:64px;margin-bottom:12px;border-radius:15px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V5l12-2v13'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='16' r='3'/%3E%3C/svg%3E") center/34px no-repeat,linear-gradient(color-mix(in srgb,var(--am-accent),#fff 18%),var(--am-accent));box-shadow:0 1px 3px #0000004d}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > h2 {margin:0!important;padding:0!important;font:700 13px/16px var(--encore-body-font-stack)!important;letter-spacing:0!important;color:var(--am-label)!important}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > p {margin:6px 0 0!important;padding:0!important;font:400 11px/14px var(--encore-body-font-stack)!important;letter-spacing:0!important;color:rgb(var(--am-ink)/.702)!important}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > p b {font-weight:600;color:inherit}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > div:last-child {display:grid!important;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin:16px 0 0!important;padding:0!important}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > div:last-child > button {box-sizing:border-box;width:100%;height:28px;min-block-size:0!important;margin:0!important;padding:0 10px!important;border:0!important;border-radius:999px!important;font:500 13px/1 var(--encore-body-font-stack)!important;letter-spacing:0!important;transform:none!important;justify-content:center}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > div:last-child > [data-encore-id="buttonTertiary"] {background:rgb(var(--am-ink)/.122)!important;color:var(--am-label)!important}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > div:last-child > [data-encore-id="buttonPrimary"] {background:var(--am-accent)!important;color:#fff!important}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > div:last-child > [data-encore-id="buttonPrimary"] > span {min-block-size:0!important;padding:0!important;background:none!important;color:inherit!important;font:inherit!important;transform:none!important}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > div:last-child > button:focus {outline:0!important}
+.ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > div:last-child > button:focus-visible {box-shadow:0 0 0 3px var(--am-accent-focus)!important}
+/* Edit details as Music's Edit Playlist sheet (#232): one column, the artwork centred over the name and description, the
+   privacy button and Spotify's image notice small under them, Cancel and Save at the bottom right. Spotify's grid names
+   its areas, so only the template changes; its close button is the Cancel (labelled from theme.js), so both keep working. */
+[data-testid="playlist-edit-details-modal"] {position:relative;box-sizing:border-box;width:340px!important;max-width:calc(100vw - 48px);padding:16px 20px 20px!important;color:var(--am-label)}
+[data-testid="playlist-edit-details-modal"] > div:first-child {position:static!important;justify-content:center!important;min-height:0!important;margin:0 0 14px!important;padding:0!important}
+[data-testid="playlist-edit-details-modal"] > div:first-child h1 {margin:0!important;font:700 15px/20px var(--encore-body-font-stack)!important;letter-spacing:0!important;color:var(--am-label)!important}
+[data-testid="playlist-edit-details-modal"] > div:first-child > button {position:absolute!important;inset:auto 116px 20px auto!important;margin:0!important;box-sizing:border-box;width:88px!important;height:28px!important;min-block-size:0!important;padding:0!important;border:0!important;border-radius:999px!important;background:rgb(var(--am-ink)/.122)!important;color:var(--am-label)!important;justify-content:center!important;transform:none!important}
+[data-testid="playlist-edit-details-modal"] > div:first-child > button > span {display:none!important}
+[data-testid="playlist-edit-details-modal"] > div:first-child > button::after {content:var(--am-t-cancel,"Cancel");font:500 13px/1 var(--encore-body-font-stack)}
+[data-testid="playlist-edit-details-modal"] > div:nth-child(2) {grid-template-areas:"album-image" "title" "description" "privacy-button" "disclaimer" "save-button"!important;grid-template-columns:100%!important;grid-template-rows:auto!important;gap:10px 0!important;margin:0!important;padding:0!important}
+[data-testid="playlist-edit-details-modal"] div:has(> div.main-entityHeader-image) {justify-self:center;width:160px!important;height:160px!important;margin-bottom:6px;border-radius:8px;overflow:hidden;box-shadow:0 4px 14px #0000004d}
+[data-testid="playlist-edit-details-modal"] div:has(> :is(input[type="text"],textarea)) {width:100%!important;height:auto!important}
+[data-testid="playlist-edit-details-modal"] label {position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip-path:inset(50%)}
+[data-testid="playlist-edit-details-modal"] :is(input[type="text"],textarea) {box-sizing:border-box;width:100%!important;margin:0!important;padding:6px 10px!important;border:0!important;border-radius:8px!important;background:rgb(var(--am-ink)/.078)!important;box-shadow:none!important;color:var(--am-label)!important;font:400 13px/18px var(--encore-body-font-stack)!important;letter-spacing:0!important;outline:0!important}
+[data-testid="playlist-edit-details-modal"] input[type="text"] {height:30px!important}
+[data-testid="playlist-edit-details-modal"] textarea {height:72px!important;resize:none}
+[data-testid="playlist-edit-details-modal"] :is(input[type="text"],textarea)::placeholder {color:rgb(var(--am-ink)/.451)!important}
+[data-testid="playlist-edit-details-modal"] :is(input[type="text"],textarea):focus {box-shadow:0 0 0 3px var(--am-accent-focus)!important}
+[data-testid="playlist-edit-details-modal"] [data-encore-id="buttonSecondary"] {justify-self:start;min-block-size:0!important;height:26px!important;padding:0 10px 0 8px!important;gap:6px!important;border:0!important;border-radius:999px!important;background:rgb(var(--am-ink)/.078)!important;box-shadow:none!important;color:var(--am-label)!important;font:500 12px/1 var(--encore-body-font-stack)!important;transform:none!important}
+[data-testid="playlist-edit-details-modal"] [data-encore-id="buttonSecondary"] > span {position:static!important;display:flex!important;margin:0!important;transform:none!important}
+[data-testid="playlist-edit-details-modal"] [data-encore-id="buttonSecondary"] svg {width:12px!important;height:12px!important}
+[data-testid="playlist-edit-details-modal"] > div:nth-child(2) > p {margin:0!important;font:400 10px/13px var(--encore-body-font-stack)!important;letter-spacing:0!important;color:rgb(var(--am-ink)/.451)!important}
+[data-testid="playlist-edit-details-modal"] div:has(> [data-testid="playlist-edit-details-save-button"]) {justify-self:end;margin-top:6px}
+[data-testid="playlist-edit-details-modal"] [data-testid="playlist-edit-details-save-button"] {box-sizing:border-box;width:88px;height:28px;min-block-size:0!important;padding:0!important;border:0!important;border-radius:999px!important;background:var(--am-accent)!important;color:#fff!important;transform:none!important}
+[data-testid="playlist-edit-details-modal"] [data-testid="playlist-edit-details-save-button"] > span {display:flex!important;align-items:center;justify-content:center;height:100%;min-block-size:0!important;padding:0!important;background:none!important;color:inherit!important;font:500 13px/1 var(--encore-body-font-stack)!important;transform:none!important}
+[data-testid="playlist-edit-details-modal"] button:focus {outline:0!important}
+[data-testid="playlist-edit-details-modal"] > div:first-child > button:focus-visible,[data-testid="playlist-edit-details-modal"] [data-testid="playlist-edit-details-save-button"]:focus-visible {box-shadow:0 0 0 3px var(--am-accent-focus)!important}
 .am-popover-swatches {display:flex;flex-wrap:wrap;gap:7px;padding:6px 8px}
 .am-swatch {width:18px;height:18px;padding:0;border-radius:50%;border:0;cursor:pointer;box-shadow:inset 0 0 0 1px #0003}
 .am-swatch.am-selected {outline:2px solid var(--am-label);outline-offset:2px}
@@ -1008,9 +1051,9 @@ dialog[open] [data-encore-id="listRow"] ~ [data-encore-id="buttonTertiary"] svg 
 body.am-ready .main-view-container__scroll-node {padding-bottom:100px}
 body.am-ready .am-native-main [data-testid="album-page"] {padding-bottom:100px}
 @media(max-width:900px){:root{--am-side:200px;--am-font:13px}#am-player{--am-player-w:round(down,calc(100vw - var(--am-side) - 24px),2px);gap:8px}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}#am-player .am-play svg,.ReactModalPortal [role="dialog"],dialog[open],dialog[open] > div,dialog[open]::backdrop,.am-edit-box,.am-edit-back{animation:none}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}#am-player .am-play svg,.ReactModalPortal [role="dialog"],.ReactModalPortal [role="dialog"] > div,dialog[open],dialog[open] > div,dialog[open]::backdrop,.am-edit-box,.am-edit-back{animation:none}}
 /* Reduce motion in mcloud's settings (#217): the same as the system's, plus the artist page's two rules further down. */
-body.am-reduce-motion,body.am-reduce-motion *{transition:none!important;scroll-behavior:auto!important}body.am-reduce-motion :is(#am-player .am-play svg,.ReactModalPortal [role="dialog"],dialog[open],dialog[open] > div,.am-edit-box,.am-edit-back,#am-artist-info),body.am-reduce-motion dialog[open]::backdrop{animation:none}
+body.am-reduce-motion,body.am-reduce-motion *{transition:none!important;scroll-behavior:auto!important}body.am-reduce-motion :is(#am-player .am-play svg,.ReactModalPortal [role="dialog"],.ReactModalPortal [role="dialog"] > div,dialog[open],dialog[open] > div,.am-edit-box,.am-edit-back,#am-artist-info),body.am-reduce-motion dialog[open]::backdrop{animation:none}
 
 
 body:not(.am-library-open) #am-library {display:none!important}
@@ -1386,6 +1429,7 @@ body:not(.am-artist-open) .am-scroll-artist,body:not(.am-library-open) .am-scrol
    buttons' centre sits just below it, the photo fades into the page colour from 0.245W to 0.646W, and its blur grows
    from 0 at 0.38W to 3, 6, 10, 15 and 20pt (at W=1042) by 0.403, 0.432, 0.475, 0.498 and 0.52W. */
 #am-artist {--am-hw:calc(100vw - var(--am-side))}
+#am-artist:focus {outline:0}
 .am-artist-hero {position:relative;height:max(380px,calc(var(--am-hw) * .5 + 68px));display:flex;align-items:flex-end;justify-content:center;padding-left:var(--am-side)}
 .am-hero-media {position:absolute;top:0;right:0;left:var(--am-side);height:calc(var(--am-hw) * .646);overflow:hidden;-webkit-mask-image:linear-gradient(180deg,#000 37.9%,#0000);mask-image:linear-gradient(180deg,#000 37.9%,#0000)}
 /* Each blur step is a copy of the photo kept to the lower 42% (smaller layers) and placed to line up with it; 40px wider
