@@ -1686,19 +1686,25 @@ try {
       const tip = document.createElement('div'); tip.id = 'mock-encore-tip'; tip.setAttribute('data-tippy-root', ''); tip.style.cssText = 'position:absolute;inset:0px auto auto 0px;z-index:9999;transform:translate(200px,200px)';
       tip.innerHTML = `<div id="context-menu"><div data-encore-id="menu" role="menu" style="padding:8px;background:#292929;border-radius:8px;overflow-y:auto">${row('Add to queue')}${row('Report', 'role="link" aria-disabled="true"', '')}<div data-encore-id="menuDivider" role="separator"></div>${row('Add to playlist', 'aria-haspopup="menu" aria-expanded="true" data-has-submenu="true"', '')}</div>`
         + popover(1, row('New playlist') + '<div data-encore-id="menuDivider" role="separator"></div>' + row('Folder', 'aria-haspopup="menu" data-has-submenu="true"', '')) + popover(2, row('New playlist') + '<div data-encore-id="menuDivider" role="separator"></div>') + '</div>';
-      const update = text => `<div data-encore-id="menuRow" role="menuitem" style="display:flex;padding:8px 12px"><div></div><div style="flex:1"><div data-encore-id="listRow" role="group" style="display:flex;gap:12px;height:64px;padding-inline:12px"><img alt="" width="48" height="48"><div><span>${text}</span><span>3w</span></div></div></div></div>`;
-      tip.querySelector('#context-menu > [role="menu"]').insertAdjacentHTML('beforeend', '<div data-encore-id="menuDivider" role="separator"></div>' + update('Someone saved your playlist') + update('A concert near you'));
+      const update = text => `<div data-encore-id="menuRow" role="menuitem" style="display:flex;padding:8px 12px;margin:0 -8px"><div></div><div style="flex:1"><div data-encore-id="listRow" role="group" style="display:flex;gap:12px;height:64px;padding-inline:12px"><img alt="" width="48" height="48"><div><span>${text}</span><span>3w</span></div></div></div></div>`;
+      tip.querySelector('#context-menu > [role="menu"]').insertAdjacentHTML('beforeend', '<div data-encore-id="menuDivider" role="separator"></div><section data-encore-id="menuSection" role="presentation" style="display:flex;flex-direction:column;padding:8px;overflow-y:scroll;max-height:300px"><h2>Your Updates</h2>' + update('Someone saved your playlist') + update('A concert near you') + '</section>');
       document.body.append(tip); await frame();
       const [sub, folder] = tip.querySelectorAll('[data-encore-id="popover"]'), rows = tip.querySelectorAll('#context-menu > [role="menu"] > [data-encore-id="menuRow"]'), divider = tip.querySelector('[data-encore-id="menuDivider"]');
       const result = [/^\d+$/.test(tip.dataset.amGlass), /^\d+$/.test(sub.dataset.amGlass), getComputedStyle(sub, '::before').backdropFilter.startsWith('url('), getComputedStyle(sub).borderRadius,
         Math.round(rows[0].getBoundingClientRect().height) <= 26, getComputedStyle(rows[1].firstElementChild).height !== '1px', getComputedStyle(divider).marginLeft,
         getComputedStyle(rows[2].querySelector(':scope > div:last-of-type'), '::after').content, getComputedStyle(sub.querySelector('[data-encore-id="menuRow"]')).display !== 'none', getComputedStyle(folder).display];
-      const updates = [...rows].filter(r => r.querySelector('[data-encore-id="listRow"]')), [first, second] = updates.map(r => r.getBoundingClientRect());
+      const updates = [...tip.querySelectorAll('#context-menu [data-encore-id="menuRow"]')].filter(r => r.querySelector('[data-encore-id="listRow"]')), [first, second] = updates.map(r => r.getBoundingClientRect());
+      // In their section (Spotify's overflow-y:scroll and 8px padding, the rows pulled out by -8px) they span the menu as
+      // its other rows do: no scrollbar gutter on the right while the section doesn't scroll.
+      const menuBox = tip.querySelector('#context-menu > [role="menu"]').getBoundingClientRect(), plain = rows[0].getBoundingClientRect();
       // The picture and the list row's end sit the row's own 10px in, as the other rows' icons do (no empty slot, no list padding).
       const list = updates[0].querySelector('[data-encore-id="listRow"]').getBoundingClientRect(), picture = updates[0].querySelector('img').getBoundingClientRect();
-      result.push(Math.round(first.height) >= 64, second.top >= first.bottom - .5, Math.round(picture.left - first.left), Math.round(first.right - list.right));
+      result.push(Math.round(first.height) >= 64, second.top >= first.bottom - .5, Math.round(picture.left - first.left), Math.round(first.right - list.right),
+        Math.round(first.left - plain.left), Math.round(plain.right - first.right), Math.round(first.left - menuBox.left) === Math.round(menuBox.right - first.right),
+        // Headless Chromium hides scrollbars, so the gutter itself is checked by its cause.
+        getComputedStyle(updates[0].closest('[data-encore-id="menuSection"]')).overflowY);
       tip.remove(); return result; });
-    assert.deepEqual(out, [true, true, true, '13px', true, true, '11px', '"›"', true, 'none', true, true, 10, 10]);
+    assert.deepEqual(out, [true, true, true, '13px', true, true, '11px', '"›"', true, 'none', true, true, 10, 10, 0, 0, true, 'auto']);
   });
 
   // The account menu (#236): its rows get the theme's line icons in their empty slot (found by link, role and Spotify's

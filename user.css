@@ -848,9 +848,12 @@ body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-me
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"]:has([data-encore-id="listRow"]) > div:empty {display:none!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"] [data-encore-id="listRow"] {padding-inline:0!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"] {overflow-x:hidden!important;scrollbar-width:auto!important;scrollbar-color:auto!important}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"]::-webkit-scrollbar {width:5px}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"]::-webkit-scrollbar-button {display:none}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"]::-webkit-scrollbar-thumb {background:rgb(var(--am-ink)/.149);border-radius:3px}
+/* A scrolling section (Your Updates) keeps no scrollbar gutter until it overflows: Spotify's overflow-y:scroll kept 16px
+   on the right, which the notifications' highlight stopped short of (#236); it then takes the list's thin scrollbar. */
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuSection"] {overflow-y:auto!important;scrollbar-width:auto!important;scrollbar-color:auto!important}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) :is([data-encore-id="menu"][role="menu"],[data-encore-id="menuSection"])::-webkit-scrollbar {width:5px}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) :is([data-encore-id="menu"][role="menu"],[data-encore-id="menuSection"])::-webkit-scrollbar-button {display:none}
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) :is([data-encore-id="menu"][role="menu"],[data-encore-id="menuSection"])::-webkit-scrollbar-thumb {background:rgb(var(--am-ink)/.149);border-radius:3px}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"][data-has-submenu] > div:last-of-type::after {content:'›';font-size:15px;line-height:1;opacity:.6}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [role="menu"] :is([role^="menuitem"],li > [role="link"],li > button,[data-encore-id="menuRow"]) {border-radius:8px!important}
 /* Spotify's menus in the theme's (macOS) measure, so right-click menus read the same everywhere: 13px labels on 24px
