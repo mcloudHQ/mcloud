@@ -920,12 +920,12 @@ try {
       portal.innerHTML = '<div style="position:fixed;inset:0;background-color:rgba(0,0,0,.7)"><div role="dialog"><div data-testid="playlist-permissions-modal">Shared with</div></div></div>'; document.body.append(portal);
       const card = getComputedStyle(portal.querySelector('[data-testid]')), out = [card.borderRadius, /blur\(40px\)/.test(card.backdropFilter), getComputedStyle(portal.firstElementChild).backgroundColor]; portal.remove(); return out; }), ['16px', true, 'rgba(0, 0, 0, 0.35)']);
     // A confirmation (Delete from Your Library?, Spotify 1.3.10's markup) is a macOS alert (#233): the sheet, 260px wide,
-    // the app's icon over centred text, Cancel and Delete side by side at equal widths, Delete in the accent.
+    // with Music's 10pt corners, the app's icon over centred text, Cancel and Delete side by side at equal widths, Delete in the accent.
     assert.deepEqual(await page.evaluate(() => { const portal = document.createElement('div'); portal.className = 'ReactModalPortal';
       portal.innerHTML = '<div style="position:absolute;inset:0;background-color:rgba(0,0,0,.5)"><div role="dialog" aria-label="Delete Mix?" aria-modal="true"><div class="encore-light-theme" style="width:420px"><h2 data-encore-id="text">Delete from Your Library?</h2><p data-encore-id="text">This will delete <b>Mix</b> from <b>Your Library.</b></p><div><button data-encore-id="buttonTertiary">Cancel</button><button data-encore-id="buttonPrimary"><span>Delete</span></button></div></div></div></div>'; document.body.append(portal);
       const card = portal.querySelector('[role="dialog"] > div'), cs = getComputedStyle(card), [no, yes] = card.querySelectorAll('button'), w = n => n.offsetWidth;
       const out = [w(card), cs.borderRadius, /blur\(40px\)/.test(cs.backdropFilter), cs.textAlign, /svg/.test(getComputedStyle(card, '::before').backgroundImage), w(no) === w(yes) && w(no) > 100, getComputedStyle(yes).backgroundColor === (() => { const probe = document.body.appendChild(Object.assign(document.createElement('i'), { style: 'background:var(--am-accent)' })), c = getComputedStyle(probe).backgroundColor; probe.remove(); return c; })(), getComputedStyle(portal.firstElementChild).backgroundColor];
-      portal.remove(); return out; }), [260, '16px', true, 'center', true, true, true, 'rgba(0, 0, 0, 0.35)']);
+      portal.remove(); return out; }), [260, '10px', true, 'center', true, true, true, 'rgba(0, 0, 0, 0.35)']);
     // Edit details (Spotify 1.3.10's markup, its grid's named areas inline here) is Music's Edit Playlist sheet (#232): one
     // column, 340px wide, the artwork centred, Spotify's close button as Cancel left of Save at the bottom.
     assert.deepEqual(await page.evaluate(() => { const portal = document.createElement('div'); portal.className = 'ReactModalPortal';
