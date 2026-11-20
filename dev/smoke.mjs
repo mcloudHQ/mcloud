@@ -778,6 +778,19 @@ try {
   // and their blur would show only once the fade ends (the flicker).
   const toolRoots = button => { const out = []; for (let e = button.parentElement; e && e !== document.body; e = e.parentElement) if (getComputedStyle(e).opacity !== '1') out.push(e.className || e.id); return out; };
   let artistToolLook = null;
+  // An artist picked in the search suggestions opens the theme's page and the suggestions close, as Spotify's own pages
+  // close them by taking focus (#231).
+  await check('search suggestions close on the artist page', async () => {
+    await page.evaluate(() => { const i = document.querySelector('#global-nav-bar input'); i.focus(); i.value = ''; });
+    await page.keyboard.type('sena');
+    await page.waitForSelector('#search-dropdown [role="row"] a[href^="/artist/"]');
+    await page.evaluate(() => { document.querySelector('#search-dropdown [role="row"] a[href^="/artist/"]').focus(); Spicetify.Platform.History.push('/artist/mock'); });
+    await page.waitForSelector('body.am-artist-open');
+    await page.waitForFunction(() => !document.getElementById('search-dropdown'), null, { timeout: 2000 });
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'am-artist');
+    await page.evaluate(() => { document.querySelector('#global-nav-bar input').value = ''; Spicetify.Platform.History.push('/'); });
+    await page.waitForFunction(() => !document.body.classList.contains('am-artist-open'));
+  });
   await check('artist page', async () => {
     await page.evaluate(() => Spicetify.Platform.History.push('/artist/mock'));
     await page.waitForSelector('body.am-artist-open .am-artist-name');
@@ -906,6 +919,25 @@ try {
     assert.deepEqual(await page.evaluate(() => { const portal = document.createElement('div'); portal.className = 'ReactModalPortal';
       portal.innerHTML = '<div style="position:fixed;inset:0;background-color:rgba(0,0,0,.7)"><div role="dialog"><div data-testid="playlist-permissions-modal">Shared with</div></div></div>'; document.body.append(portal);
       const card = getComputedStyle(portal.querySelector('[data-testid]')), out = [card.borderRadius, /blur\(40px\)/.test(card.backdropFilter), getComputedStyle(portal.firstElementChild).backgroundColor]; portal.remove(); return out; }), ['16px', true, 'rgba(0, 0, 0, 0.35)']);
+    // A confirmation (Delete from Your Library?, Spotify 1.3.10's markup) is a macOS alert (#233): the sheet, 260px wide,
+    // with Music's 10pt corners, the app's icon over centred text, Cancel and Delete side by side at equal widths, Delete in the accent.
+    assert.deepEqual(await page.evaluate(() => { const portal = document.createElement('div'); portal.className = 'ReactModalPortal';
+      portal.innerHTML = '<div style="position:absolute;inset:0;background-color:rgba(0,0,0,.5)"><div role="dialog" aria-label="Delete Mix?" aria-modal="true"><div class="encore-light-theme" style="width:420px"><h2 data-encore-id="text">Delete from Your Library?</h2><p data-encore-id="text">This will delete <b>Mix</b> from <b>Your Library.</b></p><div><button data-encore-id="buttonTertiary">Cancel</button><button data-encore-id="buttonPrimary"><span>Delete</span></button></div></div></div></div>'; document.body.append(portal);
+      const card = portal.querySelector('[role="dialog"] > div'), cs = getComputedStyle(card), [no, yes] = card.querySelectorAll('button'), w = n => n.offsetWidth;
+      const out = [w(card), cs.borderRadius, /blur\(40px\)/.test(cs.backdropFilter), cs.textAlign, /svg/.test(getComputedStyle(card, '::before').backgroundImage), w(no) === w(yes) && w(no) > 100, getComputedStyle(yes).backgroundColor === (() => { const probe = document.body.appendChild(Object.assign(document.createElement('i'), { style: 'background:var(--am-accent)' })), c = getComputedStyle(probe).backgroundColor; probe.remove(); return c; })(), getComputedStyle(portal.firstElementChild).backgroundColor];
+      portal.remove(); return out; }), [260, '10px', true, 'center', true, true, true, 'rgba(0, 0, 0, 0.35)']);
+    // Edit details (Spotify 1.3.10's markup, its grid's named areas inline here) is Music's Edit Playlist sheet (#232): one
+    // column, 340px wide, the artwork centred, Spotify's close button as Cancel left of Save at the bottom.
+    assert.deepEqual(await page.evaluate(() => { const portal = document.createElement('div'); portal.className = 'ReactModalPortal';
+      portal.innerHTML = '<div style="position:absolute;inset:0;display:grid;place-items:center"><div role="dialog" aria-label="Edit details"><div data-testid="playlist-edit-details-modal" style="display:flex;flex-direction:column;width:524px"><div style="display:flex;justify-content:space-between;padding:24px"><h1 data-encore-id="text">Edit details</h1><button aria-label="Close" data-encore-id="buttonTertiary" style="margin:-8px -8px 0 0"><span aria-hidden="true">×</span></button></div>'
+        + '<div style="display:grid;grid-template-areas:\'album-image title\' \'album-image description\' \'privacy-button save-button\' \'disclaimer disclaimer\';grid-template-columns:180px 280px;padding:0 24px 24px"><input type="file" style="display:none"><div style="grid-area:album-image;position:relative;width:180px;height:180px"><div class="main-entityHeader-image"><img class="main-entityHeader-image" alt=""></div></div>'
+        + '<div style="grid-area:title;position:relative"><label>Name</label><input type="text" value="Mix"></div><div style="grid-area:description;position:relative"><label>Description</label><textarea></textarea></div>'
+        + '<div style="grid-area:privacy-button"><button data-encore-id="buttonSecondary"><span aria-hidden="true" style="position:absolute">L</span>Make private</button></div><div style="grid-area:save-button"><button data-testid="playlist-edit-details-save-button" data-encore-id="buttonPrimary"><span>Save</span></button></div><p data-encore-id="text" style="grid-area:disclaimer">By proceeding…</p></div></div></div></div>';
+      document.body.append(portal);
+      const m = portal.querySelector('[data-testid="playlist-edit-details-modal"]'), grid = m.children[1], art = grid.querySelector('div:has(> div.main-entityHeader-image)'), cancel = m.firstElementChild.querySelector('button'), save = m.querySelector('[data-testid$="save-button"]');
+      const r = n => n.getBoundingClientRect(), mr = r(m), ar = r(art), out = [m.offsetWidth, getComputedStyle(grid).gridTemplateColumns.split(' ').length, art.offsetWidth, Math.round((ar.left + ar.right) / 2 - (mr.left + mr.right) / 2),
+        getComputedStyle(cancel, '::after').content, Math.round(r(save).left - r(cancel).right), Math.round(r(save).top - r(cancel).top), r(save).top > r(grid.querySelector('p')).bottom];
+      portal.remove(); return out; }), [340, 1, 160, 0, '"Vazgeç"', 8, 0, true]);
     // Credits' Encore list rows: a grey caption over one rounded group, a hairline between rows.
     assert.deepEqual(await page.evaluate(() => { const d = document.createElement('dialog'), card = document.createElement('div'), sec = document.createElement('div');
       sec.innerHTML = '<span data-encore-id="text">Artist</span><div data-encore-id="listRow">A<button data-encore-id="buttonSecondary">Follow</button></div><div data-encore-id="listRow">B</div>'; card.append(sec); d.append(card); document.querySelector('.Root').append(d); d.showModal();
@@ -3555,23 +3587,26 @@ try {
       true, 'rgb(255, 255, 255)', '40px', 'none', true, true, 'blur(12px) saturate(1.4)']);
   });
 
-  await check('mix covers in the search suggestions (#218) and artist stations with two similar artists (#219)', async () => {
+  await check('mix covers in the search suggestions (#218) and artist and song stations with two similar artists (#219, #229)', async () => {
     const pick = 'https://pickasso.spotifycdn.com/image/ab67c0de0000deef/dt/v1/img/';
     assert.deepEqual(await page.evaluate(async pick => {
       const d = document.createElement('div');d.id = 'search-dropdown';
       d.innerHTML = `<div role="row"><div><div><div class="mock-sdmix" style="position:relative;width:46px;height:46px"><img alt="" style="width:46px;height:46px" src="${pick}topic/chill/0ECwFtbIWEVNwjlrfc6xoL/en"></div><div id="m1-play"></div></div></div><div id="m1-title"><a href="/playlist/1">Chill Mix</a></div></div>`;
       document.body.append(d);
       const s = document.createElement('section');s.id = 'mock-trio';
-      s.innerHTML = `<div data-encore-id="card" style="position:relative;width:180px"><div class="mock-trio-art" style="position:relative;width:180px;height:180px"><div><img alt="" style="position:absolute;inset:0;width:100%;height:100%" src="${pick}radio/artist/1Xyo4u8uXC1ZmMpatF05PJ/en"></div></div><a><p data-encore-id="cardTitle">Sena Radio</p></a></div>`;
+      const station = (src, name) => `<div data-encore-id="card" style="position:relative;width:180px"><div class="mock-trio-art" style="position:relative;width:180px;height:180px"><div><img alt="" style="position:absolute;inset:0;width:100%;height:100%" src="${pick}${src}"></div></div><a><p data-encore-id="cardTitle">${name}</p></a></div>`;
+      s.innerHTML = station('radio/artist/1Xyo4u8uXC1ZmMpatF05PJ/en', 'Sena Radio') + station('radio/track/7mx3o5H3YzWolHZe0Wtbam/en', 'Pop Sound Radio');
       document.querySelector('.am-native-main main').prepend(s);
-      const box = d.querySelector('.mock-sdmix'), trio = s.querySelector('.mock-trio-art');
-      for (let i = 0; i < 100 && !(box.classList.contains('am-mix-ready') && trio.classList.contains('am-mix-trio')); i++) await new Promise(r => setTimeout(r, 20));
+      const box = d.querySelector('.mock-sdmix'), [trio, song] = s.querySelectorAll('.mock-trio-art');
+      for (let i = 0; i < 100 && !(box.classList.contains('am-mix-ready') && trio.classList.contains('am-mix-trio') && song.classList.contains('am-mix-trio')); i++) await new Promise(r => setTimeout(r, 20));
       const masks = ['::before', '::after'].map(p => { const a = getComputedStyle(trio, p); return ((a.webkitMaskImage || a.maskImage).match(/radial-gradient/g) || []).length; }).join('+');
       const out = [box.dataset.amMix, box.classList.contains('am-mix-ready'), getComputedStyle(box, '::after').content, trio.dataset.amMixStyle, trio.classList.contains('am-mix-trio'),
         !!trio.style.getPropertyValue('--am-mix-photo2') && !!trio.style.getPropertyValue('--am-mix-photo3'), masks, getComputedStyle(trio).backgroundImage.startsWith('linear-gradient'),
-        JSON.parse(localStorage.getItem('mcloud:mix-covers')).find(([u]) => u.includes('/radio/artist/'))[1].related.length];
+        JSON.parse(localStorage.getItem('mcloud:mix-covers')).find(([u]) => u.includes('/radio/artist/'))[1].related.length,
+        // A song's station: its album's cover in the middle, two artists like its artist's either side (#229).
+        song.dataset.amMixStyle, song.classList.contains('am-mix-trio'), />Ra</.test(decodeURIComponent(song.style.getPropertyValue('--am-mix-photo'))), />Re</.test(decodeURIComponent(song.style.getPropertyValue('--am-mix-photo2')))];
       d.remove();s.remove();return out;
-    }, pick), ['Chill Mix', true, '"Chill Mix"', 'station', true, true, '1+2', true, 2]);
+    }, pick), ['Chill Mix', true, '"Chill Mix"', 'station', true, true, '1+2', true, 2, 'station', true, true, true]);
   });
 
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {

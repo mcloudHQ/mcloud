@@ -79,7 +79,7 @@
     setTimeout(() => swapPanel(`<aside aria-label="${label}"><div data-testid="mock-panel-header" style="box-shadow:rgba(0,0,0,.6) 0 6px 10px"><h1>${label}</h1><button aria-label="Kapat" onclick="swapPanel(npv)">×</button></div><div data-testid="mock-panel-list" style="position:relative"><div data-overlayscrollbars-viewport><ul style="display:flex;flex-direction:column;gap:24px;margin:0"><li></li><li>…</li></ul></div><div class="os-scrollbar os-scrollbar-vertical" style="position:absolute;top:0;bottom:0;right:0;width:8px"></div></div></aside>`), button.dataset.restoreFocusKey === 'buddy_feed' ? 400 : 0);
   }
   // Typing in the search field opens Spotify's live results under it (#search-dropdown, absolute inside the toolbar's
-  // form); a click elsewhere closes them.
+  // form); a click elsewhere, or focus leaving the form, closes them.
   // Its markup follows Spotify 1.3.6: an OverlayScrollbars box with a keyboard hint, Encore list rows (queries with a
   // magnifier and the typed part in bold, then results with artwork, a title and a "Song • Artist" subtitle, like and
   // play buttons) and a "View all" button. Encore's class names carry a version, as Spotify's do.
@@ -92,6 +92,9 @@
   // While results load, Spotify shows a second list of six grey placeholders (a picture and two bars each) instead.
   window.mockSearchLoading = () => document.querySelector('#global-nav-bar [role="search"]').insertAdjacentHTML('beforeend', `<div id="search-suggestions-loading-dropdown" role="listbox" style="position:absolute;top:100%;left:0;width:100%;z-index:7"><div class="mock-sd-host" data-overlayscrollbars="host"><div data-overlayscrollbars-viewport>${'<div data-encore-id="listRow" role="group" aria-hidden="true" class="e-10860-legacy-box mock-sd-row"><div class="e-10860-legacy-list-row__header-side"><div class="e-10860-legacy-list-row__header-side-flex"><div class="mock-sd-art" style="background:#f5f5f71a"></div></div></div><div class="e-10860-legacy-list-row__header"><div class="e-10860-legacy-list-row__column" style="display:flex;flex-direction:column"><span data-encore-id="text" style="display:block;width:280px;height:17px;border-radius:1000px;background:#f5f5f71a"></span><span data-encore-id="text" style="display:block;width:150px;height:11px;border-radius:1000px;background:#f5f5f71a"></span></div></div></div>'.repeat(6)}</div></div></div>`);
   addEventListener('mousedown', event => { if (!event.target.closest?.('#global-nav-bar [role="search"]')) document.querySelectorAll('#search-dropdown,#search-suggestions-loading-dropdown').forEach(e => e.remove()); });
+  // Focus leaving the field and its results closes them too (Spotify moves focus to a page it opens, #231), except to a
+  // result's menu, as Spotify's.
+  addEventListener('focusout', event => { const form = event.target.closest?.('#global-nav-bar [role="search"]'); if (form && !form.contains(event.relatedTarget) && !document.querySelector('[data-tippy-root] [role="menu"]')) setTimeout(() => document.querySelectorAll('#search-dropdown,#search-suggestions-loading-dropdown').forEach(e => e.remove())); });
 </script>
 <script>swapPanel(npv)</script>
 <script src="spicetify-mock.js"></script>

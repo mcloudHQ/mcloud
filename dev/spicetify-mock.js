@@ -167,7 +167,7 @@
   if (new URLSearchParams(location.search).get('menu') === 'submenu') delete Spicetify.Menu.Item.prototype.register;
   Spicetify.Locale = { getLocale: () => new URLSearchParams(location.search).get('locale') || 'tr', get: key => ({ 'web-player.aligned-curation.tooltips.remove-from-liked-songs': 'Remove from Liked Songs', 'web-player.aligned-curation.contextmenu.new-playlist': 'New playlist', save_to_your_library: 'Save to Your Library', remove_from_your_library: 'Remove from Your Library' })[key] ?? key };
   Spicetify.GraphQL = {
-    Definitions: { queryArtistOverview: { name: 'queryArtistOverview' }, searchDesktop: { name: 'searchDesktop' }, ...Object.fromEntries(['searchTracks', 'searchArtists', 'searchAlbums', 'searchPlaylists', 'searchUsers'].map(name => [name, { name }])), getAlbum: { name: 'getAlbum' }, fetchExtractedColorAndImageForArtistEntity: { name: 'fetchExtractedColorAndImageForArtistEntity' }, fetchExtractedColorAndImageForTrackEntity: { name: 'fetchExtractedColorAndImageForTrackEntity' } },
+    Definitions: { queryArtistOverview: { name: 'queryArtistOverview' }, searchDesktop: { name: 'searchDesktop' }, ...Object.fromEntries(['searchTracks', 'searchArtists', 'searchAlbums', 'searchPlaylists', 'searchUsers'].map(name => [name, { name }])), getAlbum: { name: 'getAlbum' }, fetchExtractedColorAndImageForArtistEntity: { name: 'fetchExtractedColorAndImageForArtistEntity' }, fetchExtractedColorAndImageForTrackEntity: { name: 'fetchExtractedColorAndImageForTrackEntity' }, getTrack: { name: 'getTrack' } },
     // getAlbum answers in Spotify's albumUnion shape (the fields the theme reads), from window.__mockAlbums by id. The mix
     // covers' photo lookups (an artist's avatar, a track's album art) answer as Spotify's small colour-and-image queries.
     Request: async (def, vars) => def.name === 'getAlbum'
@@ -176,6 +176,8 @@
       : searchKindMock[def.name] ? (window.__searchRequests ||= []).push({ kind: def.name, ...vars }) && searchKindPage(def.name, vars)
       : def.name === 'searchDesktop' ? (window.__searchRequests ||= []).push(vars) && (window.__mockSearchFail ? { errors: [{ message: 'mock' }] } : { data: { searchV2: window.__mockSearch } })
       : def.name === 'fetchExtractedColorAndImageForTrackEntity' ? (window.__mixRequests ||= []).push(vars.uri) && { data: { trackUnion: { albumOfTrack: { coverArt: cover('Radio', 5) } } } }
+      // A song's station (#229): the track entity with its album's cover and its first artist's related artists.
+      : def.name === 'getTrack' ? (window.__mixRequests ||= []).push(vars.uri) && { data: { trackUnion: { albumOfTrack: { coverArt: cover('Radio', 5) }, firstArtist: { items: [{ relatedContent: { relatedArtists: { items: [{ visuals: { avatarImage: cover('Rel', 6) } }, { visuals: { avatarImage: cover('Ate', 7) } }] } } }] } } } }
       : (window.__artistRequests ||= []).push(vars) && { data: { artistUnion: window.__mockArtist } },
   };
   window.__graphqlRequest = Spicetify.GraphQL.Request; // tests that break the API put it back with this

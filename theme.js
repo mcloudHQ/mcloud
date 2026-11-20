@@ -212,6 +212,8 @@
   // Playlist and album pages label Spotify's play button in CSS (user.css), which reads these.
   document.documentElement.style.setProperty('--am-t-play',JSON.stringify(T('Çal','Play')));
   document.documentElement.style.setProperty('--am-t-pause',JSON.stringify(T('Duraklat','Pause')));
+  // Spotify's Edit details labels its close button Cancel (#232).
+  document.documentElement.style.setProperty('--am-t-cancel',JSON.stringify(T('Vazgeç','Cancel')));
   // Spicetify's Player.isPlaying throws while its player state is being built (seen at boot with the Now Playing pane
   // shown: its tick ran before Spotify's player had a state, which aborted the rest of the theme's start).
   const isPlaying=()=>{try{return !!S.Player.isPlaying?.();}catch{return false;}};
@@ -3422,7 +3424,7 @@
   document.addEventListener('visibilitychange',resumeUpdates);resumeUpdates();
   // Artist pages are redrawn after Apple Music from Spotify's own artist query.
   // Any missing API or failed request falls back to Spotify's native page.
-  const artistView=el('section','');artistView.id='am-artist';artistView.setAttribute('aria-label',T('Sanatçı','Artist'));document.body.append(artistView);
+  const artistView=el('section','');artistView.id='am-artist';artistView.tabIndex=-1;artistView.setAttribute('aria-label',T('Sanatçı','Artist'));document.body.append(artistView);
   artistView.addEventListener('dragstart',event=>{const node=event.target.closest?.('[draggable="true"][data-uri]');if(node)setDrag(event,[node.dataset.uri]);});
   artistView.addEventListener('contextmenu',event=>{
     if(event.defaultPrevented||popover.contains(event.target))return;
@@ -3909,6 +3911,9 @@
     const request=++artistRequest,uri='spotify:artist:'+id;closeArtistInfo();heroProgress='';
     currentMode='artist';++libraryRequest;clearLibrary();
     document.body.classList.remove('am-library-open','am-search-open','am-tinted');document.body.classList.add('am-artist-open');updateNav();
+    // Spotify moves focus to a page it opens, which closes the search suggestions; an artist picked in them left them
+    // open over this page until a click elsewhere (#231).
+    if(document.activeElement?.closest?.('#search-dropdown,#global-nav-bar [role="search"]'))artistView.focus({preventScroll:true});
     artistView.replaceChildren(el('p','am-artist-loading',T('Yükleniyor…','Loading…')));artistView.scrollTop=0;
     let artist;
     try{artist=await artistOverview(id);}catch(e){
@@ -4488,8 +4493,15 @@
           const artist=await artistOverview(source.artist).catch(()=>null);
           if(artist){photo=artistImage(artist.visuals?.avatarImage);related=(artist.relatedContent?.relatedArtists?.items||[]).map(a=>artistImage(a?.visuals?.avatarImage)).filter(Boolean).slice(0,2);}
         }
+        // A song's station ("Pop Sound Radio") is drawn as Spotify's own: the song's cover between two artists like its
+        // first artist (#229), from the track entity, which carries that artist's related artists.
+        else if(source.track&&mixStyle(url)==='station'&&D?.getTrack){
+          mixTried.add(url);
+          const track=(await request(D.getTrack,{uri:'spotify:track:'+source.track}).catch(()=>null))?.data?.trackUnion;
+          if(track){photo=spotifyImage(bySize(track.albumOfTrack?.coverArt).at(-1)?.url||'');related=(track.firstArtist?.items?.[0]?.relatedContent?.relatedArtists?.items||[]).map(a=>artistImage(a?.visuals?.avatarImage)).filter(Boolean).slice(0,2);}
+        }
         if(!photo&&source.artist&&D?.fetchExtractedColorAndImageForArtistEntity)photo=spotifyImage(bySize((await request(D.fetchExtractedColorAndImageForArtistEntity,{uri:'spotify:artist:'+source.artist}))?.data?.artistUnion?.visuals?.avatarImage).at(-1)?.url||'');
-        if(source.track&&D?.fetchExtractedColorAndImageForTrackEntity)photo=spotifyImage(bySize((await request(D.fetchExtractedColorAndImageForTrackEntity,{uri:'spotify:track:'+source.track}))?.data?.trackUnion?.albumOfTrack?.coverArt).at(-1)?.url||'');
+        if(!photo&&source.track&&D?.fetchExtractedColorAndImageForTrackEntity)photo=spotifyImage(bySize((await request(D.fetchExtractedColorAndImageForTrackEntity,{uri:'spotify:track:'+source.track}))?.data?.trackUnion?.albumOfTrack?.coverArt).at(-1)?.url||'');
       }catch{}
       const color=await artworkColor(photo||url);
       mixJobs.delete(url);if(!color)return null;
@@ -4515,9 +4527,9 @@
     if(trio){const full=Math.round(s*100);style.setProperty('--am-mix-top',`hsl(${hue} ${full}% 20%)`);style.setProperty('--am-mix-bottom',`hsl(${hue} ${full}% 49%)`);}
     box.classList.toggle('am-mix-plain',!cover.photo);box.classList.add('am-mix-ready');
   }
-  // A station cover drawn before its similar artists were looked up (or before #219) is drawn at once, then once more
-  // with them; a lookup that failed is tried again next session.
-  const mixStale=(url,cover)=>!cover.related&&!mixTried.has(url)&&mixStyle(url)==='station'&&/\/img\/radio\/artist\//.test(url);
+  // A station cover drawn before its similar artists were looked up (or before #219 and #229) is drawn at once, then once
+  // more with them; a lookup that failed is tried again next session.
+  const mixStale=(url,cover)=>!cover.related&&!mixTried.has(url)&&mixStyle(url)==='station'&&/\/img\/radio\/(?:artist|track)\//.test(url);
   // The name drawn into the band: a card's title, a playlist page's h1, else the nearest link with text around the image
   // (Home's big "Made for you" cards and the shortcuts at the top have neither; their band was drawn empty, #194).
   function mixName(img) {
@@ -4544,7 +4556,8 @@
     // The corners are the image's, else its box's (the suggestions' and the theme's own artwork round the box).
     const corner=radius??getComputedStyle(img).borderRadius;box.style.setProperty('--am-mix-radius',parseFloat(corner)?corner:getComputedStyle(box).borderRadius);
     const known=mixCovers.get(url);
-    if(known){drawMix(box,known);if(!mixStale(url,known))return;}
+    // A lookup already under way (the same station on another card) is waited for too.
+    if(known){drawMix(box,known);if(!mixStale(url,known)&&!mixJobs.has(url))return;}
     else box.classList.remove('am-mix-ready');
     mixCover(url).then(cover=>{if(cover&&box.dataset.amMixSrc===url&&img.getAttribute('src')===url)drawMix(box,cover);});
   }
