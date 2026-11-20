@@ -1044,8 +1044,8 @@ dialog[open] [data-encore-id="listRow"] ~ [data-encore-id="buttonTertiary"] svg 
 [data-testid="playlist-edit-details-modal"] div:has(> [data-testid="playlist-edit-details-save-button"]) {justify-self:end;margin-top:6px}
 [data-testid="playlist-edit-details-modal"] [data-testid="playlist-edit-details-save-button"] {box-sizing:border-box;width:88px;height:28px;min-block-size:0!important;padding:0!important;border:0!important;border-radius:6px!important;background:var(--am-accent)!important;color:#fff!important;transform:none!important}
 [data-testid="playlist-edit-details-modal"] [data-testid="playlist-edit-details-save-button"] > span {display:flex!important;align-items:center;justify-content:center;height:100%;min-block-size:0!important;padding:0!important;background:none!important;color:inherit!important;font:400 13px/1 var(--encore-body-font-stack)!important;transform:none!important}
-[data-testid="playlist-edit-details-modal"] button:focus {outline:0!important}
-[data-testid="playlist-edit-details-modal"] > div:first-child > button:focus-visible,[data-testid="playlist-edit-details-modal"] [data-testid="playlist-edit-details-save-button"]:focus-visible {box-shadow:0 0 0 3px var(--am-accent-focus)!important}
+[data-testid="playlist-edit-details-modal"] button:focus:not(:focus-visible) {outline:0!important}
+[data-testid="playlist-edit-details-modal"] > div:first-child > button:focus-visible,[data-testid="playlist-edit-details-modal"] [data-testid="playlist-edit-details-save-button"]:focus-visible {outline:0!important;box-shadow:0 0 0 3px var(--am-accent-focus)!important}
 .am-popover-swatches {display:flex;flex-wrap:wrap;gap:7px;padding:6px 8px}
 .am-swatch {width:18px;height:18px;padding:0;border-radius:50%;border:0;cursor:pointer;box-shadow:inset 0 0 0 1px #0003}
 .am-swatch.am-selected {outline:2px solid var(--am-label);outline-offset:2px}
