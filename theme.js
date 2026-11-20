@@ -694,14 +694,14 @@
       nodes.push(...root.querySelectorAll(tagged));
       for(const node of nodes){
         if(node.matches('[data-testid="shortcut-background"]'))tagShortcut(node);
-        else if(node.matches('[role="grid"]'))tagTrackList(node);
+        else if(node.matches('[role="grid"]')){tagTrackList(node);compactRows(node);}
         else if(node.matches('[role="row"]')){tagTrackRow(node);featRow(node);}
         else if(node.matches('[role="list"],.main-gridContainer-gridContainer'))tagGenreList(node);
         else if(!node.hasAttribute('data-shelf'))node.setAttribute('data-shelf','');
       }
       // Browse all's tiles arrive one by one after the empty list; a list's header and a row's cells can land after theirs.
       const list=root.closest('[role="list"],.main-gridContainer-gridContainer');if(list)tagGenreList(list);
-      const grid=root.closest('[role="grid"]');if(grid)tagTrackList(grid);
+      const grid=root.closest('[role="grid"]');if(grid){tagTrackList(grid);compactRows(grid);}
       const row=root.closest('[role="row"]');if(row){tagTrackRow(row);featRow(row);}
       root.closest('section.Shelf,[data-testid="component-shelf"]')?.setAttribute('data-shelf','');
       tagChevrons(root);
@@ -733,6 +733,36 @@
     const box=cover.getBoundingClientRect(),y=Math.round(box.top-pair.getBoundingClientRect().top+box.height/2)+'px';
     if(box.height&&pair.style.getPropertyValue('--am-chev-y')!==y)pair.style.setProperty('--am-chev-y',y);
   },{passive:true});
+  // Compact album rows (#175): Music's are ~48px where Spotify's are 56 (measured on the reporter's two captures, row
+  // pitch against the same title's width). Spotify fixes that height in its code: the grid's --row-height, and the list's
+  // height, the drawn rows' offset and its skeleton layers as index × 56 in inline styles. On an album of up to 50 rows
+  // each of those is mirrored at 48/56 into a custom property user.css applies (only with "Artist only on guest tracks"),
+  // rewritten as Spotify changes them, before the frame is painted. Measured in the client (1.3.10): albums of 13 to 50
+  // tracks scroll with every row filled; at 100 Spotify fetches the tracks in windows by its own 56px arithmetic and the
+  // lower rows stayed skeletons, so longer albums keep 56px, as does Spotify's own Compact view (32px).
+  const compactGrids=new WeakSet();
+  function compactRows(grid) {
+    if(compactGrids.has(grid)||!grid.closest('[data-testid="album-page"]'))return;compactGrids.add(grid);
+    const set=(node,name,value)=>{if(node.style.getPropertyValue(name)!==value)node.style.setProperty(name,value);};
+    const px=value=>`${Math.round(parseFloat(value)*48/56*100)/100}px`;
+    // The grid is marked only once the list's height and the rows' offset are found and mirrored: were Spotify to place
+    // its rows another way, 48px rows at its 56px offsets would overlap, so the list keeps Spotify's own height instead.
+    const sync=()=>{
+      let on=grid.style.getPropertyValue('--row-height').trim()==='56px'&&+grid.getAttribute('aria-rowcount')<=51;
+      const box=on&&[...grid.children].find(node=>/^[\d.]+px$/.test(node.style.height));
+      if(box){
+        let shifted=false;set(box,'--am-rows-h',px(box.style.height));tag(box,'am-rows-h');
+        for(const node of box.children){
+          const shift=/^translateY\(([-\d.]+)px\)$/.exec(node.style.transform),fill=/^calc\(100% ([-+]) ([\d.]+)px\)$/.exec(node.style.height);
+          if(shift){shifted=true;set(node,'--am-rows-y',px(shift[1]));tag(node,'am-rows-y');}
+          else if(fill||/^[\d.]+px$/.test(node.style.height)){set(node,'--am-rows-h',fill?`calc(100% ${fill[1]} ${px(fill[2])})`:px(node.style.height));tag(node,'am-rows-h');}
+        }
+        on=shifted;
+      }else on=false;
+      if(grid.classList.contains('am-rows-compact')!==on)grid.classList.toggle('am-rows-compact',on);
+    };
+    sync();new MutationObserver(sync).observe(grid,{subtree:true,childList:true,attributes:true,attributeFilter:['style','aria-rowcount']});
+  }
   // A track list's grid, header and rows: the same names Spotify gave them before it hashed its classes.
   function tagTrackList(grid) {
     if(grid.classList.contains('main-trackList-trackList')||!grid.querySelector('[role="columnheader"]'))return;

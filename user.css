@@ -184,7 +184,9 @@ body.am-light :is(.main-cardImage-imageWrapper,[data-encore-id="card"] div:has(>
    it and the play controls along the artwork's bottom edge. Spotify's action bar is a sibling below the header, so
    its scroll host is pulled up into the header's text column (the text column keeps that strip free); everything
    stays Spotify's own nodes, matched by test id rather than tagged, so re-renders cannot drop the styling.
-   Pages whose header is a full-width photo instead of artwork ("Made for" mixes) keep Spotify's header. Rows keep Spotify's 56px height, which its virtual list depends on.
+   Pages whose header is a full-width photo instead of artwork ("Made for" mixes) keep Spotify's header. Rows keep
+   Spotify's 56px height, which its virtual list depends on (but clean albums of up to 50 rows, whose arithmetic theme.js
+   mirrors at 48px, #175).
    The artwork is Music's 270pt (macOS 27, the same at every window width; #97), smaller only once the page is too narrow. */
 body.am-ready .am-native-main :is([data-testid="playlist-page"],[data-testid="album-page"]):has(> [data-testid="entity-header"] :is(.main-entityHeader-imageContainer,.am-photo-art)) {--am-art:clamp(150px,45cqi,270px);--am-btn:36px;--am-art-gap:clamp(20px,2.4cqi,32px)}
 body.am-ready .am-native-main :is([data-testid="playlist-page"],[data-testid="album-page"]):has(> [data-testid="entity-header"] :is(.main-entityHeader-imageContainer,.am-photo-art)) > [style*="--background-base"],body.am-ready .am-native-main :is([data-testid="playlist-page"],[data-testid="album-page"]):has(> [data-testid="entity-header"] :is(.main-entityHeader-imageContainer,.am-photo-art)) :is([data-testid="entity-header"],.playlist-playlist-playlistContent) > :is([style*="--background-base"],[style*="background-color"]) {display:none!important}
@@ -1019,6 +1021,11 @@ dialog[open] [data-encore-id="listRow"] ~ [data-encore-id="buttonTertiary"] svg 
 .ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > div:last-child > [data-encore-id="buttonPrimary"] > span {min-block-size:0!important;padding:0!important;background:none!important;color:inherit!important;font:inherit!important;transform:none!important}
 .ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > div:last-child > button:focus {outline:0!important}
 .ReactModalPortal [role="dialog"] > div:not([data-testid]):has(> h2 ~ div > [data-encore-id="buttonPrimary"]) > div:last-child > button:focus-visible {box-shadow:0 0 0 3px var(--am-accent-focus)!important}
+/* Compact album rows (#175): Music's 48px rows on clean albums of up to 50 rows. theme.js (compactRows) mirrors the
+   list's inline sizes, which Spotify works out as index × 56, at 48/56 into these properties. */
+body.am-album-clean .am-native-main [data-testid="album-page"] .am-rows-compact {--row-height:48px!important}
+body.am-album-clean .am-native-main [data-testid="album-page"] .am-rows-compact .am-rows-h {height:var(--am-rows-h)!important}
+body.am-album-clean .am-native-main [data-testid="album-page"] .am-rows-compact .am-rows-y {transform:translateY(var(--am-rows-y))!important}
 /* Edit details as Music's Edit Playlist sheet (#232), with the alerts' 10pt corners and 6pt buttons (#233): one column, the artwork centred over the name and description, the
    privacy button and Spotify's image notice small under them, Cancel and Save at the bottom right. Spotify's grid names
    its areas, so only the template changes; its close button is the Cancel (labelled from theme.js), so both keep working. */
