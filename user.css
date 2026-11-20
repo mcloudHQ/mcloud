@@ -837,9 +837,11 @@ body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-me
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="popover"] > [role="menu"] {padding:0!important;border-radius:0!important;background:none!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuDivider"] {width:auto!important;height:1px!important;margin:5px 11px!important;padding:0!important;border:0!important;background:rgb(var(--am-ink)/.141)!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"][data-has-submenu] > div:last-of-type svg {display:none!important}
-/* The trailing slot (a shortcut letter, the chevron) is 20px tall and made rows 26px; a row is a label's 24px. Lists
-   neither scroll sideways (a row ran 3px past) nor show Windows' scrollbar: the theme's thin one, as in its own menus. */
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"] > div {min-height:0!important;max-height:18px!important}
+/* The trailing slot (a shortcut letter, the chevron) is 20px tall and made rows 26px; a row is a label's 24px. Your
+   Updates' rows (the account menu's notifications) hold an Encore listRow, ~64px, and keep their height: capped they
+   ran into each other (#236). Lists neither scroll sideways (a row ran 3px past) nor show Windows' scrollbar: the
+   theme's thin one, as in its own menus. */
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"]:not(:has([data-encore-id="listRow"])) > div {min-height:0!important;max-height:18px!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"] {overflow-x:hidden!important;scrollbar-width:auto!important;scrollbar-color:auto!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"]::-webkit-scrollbar {width:5px}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menu"][role="menu"]::-webkit-scrollbar-button {display:none}
