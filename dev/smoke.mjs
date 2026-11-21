@@ -3671,6 +3671,68 @@ try {
     }, pick), ['Chill Mix', true, '"Chill Mix"', 'station', true, true, '1+2', true, 2, 'station', true, true, true]);
   });
 
+  // "This Is" playlists whose cover Spotify's editors uploaded (i.scdn.co ab67706f…) name no artist in the URL (#228):
+  // a Spotify-owned one takes its most frequent artist and Apple's Essentials band, as generated ones do; a user's
+  // playlist with an uploaded cover and the same kind of name keeps its own.
+  await check('an uploaded "This Is" cover is redrawn as the generated ones are, a user\'s is not (#228)', async () => {
+    assert.deepEqual(await page.evaluate(async () => {
+      const api = Spicetify.Platform.PlaylistAPI, meta = api.getMetadata, contents = api.getContents;
+      api.getMetadata = async uri => ({ uri, owner: { uri: uri.endsWith('thisis') ? 'spotify:user:spotify' : 'spotify:user:emir' } });
+      api.getContents = async () => ({ items: [{ artists: [{ uri: 'spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ' }] }, { artists: [{ uri: 'spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ' }, { uri: 'spotify:artist:0ECwFtbIWEVNwjlrfc6xoL' }] }] });
+      const card = (id, name, hex) => `<div data-encore-id="card" aria-labelledby="card-title-spotify:playlist:${id}-0" style="position:relative;width:180px"><div style="position:relative;width:180px;height:180px"><div><img alt="" style="position:absolute;inset:0;width:100%;height:100%" src="https://i.scdn.co/image/ab67706f00000002${hex}"></div></div><a><p data-encore-id="cardTitle">${name}</p></a></div>`;
+      const s = document.createElement('section'); s.id = 'mock-thisis'; s.innerHTML = card('thisis', 'This Is Sena Şener', 'aaaa1111') + card('mine', 'This Is Me', 'bbbb2222');
+      document.querySelector('.am-native-main main').prepend(s);
+      const [spotify, mine] = [...s.querySelectorAll('[data-encore-id="card"] > div')];
+      for (let i = 0; i < 150 && !spotify.classList.contains('am-mix-ready'); i++) await new Promise(r => setTimeout(r, 20));
+      await new Promise(r => setTimeout(r, 200));
+      const out = [spotify.classList.contains('am-mix-ready'), spotify.dataset.amMixStyle, spotify.dataset.amMix, /^url\("?data:/.test(spotify.style.getPropertyValue('--am-mix-photo')), mine.classList.contains('am-mix')];
+      api.getMetadata = meta; api.getContents = contents; s.remove(); return out;
+    }), [true, 'band', 'This Is Sena Şener', true, false]);
+  });
+
+  // The search suggestions' explicit mark is Apple's, as Spotify's lists' (#238): white with the accent's letter on a
+  // highlighted row.
+  await check('the search suggestions\' explicit mark is Apple\'s small square (#238)', async () => {
+    assert.deepEqual(await page.evaluate(() => {
+      const d = document.createElement('div'); d.id = 'search-dropdown';
+      d.innerHTML = '<div role="row" aria-selected="false"><p data-encore-id="listRowSubtitle"><span><span role="img" aria-label="Explicit" data-encore-id="tagIcon">E</span></span>Song</p></div><div role="row" aria-selected="true"><p data-encore-id="listRowSubtitle"><span><span role="img" aria-label="Explicit" data-encore-id="tagIcon">E</span></span>Song</p></div>';
+      document.body.append(d);
+      const [plain, picked] = [...d.querySelectorAll('[data-encore-id="tagIcon"]')].map(e => getComputedStyle(e)), probe = document.body.appendChild(Object.assign(document.createElement('i'), { style: 'color:var(--am-accent)' }));
+      const out = [plain.width, plain.height, plain.borderRadius, picked.backgroundColor, picked.color === getComputedStyle(probe).color];
+      probe.remove(); d.remove(); return out;
+    }), ['12px', '12px', '3px', 'rgb(255, 255, 255)', true]);
+  });
+
+  // An album page's "More by …" shelf (Spotify 1.3.10's markup): the title opens the discography with Apple's chevron at
+  // the shelf titles' 17px, and "See discography" goes (#238).
+  await check('an album page\'s "More by" heading ends in the chevron, without "See discography" (#238)', async () => {
+    assert.deepEqual(await page.evaluate(() => {
+      const s = document.createElement('section'); s.dataset.testid = 'album-page'; s.id = 'mock-moreby';
+      s.innerHTML = '<section data-shelf="shelf" aria-label="More by Sena"><div><div data-encore-id="listRow" role="group"><div><div><h2 data-encore-id="listRowTitle"><span><a href="/artist/2/discography">More by Sena</a></span></h2></div><div><a href="/artist/2/discography"><span>See discography</span></a></div></div></div></div></section>';
+      document.querySelector('.am-native-main main').append(s);
+      const [title, see] = s.querySelectorAll('a'), out = [getComputedStyle(title, '::after').content, getComputedStyle(s.querySelector('h2')).fontSize, getComputedStyle(see).display];
+      s.remove(); return out;
+    }), ['""', '17px', 'none']);
+  });
+
+  // An album with an explicit song ends its header title in Apple's explicit mark; one without has none (#238).
+  await check('an album with an explicit song has the explicit mark after its title (#238)', async () => {
+    const mark = id => page.evaluate(async id => {
+      window.__mockAlbums[id] = { __typename: 'Album', name: 'Mock ' + id, uri: 'spotify:album:' + id, artists: { items: [] }, coverArt: { sources: [] },
+        tracksV2: { totalCount: 2, items: [{ track: { duration: { totalMilliseconds: 1000 }, contentRating: { label: id === 'explicit' ? 'EXPLICIT' : 'NONE' } } }, { track: { duration: { totalMilliseconds: 1000 }, contentRating: { label: 'NONE' } } }] } };
+      const s = document.createElement('section'); s.dataset.testid = 'album-page'; s.id = 'mock-explicit';
+      s.innerHTML = '<div data-testid="entity-header"><h1>Mock ' + id + '</h1></div>'; document.querySelector('.am-native-main main').append(s);
+      Spicetify.Platform.History.push('/album/' + id);
+      for (let i = 0; i < 50 && !(window.__albumRequests || []).some(v => v.uri === 'spotify:album:' + id); i++) await new Promise(r => setTimeout(r, 20));
+      await new Promise(r => setTimeout(r, 100));
+      const after = getComputedStyle(s.querySelector('h1'), '::after'), out = [after.content, after.content === 'none' ? '' : after.width];
+      s.remove(); return out;
+    }, id);
+    assert.deepEqual(await mark('explicit'), ['"E" / "Müstehcen"', '16px']);
+    assert.deepEqual(await mark('clean'), ['none', '']);
+    await page.evaluate(() => Spicetify.Platform.History.push('/'));
+  });
+
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
     // Spotify's page for a mix: no artwork container, an empty slot before the text, the photo in .before-scroll-node,
     // and "About recommendations" as a button under the creator line. The cover comes from the playlist's metadata.

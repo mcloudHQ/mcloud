@@ -4532,13 +4532,43 @@
   // Discover Weekly have no photo and get the gradient. The image keeps its src; its parent gets .am-mix and the
   // custom properties user.css draws from. Images are caught as they load (a capture listener), and a mix seen before as
   // soon as its image is added (the main view's observer, tagLegacyDom's).
-  const mixImages='img[src^="https://pickasso.spotifycdn.com/"],img[src^="https://seed-mix-image.spotifycdn.com/"],img[src^="https://daylist.spotifycdn.com/"]';
+  const mixImages='img[src^="https://pickasso.spotifycdn.com/"],img[src^="https://seed-mix-image.spotifycdn.com/"],img[src^="https://daylist.spotifycdn.com/"],img[src^="https://i.scdn.co/image/ab67706f"]';
   const mixUrl=/^https:\/\/(?:pickasso\.spotifycdn\.com\/image\/[^/]+\/dt\/v1\/img\/([^?#]+)|seed-mix-image\.spotifycdn\.com\/|daylist\.spotifycdn\.com\/)/;
   function mixSource(url) {
+    if(editorialCover.test(url)){const known=thisIsSources.get(url);return known&&!(known instanceof Promise)?known:{};}
     const path=(mixUrl.exec(url)?.[1]||'').split('/');
     if(path[0]==='daily'&&/^ab67[0-9a-f]{20,}$/.test(path[2]||''))return {photo:'https://i.scdn.co/image/'+path[2]};
     const id=path.find(p=>/^[A-Za-z0-9]{22}$/.test(p));
     return !id?{}:path[0]==='radio'&&path[1]==='track'?{track:id}:{artist:id,radio:path[0]==='radio'};
+  }
+  // "This Is" playlists whose cover Spotify's editors uploaded (i.scdn.co ab67706f…: the big artists', Ariana Grande,
+  // SZA, Drake) name no artist in the URL, so they kept Spotify's cover while generated ones (pickasso thisisv3…) were
+  // redrawn (#228). A Spotify-owned playlist named "This Is …" is looked up once: its most frequent artist is the
+  // cover's photo, as thisisv3's names its artist. The cover is then kept with the others by the image's URL; another
+  // playlist with an uploaded cover (yours, "This Is Me") is left alone.
+  const editorialCover=/^https:\/\/i\.scdn\.co\/image\/ab67706f[0-9a-f]+$/,thisIsSources=new Map();
+  function playlistOf(img) {
+    const own=img.closest('.am-card[data-uri^="spotify:playlist:"]');if(own)return own.dataset.uri;
+    const card=/spotify:playlist:[A-Za-z0-9]+/.exec(img.closest('[data-encore-id="card"]')?.getAttribute('aria-labelledby')||'');if(card)return card[0];
+    if(img.closest('[data-testid="playlist-page"]')){const id=/^\/playlist\/([A-Za-z0-9]+)/.exec(routePath())?.[1];if(id)return 'spotify:playlist:'+id;}
+    for(let node=img.parentElement,i=0;node&&i<5;node=node.parentElement,i++){const id=/\/playlist\/([A-Za-z0-9]+)/.exec(node.querySelector('a[href*="/playlist/"]')?.getAttribute('href')||'')?.[1];if(id)return 'spotify:playlist:'+id;}
+    return '';
+  }
+  // The source of an uploaded cover: {} once its cover is known, {artist} once looked up, null if it isn't a This Is,
+  // undefined while it is looked up (the image is marked again then).
+  function thisIsSource(img,url) {
+    if(!editorialCover.test(url)||!/^This Is \S/.test(mixName(img)))return null;
+    if(mixCovers.has(url))return {};
+    const known=thisIsSources.get(url);if(known!==undefined)return known instanceof Promise?undefined:known;
+    const uri=playlistOf(img);if(!uri)return null;
+    const job=(async()=>{try{
+      const api=S.Platform.PlaylistAPI,[meta,list]=await Promise.all([api.getMetadata(uri),api.getContents(uri,{limit:50})]);
+      if(meta?.owner?.uri!=='spotify:user:spotify')return null;
+      const count=new Map();for(const item of list?.items||[])for(const a of item?.artists||[])if(/^spotify:artist:/.test(a?.uri||''))count.set(a.uri,(count.get(a.uri)||0)+1);
+      const top=[...count].sort((a,b)=>b[1]-a[1])[0]?.[0];return top?{artist:top.split(':')[2]}:null;
+    }catch{return null;}})();
+    thisIsSources.set(url,job);
+    job.then(source=>{thisIsSources.set(url,source);if(source&&img.isConnected&&img.getAttribute('src')===url)markMix(img);});
   }
   // Covers worked out before (photo and colour by image URL), so a mix seen before draws at once. The newest 200 are kept.
   const mixCovers=new Map(),mixJobs=new Map(),mixTried=new Set();
@@ -4611,7 +4641,8 @@
     // A card's image sits absolute in its square box (main-card-imageContainer, or the card's own image area); a page
     // header's directly in its parent, as do the search suggestions' thumbnails (#218) and the theme's own cards.
     const box=img.closest('[data-encore-id="card"]')?img.parentElement?.parentElement:img.parentElement,url=img.getAttribute('src')||'';if(!box||!img.closest(mixPlaces))return;
-    if(!mixUrl.test(url)||settings.mixCovers==='spotify'){if(box.classList.contains('am-mix'))box.classList.remove('am-mix','am-mix-ready','am-mix-plain','am-mix-trio');delete box.dataset.amMixSrc;return;}
+    const uploaded=settings.mixCovers!=='spotify'&&!mixUrl.test(url)?thisIsSource(img,url):null;if(uploaded===undefined)return;
+    if(!mixUrl.test(url)&&!uploaded||settings.mixCovers==='spotify'){if(box.classList.contains('am-mix'))box.classList.remove('am-mix','am-mix-ready','am-mix-plain','am-mix-trio');delete box.dataset.amMixSrc;return;}
     box.dataset.amMixStyle=mixStyle(url);
     const name=mixName(img);if(box.dataset.amMix!==name)box.dataset.amMix=name;
     if(box.dataset.amMixSrc===url&&box.classList.contains('am-mix-ready'))return;
@@ -4848,7 +4879,7 @@
         const tracks=album.tracksV2?.items||[],count=album.tracksV2?.totalCount??tracks.length;
         // The length only when every track came back (albums of more than 300 show their count alone).
         const ms=tracks.length===count?tracks.reduce((sum,item)=>sum+(item?.track?.duration?.totalMilliseconds||0),0):0;
-        info={artists:(album.artists?.items||[]).map(a=>/[A-Za-z0-9]+$/.exec(a.uri||'')?.[0]).filter(Boolean),cover:smallImage(album.coverArt),edgeCover:spotifyImage(bySize(album.coverArt).find(source=>(source.width||source.maxWidth||0)>=300)?.url||''),list:count?listInfo(count,ms):''};
+        info={explicit:tracks.some(item=>item?.track?.contentRating?.label==='EXPLICIT'),artists:(album.artists?.items||[]).map(a=>/[A-Za-z0-9]+$/.exec(a.uri||'')?.[0]).filter(Boolean),cover:smallImage(album.coverArt),edgeCover:spotifyImage(bySize(album.coverArt).find(source=>(source.width||source.maxWidth||0)>=300)?.url||''),list:count?listInfo(count,ms):''};
       }
     }catch{}
     if(info){if(albumInfo.size>50)albumInfo.delete(albumInfo.keys().next().value);albumInfo.set(id,info);}
@@ -4916,6 +4947,8 @@
     // Hidden, or moved into the title, a guest's line goes too (#187): any row with one of the album's artists on it.
     const rows=[own];if(settings.albumFeatures!=='show')rows.push(`body.am-album-clean .am-native-main [data-testid="album-page"] .main-trackList-trackListRow:has(${sub} :is(${info.artists.map(a=>`a[href$="/artist/${a}"]`).join(',')}))`);
     albumStyle.textContent=settings.albumClean&&info.artists.length?rows.map(row=>`${row} ${sub}{display:none!important}${row} .main-trackList-rowMarker > span{top:50%!important;translate:0 -50%}`).join(''):'';
+    // Apple marks an album with an explicit song after its title (#238): the header's title ends in the explicit mark.
+    if(info.explicit)albumStyle.textContent+=`.am-native-main [data-testid="album-page"] [data-testid="entity-header"] h1::after{content:"E" / ${JSON.stringify(T('Müstehcen','Explicit'))};display:inline-grid;place-items:center;width:16px;height:16px;margin-inline-start:8px;vertical-align:4px;border-radius:4px;background:rgb(var(--am-ink)/.45);color:var(--am-bg);font:700 11px/1 var(--encore-body-font-stack);letter-spacing:0}`;
     if(settings.albumClean&&settings.albumFeatures==='apple'&&info.artists.length){albumFeat=info.artists;document.querySelectorAll('.am-native-main [data-testid="album-page"] [role="row"]').forEach(featRow);}
     if(!tint)return;
     if(info.color===undefined)info.color=await artworkColor(info.cover);
