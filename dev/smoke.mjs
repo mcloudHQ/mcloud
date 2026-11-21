@@ -2205,6 +2205,32 @@ try {
     }), [true, '48px', '624px', '864px', 480, 'calc(100% - 1104px)', false, '56px', false, false, '56px', '56px', '728px']);
   });
 
+  // Local Files (#239): Spotify's list of the computer's files (spotify:local-files, its page at /collection/local-files),
+  // pinned here, is a sidebar row and an All Playlists card, and a local track's title, whose album is a spotify:local:
+  // URI without a page (the client gives "spotify:local::" for an untagged file), leads to it.
+  await check('Local Files is listed with the playlists, and a local track\'s links lead to it (#239)', async () => {
+    await page.evaluate(() => { window.__mockLibrary.unshift({ uri: 'spotify:local-files', type: 'local-files', name: 'Yerel Dosyalar', pinned: true, images: [] }); window.__libraryUpdate(); });
+    await page.waitForSelector('#am-sidebar .am-list-row[data-uri="spotify:local-files"]');
+    assert.ok(await page.evaluate(() => !!document.querySelector('#am-sidebar .am-list-row[data-uri="spotify:local-files"] .am-list-art svg')), 'the row draws an icon');
+    // "By you" (Spotify's filter 102) leaves it out; the files are the user's own, so it is still listed.
+    await settingsWindow.pick('sideLists', 'Senin Listelerin');
+    await page.waitForFunction(() => document.querySelector('#am-sidebar .am-list-row[data-uri="spotify:local-files"]') && window.__libraryFilters.at(-1) === '2');
+    await settingsWindow.pick('sideLists', 'Tümü');
+    await page.waitForSelector('#am-sidebar .am-list-row[data-uri="spotify:local-files"]');
+    await page.evaluate(() => document.querySelector('#am-sidebar .am-list-row[data-uri="spotify:local-files"]').click());
+    assert.equal(await page.evaluate(() => Spicetify.Platform.History.location.pathname), '/collection/local-files');
+    await page.evaluate(() => Spicetify.Platform.History.push({ pathname: '/', search: '?am-library=playlists' }));
+    await page.waitForSelector('#am-library .am-library-card[data-uri="spotify:local-files"]');
+    assert.equal(await page.evaluate(() => document.querySelector('#am-library .am-library-card[data-uri="spotify:local-files"] .am-library-sub')?.textContent), 'Bilgisayarındaki dosyalar');
+    assert.equal(await page.evaluate(() => {
+      const data = Spicetify.Player.data, item = data.item;
+      data.item = { uri: 'spotify:local:::Test+Song:3', name: 'Test Song', artists: [{ name: '', uri: 'spotify:local:' }], album: { uri: 'spotify:local::', name: '' }, metadata: {} };
+      document.querySelector('.am-np-title').click(); data.item = item; return Spicetify.Platform.History.location.pathname;
+    }), '/collection/local-files');
+    await page.evaluate(() => { window.__mockLibrary.splice(window.__mockLibrary.findIndex(i => i.type === 'local-files'), 1); window.__libraryUpdate(); Spicetify.Platform.History.push('/'); });
+    await page.waitForFunction(() => !document.querySelector('#am-sidebar .am-list-row[data-uri="spotify:local-files"]'));
+  });
+
   await check('album page: artwork, title column and play controls laid out like Apple Music', async () => {
     await page.evaluate(() => Spicetify.Platform.History.push('/album/0'));
     // The shape of Spotify's album page: header, then the action bar inside an OverlayScrollbars host. Spotify's
