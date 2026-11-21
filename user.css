@@ -1819,9 +1819,6 @@ body.am-solid #am-settings .am-settings-box,body.am-balanced.am-spicy-route:not(
 .am-settings-box {--am-settings-w:820px;grid-template-rows:none;grid-template-columns:212px minmax(0,1fr);height:min(800px,calc(100vh - var(--am-settings-top) - 82px))}
 .am-settings-titlebar {display:grid;grid-template-columns:28px minmax(0,1fr) 28px;align-items:center;padding:10px 12px 0;background:var(--am-settings-band);box-shadow:0 1px var(--am-settings-hairline);position:relative;z-index:1;user-select:none;cursor:default}
 .am-settings-title {grid-column:2;grid-row:1;margin:0;text-align:center;font-size:13px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.am-settings-close {grid-column:1;grid-row:1;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:var(--am-settings-control);color:var(--am-text);cursor:pointer;transition:background-color .15s}
-.am-settings-close:hover {background:var(--am-settings-control-on)}
-.am-settings-close svg {width:12px;height:12px;stroke-width:2.2}
 .am-settings-body {overflow:auto;overscroll-behavior:contain;padding:16px 22px 20px}
 .am-settings-body::-webkit-scrollbar {width:5px}
 .am-settings-body::-webkit-scrollbar-thumb {background:rgb(var(--am-ink,255 255 255)/.15);border-radius:3px}
@@ -2303,25 +2300,30 @@ body.am-windows.am-traffic-right.am-np-open.am-np-docked.am-ready #global-nav-ba
    and our sheets and settings (75, 76), as macOS draws a sheet over its window's buttons. */
 #am-traffic {position:fixed;top:25px;left:19px;z-index:62;display:flex;gap:9px;padding:0;-webkit-app-region:no-drag;transition:opacity .2s}
 #am-traffic[data-side="right"] {left:auto;right:19px}
-#am-traffic button {--am-tl-base:#f04f3f;--am-tl-glow:#fe928c;--am-tl-rim:#fea09b;--am-tl-ring:#0000;--am-tl-glyph:#8c0000;
+:is(#am-traffic,.am-settings-lights) button {--am-tl-base:#f04f3f;--am-tl-glow:#fe928c;--am-tl-rim:#fea09b;--am-tl-ring:#0000;--am-tl-glyph:#8c0000;
   position:relative;width:14px;height:14px;margin:0;padding:0;border:0;border-radius:50%;cursor:default;-webkit-app-region:no-drag;
   background:radial-gradient(62% 48% at 50% 84%,var(--am-tl-glow),color-mix(in srgb,var(--am-tl-glow) 40%,var(--am-tl-base)) 55%,#0000),var(--am-tl-base);box-shadow:inset 0 0 0 .75px var(--am-tl-ring)}
-#am-traffic button::before {content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;background:linear-gradient(#0000 35%,var(--am-tl-rim));-webkit-mask:radial-gradient(closest-side,#0000 calc(100% - 1.5px),#000 calc(100% - .5px));mask:radial-gradient(closest-side,#0000 calc(100% - 1.5px),#000 calc(100% - .5px))}
-#am-traffic button:focus-visible {outline:2px solid var(--am-accent-focus);outline-offset:2px}
-#am-traffic .am-traffic-minimize {--am-tl-base:#f4aa00;--am-tl-glow:#ffdc6a;--am-tl-rim:#ffe57d;--am-tl-glyph:#a63a00}
-#am-traffic .am-traffic-zoom {--am-tl-base:#00b600;--am-tl-glow:#84df6c;--am-tl-rim:#a2e38e;--am-tl-glyph:#2e7300}
-#am-traffic svg {position:absolute;inset:0;width:14px;height:14px;opacity:0;fill:var(--am-tl-glyph);stroke:var(--am-tl-glyph);stroke-width:.5;stroke-linecap:round;stroke-linejoin:round}
-#am-traffic :is(.am-traffic-close,.am-traffic-minimize) svg {fill:none}
-#am-traffic:hover svg {opacity:1}
+:is(#am-traffic,.am-settings-lights) button::before {content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;background:linear-gradient(#0000 35%,var(--am-tl-rim));-webkit-mask:radial-gradient(closest-side,#0000 calc(100% - 1.5px),#000 calc(100% - .5px));mask:radial-gradient(closest-side,#0000 calc(100% - 1.5px),#000 calc(100% - .5px))}
+:is(#am-traffic,.am-settings-lights) button:focus-visible {outline:2px solid var(--am-accent-focus);outline-offset:2px}
+:is(#am-traffic,.am-settings-lights) .am-traffic-minimize {--am-tl-base:#f4aa00;--am-tl-glow:#ffdc6a;--am-tl-rim:#ffe57d;--am-tl-glyph:#a63a00}
+:is(#am-traffic,.am-settings-lights) .am-traffic-zoom {--am-tl-base:#00b600;--am-tl-glow:#84df6c;--am-tl-rim:#a2e38e;--am-tl-glyph:#2e7300}
+:is(#am-traffic,.am-settings-lights) svg {position:absolute;inset:0;width:14px;height:14px;opacity:0;fill:var(--am-tl-glyph);stroke:var(--am-tl-glyph);stroke-width:.5;stroke-linecap:round;stroke-linejoin:round}
+:is(#am-traffic,.am-settings-lights) :is(.am-traffic-close,.am-traffic-minimize) svg {fill:none}
+:is(#am-traffic,.am-settings-lights):hover svg {opacity:1}
 #am-traffic .am-traffic-in,#am-traffic.am-traffic-max .am-traffic-out {display:none}
 #am-traffic.am-traffic-max .am-traffic-in {display:inline}
-#am-traffic button:active {filter:brightness(.8)}
+:is(#am-traffic,.am-settings-lights) button:not(:disabled):active {filter:brightness(.8)}
 /* In the background the discs are grey; the pointer brings the colours back, as on macOS. */
-#am-traffic.am-traffic-inactive:not(:hover) button {--am-tl-base:#464646;--am-tl-glow:#4c4c4c;--am-tl-rim:#8e8e8e}
-body.am-light #am-traffic button {--am-tl-ring:#a0141466;--am-tl-glyph:#a30000}
-body.am-light #am-traffic .am-traffic-minimize {--am-tl-ring:#9a5a0055;--am-tl-glyph:#c14500}
-body.am-light #am-traffic .am-traffic-zoom {--am-tl-ring:#0a5a0a55;--am-tl-glyph:#368800}
-body.am-light #am-traffic.am-traffic-inactive:not(:hover) button {--am-tl-base:#eff0f2;--am-tl-glow:#f6f7f8;--am-tl-rim:#fff;--am-tl-ring:#aaabb099}
+:is(#am-traffic,.am-settings-lights).am-traffic-inactive:not(:hover) button {--am-tl-base:#464646;--am-tl-glow:#4c4c4c;--am-tl-rim:#8e8e8e}
+body.am-light :is(#am-traffic,.am-settings-lights) button {--am-tl-ring:#a0141466;--am-tl-glyph:#a30000}
+body.am-light :is(#am-traffic,.am-settings-lights) .am-traffic-minimize {--am-tl-ring:#9a5a0055;--am-tl-glyph:#c14500}
+body.am-light :is(#am-traffic,.am-settings-lights) .am-traffic-zoom {--am-tl-ring:#0a5a0a55;--am-tl-glyph:#368800}
+body.am-light :is(#am-traffic,.am-settings-lights).am-traffic-inactive:not(:hover) button {--am-tl-base:#eff0f2;--am-tl-glow:#f6f7f8;--am-tl-rim:#fff;--am-tl-ring:#aaabb099}
+/* The settings window's own lights (#179), as System Settings has them at its sidebar's top: close works, minimise and
+   zoom are greyed (a sheet inside the window has neither), and only close shows its glyph under the pointer. */
+.am-settings-lights {display:flex;gap:9px;padding-left:8px}
+:is(#am-traffic,.am-settings-lights) button:disabled {background:rgb(var(--am-ink,255 255 255)/.16);box-shadow:inset 0 0 0 .5px rgb(var(--am-ink,255 255 255)/.08)}
+:is(#am-traffic,.am-settings-lights) button:disabled::before,:is(#am-traffic,.am-settings-lights) button:disabled svg {display:none}
 #am-traffic.am-traffic-fs:not(:hover) {opacity:0}
 
 /* Home as Apple Music's (issue #84, settings.homeStyle): cards without a plate or hover fill, 8px artwork, 13px text,

@@ -1814,6 +1814,20 @@ try {
     }), [20, '20 öğe', true]);
   });
 
+  // System Settings' traffic lights at the sidebar's top: close (red, its glyph under the pointer) closes the window;
+  // minimise and zoom are grey and disabled.
+  await check('settings window: macOS traffic lights, close works, minimise and zoom greyed', async () => {
+    await page.evaluate(() => window.__menuItems.find(i => ['mcloud Ayarları', 'mcloud Settings'].includes(i.name)).onClick());
+    await page.waitForSelector('#am-settings .am-settings-sidetop .am-settings-lights');
+    await page.hover('#am-settings .am-settings-lights .am-traffic-close');
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#am-settings .am-settings-lights button')].map(b => {
+      const c = getComputedStyle(b), svg = getComputedStyle(b.querySelector('svg'));
+      return [b.className.split(' ')[0], c.width, c.borderRadius, b.disabled, b.disabled ? svg.display : svg.opacity];
+    })), [['am-traffic-close', '14px', '50%', false, '1'], ['am-traffic-minimize', '14px', '50%', true, 'none'], ['am-traffic-zoom', '14px', '50%', true, 'none']]);
+    await page.click('#am-settings .am-settings-lights .am-traffic-close');
+    await page.waitForFunction(() => !document.querySelector('#am-settings .am-settings-lights'));
+  });
+
   await check('settings window: the profile menu\'s mcloud opens the settings, drawn from the definitions (#76, #179)', async () => {
     // The profile menu holds one "mcloud Settings" entry; the old submenu is only the fallback.
     assert.deepEqual(await page.evaluate(() => [window.__menuItems.map(i => i.name), window.__menus.length]), [['mcloud Ayarları'], 0]);
