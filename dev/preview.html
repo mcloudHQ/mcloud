@@ -94,7 +94,9 @@
   addEventListener('mousedown', event => { if (!event.target.closest?.('#global-nav-bar [role="search"]')) document.querySelectorAll('#search-dropdown,#search-suggestions-loading-dropdown').forEach(e => e.remove()); });
   // Focus leaving the field and its results closes them too (Spotify moves focus to a page it opens, #231), except to a
   // result's menu, as Spotify's.
-  addEventListener('focusout', event => { const form = event.target.closest?.('#global-nav-bar [role="search"]'); if (form && !form.contains(event.relatedTarget) && !document.querySelector('[data-tippy-root] [role="menu"]')) setTimeout(() => document.querySelectorAll('#search-dropdown,#search-suggestions-loading-dropdown').forEach(e => e.remove())); });
+  // The results open at the time are the ones closed, a task later (a removal inside the focusout threw): a list opened
+  // in between (the smoke test shows the loading list right after a click closes the results) stays.
+  addEventListener('focusout', event => { const form = event.target.closest?.('#global-nav-bar [role="search"]'); if (!form || form.contains(event.relatedTarget) || document.querySelector('[data-tippy-root] [role="menu"]')) return; const open = [...document.querySelectorAll('#search-dropdown,#search-suggestions-loading-dropdown')]; setTimeout(() => open.forEach(e => e.remove())); });
 </script>
 <script>swapPanel(npv)</script>
 <script src="spicetify-mock.js"></script>
