@@ -3703,6 +3703,18 @@ try {
     }), ['12px', '12px', '3px', 'rgb(255, 255, 255)', true]);
   });
 
+  // An album page's "More by …" shelf (Spotify 1.3.10's markup): the title opens the discography with Apple's chevron at
+  // the shelf titles' 17px, and "See discography" goes (#238).
+  await check('an album page\'s "More by" heading ends in the chevron, without "See discography" (#238)', async () => {
+    assert.deepEqual(await page.evaluate(() => {
+      const s = document.createElement('section'); s.dataset.testid = 'album-page'; s.id = 'mock-moreby';
+      s.innerHTML = '<section data-shelf="shelf" aria-label="More by Sena"><div><div data-encore-id="listRow" role="group"><div><div><h2 data-encore-id="listRowTitle"><span><a href="/artist/2/discography">More by Sena</a></span></h2></div><div><a href="/artist/2/discography"><span>See discography</span></a></div></div></div></div></section>';
+      document.querySelector('.am-native-main main').append(s);
+      const [title, see] = s.querySelectorAll('a'), out = [getComputedStyle(title, '::after').content, getComputedStyle(s.querySelector('h2')).fontSize, getComputedStyle(see).display];
+      s.remove(); return out;
+    }), ['""', '17px', 'none']);
+  });
+
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
     // Spotify's page for a mix: no artwork container, an empty slot before the text, the photo in .before-scroll-node,
     // and "About recommendations" as a button under the creator line. The cover comes from the playlist's metadata.

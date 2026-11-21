@@ -2461,6 +2461,13 @@ body.am-home-apple .am-native-main [data-testid="component-shelf"] [data-encore-
 :root {--am-shelf-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 4 8 8-8 8'/%3E%3C/svg%3E")}
 body.am-home-apple .am-native-main [data-testid="component-shelf"] [data-encore-id="listRowTitle"] a[href]::after {content:"";display:inline-block;width:14px;height:14px;margin-inline-start:3px;vertical-align:-2px;background:rgb(var(--am-ink,255 255 255)/.627);-webkit-mask:var(--am-shelf-chevron) center/contain no-repeat;mask:var(--am-shelf-chevron) center/contain no-repeat}
 body.am-home-apple .am-native-main [data-testid="component-shelf"] [data-encore-id="listRow"] a[href]:not([data-encore-id="listRowTitle"] a) {display:none!important}
+/* An album page's "More by …" opens the artist's discography from its title, with the chevron, at the size of the
+   theme's other shelf titles, as Apple's "More By …" heading does; Spotify's "See discography" on the right, the same
+   link, goes (#238). */
+.am-native-main [data-testid="album-page"] section[data-shelf] [data-encore-id="listRowTitle"] a[href]::after {content:"";display:inline-block;width:14px;height:14px;margin-inline-start:3px;vertical-align:-1px;background:rgb(var(--am-ink,255 255 255)/.627);-webkit-mask:var(--am-shelf-chevron) center/contain no-repeat;mask:var(--am-shelf-chevron) center/contain no-repeat}
+.am-native-main [data-testid="album-page"] section[data-shelf] [data-encore-id="listRowTitle"] {font-size:17px!important;font-weight:700!important;letter-spacing:-.01em}
+.am-native-main [data-testid="album-page"] section[data-shelf] [data-encore-id="listRowTitle"] a {text-decoration:none!important}
+.am-native-main [data-testid="album-page"] section[data-shelf] [data-encore-id="listRow"] a[href]:not([data-encore-id="listRowTitle"] a) {display:none!important}
 body.am-home-no-shortcuts .am-native-main .view-homeShortcutsGrid-shortcuts {display:none!important}
 /* The shortcuts at the top as a list of Apple's (its "Best New Songs", #125), drawn as the song rows of the artist page
    and search: 56px rows, 48px artwork with 5px corners, the rule under a row starting at its text (none under a
