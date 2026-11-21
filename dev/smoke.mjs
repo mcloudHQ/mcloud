@@ -3690,6 +3690,19 @@ try {
     }), [true, 'band', 'This Is Sena Şener', true, false]);
   });
 
+  // The search suggestions' explicit mark is Apple's, as Spotify's lists' (#238): white with the accent's letter on a
+  // highlighted row.
+  await check('the search suggestions\' explicit mark is Apple\'s small square (#238)', async () => {
+    assert.deepEqual(await page.evaluate(() => {
+      const d = document.createElement('div'); d.id = 'search-dropdown';
+      d.innerHTML = '<div role="row" aria-selected="false"><p data-encore-id="listRowSubtitle"><span><span role="img" aria-label="Explicit" data-encore-id="tagIcon">E</span></span>Song</p></div><div role="row" aria-selected="true"><p data-encore-id="listRowSubtitle"><span><span role="img" aria-label="Explicit" data-encore-id="tagIcon">E</span></span>Song</p></div>';
+      document.body.append(d);
+      const [plain, picked] = [...d.querySelectorAll('[data-encore-id="tagIcon"]')].map(e => getComputedStyle(e)), probe = document.body.appendChild(Object.assign(document.createElement('i'), { style: 'color:var(--am-accent)' }));
+      const out = [plain.width, plain.height, plain.borderRadius, picked.backgroundColor, picked.color === getComputedStyle(probe).color];
+      probe.remove(); d.remove(); return out;
+    }), ['12px', '12px', '3px', 'rgb(255, 255, 255)', true]);
+  });
+
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
     // Spotify's page for a mix: no artwork container, an empty slot before the text, the photo in .before-scroll-node,
     // and "About recommendations" as a button under the creator line. The cover comes from the playlist's metadata.
