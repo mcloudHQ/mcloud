@@ -3715,6 +3715,24 @@ try {
     }), ['""', '17px', 'none']);
   });
 
+  // An album with an explicit song ends its header title in Apple's explicit mark; one without has none (#238).
+  await check('an album with an explicit song has the explicit mark after its title (#238)', async () => {
+    const mark = id => page.evaluate(async id => {
+      window.__mockAlbums[id] = { __typename: 'Album', name: 'Mock ' + id, uri: 'spotify:album:' + id, artists: { items: [] }, coverArt: { sources: [] },
+        tracksV2: { totalCount: 2, items: [{ track: { duration: { totalMilliseconds: 1000 }, contentRating: { label: id === 'explicit' ? 'EXPLICIT' : 'NONE' } } }, { track: { duration: { totalMilliseconds: 1000 }, contentRating: { label: 'NONE' } } }] } };
+      const s = document.createElement('section'); s.dataset.testid = 'album-page'; s.id = 'mock-explicit';
+      s.innerHTML = '<div data-testid="entity-header"><h1>Mock ' + id + '</h1></div>'; document.querySelector('.am-native-main main').append(s);
+      Spicetify.Platform.History.push('/album/' + id);
+      for (let i = 0; i < 50 && !(window.__albumRequests || []).some(v => v.uri === 'spotify:album:' + id); i++) await new Promise(r => setTimeout(r, 20));
+      await new Promise(r => setTimeout(r, 100));
+      const after = getComputedStyle(s.querySelector('h1'), '::after'), out = [after.content, after.content === 'none' ? '' : after.width];
+      s.remove(); return out;
+    }, id);
+    assert.deepEqual(await mark('explicit'), ['"E" / "Müstehcen"', '16px']);
+    assert.deepEqual(await mark('clean'), ['none', '']);
+    await page.evaluate(() => Spicetify.Platform.History.push('/'));
+  });
+
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
     // Spotify's page for a mix: no artwork container, an empty slot before the text, the photo in .before-scroll-node,
     // and "About recommendations" as a button under the creator line. The cover comes from the playlist's metadata.

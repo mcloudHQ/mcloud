@@ -4879,7 +4879,7 @@
         const tracks=album.tracksV2?.items||[],count=album.tracksV2?.totalCount??tracks.length;
         // The length only when every track came back (albums of more than 300 show their count alone).
         const ms=tracks.length===count?tracks.reduce((sum,item)=>sum+(item?.track?.duration?.totalMilliseconds||0),0):0;
-        info={artists:(album.artists?.items||[]).map(a=>/[A-Za-z0-9]+$/.exec(a.uri||'')?.[0]).filter(Boolean),cover:smallImage(album.coverArt),edgeCover:spotifyImage(bySize(album.coverArt).find(source=>(source.width||source.maxWidth||0)>=300)?.url||''),list:count?listInfo(count,ms):''};
+        info={explicit:tracks.some(item=>item?.track?.contentRating?.label==='EXPLICIT'),artists:(album.artists?.items||[]).map(a=>/[A-Za-z0-9]+$/.exec(a.uri||'')?.[0]).filter(Boolean),cover:smallImage(album.coverArt),edgeCover:spotifyImage(bySize(album.coverArt).find(source=>(source.width||source.maxWidth||0)>=300)?.url||''),list:count?listInfo(count,ms):''};
       }
     }catch{}
     if(info){if(albumInfo.size>50)albumInfo.delete(albumInfo.keys().next().value);albumInfo.set(id,info);}
@@ -4947,6 +4947,8 @@
     // Hidden, or moved into the title, a guest's line goes too (#187): any row with one of the album's artists on it.
     const rows=[own];if(settings.albumFeatures!=='show')rows.push(`body.am-album-clean .am-native-main [data-testid="album-page"] .main-trackList-trackListRow:has(${sub} :is(${info.artists.map(a=>`a[href$="/artist/${a}"]`).join(',')}))`);
     albumStyle.textContent=settings.albumClean&&info.artists.length?rows.map(row=>`${row} ${sub}{display:none!important}${row} .main-trackList-rowMarker > span{top:50%!important;translate:0 -50%}`).join(''):'';
+    // Apple marks an album with an explicit song after its title (#238): the header's title ends in the explicit mark.
+    if(info.explicit)albumStyle.textContent+=`.am-native-main [data-testid="album-page"] [data-testid="entity-header"] h1::after{content:"E" / ${JSON.stringify(T('Müstehcen','Explicit'))};display:inline-grid;place-items:center;width:16px;height:16px;margin-inline-start:8px;vertical-align:4px;border-radius:4px;background:rgb(var(--am-ink)/.45);color:var(--am-bg);font:700 11px/1 var(--encore-body-font-stack);letter-spacing:0}`;
     if(settings.albumClean&&settings.albumFeatures==='apple'&&info.artists.length){albumFeat=info.artists;document.querySelectorAll('.am-native-main [data-testid="album-page"] [role="row"]').forEach(featRow);}
     if(!tint)return;
     if(info.color===undefined)info.color=await artworkColor(info.cover);
