@@ -2236,6 +2236,30 @@ try {
     await page.waitForFunction(() => !document.querySelector('#am-sidebar .am-list-row[data-uri="spotify:local-files"]'));
   });
 
+  // An artist's discography in list view (#230, Spotify 1.3.10's markup): each release, a header over its track list,
+  // is marked and takes the album page's look: the cover at 152px, the title over the year alone, the play pill and the
+  // star, and "Artist only on guest tracks" with the page's artist as the album's.
+  await check('a discography release takes the album page\'s header and track list (#230)', async () => {
+    const release = (n, guest) => `<div role="presentation"><div><div><div><img alt="" src="${'data:image/svg+xml,' + encodeURIComponent('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'64\' height=\'64\'/>')}"></div><div><span data-encore-id="text"><a href="/album/r${n}">Release ${n}</a></span><div></div><div><span data-encore-id="text">Album</span><span data-encore-id="text">•</span><span data-encore-id="text" data-testid="release-date">2024</span><span data-encore-id="text">•</span><span data-encore-id="text">1 song</span></div><div><div role="div"><button aria-label="Play" data-encore-id="buttonPrimary"><span><span aria-hidden="true"><svg viewBox="0 0 16 16"></svg></span></span></button></div><button aria-checked="false" aria-label="Save to Your Library" data-encore-id="buttonTertiary"><span><svg viewBox="0 0 24 24"></svg></span></button><div><div><button aria-checked="false" aria-label="Download" data-encore-id="buttonTertiary"><span><svg viewBox="0 0 24 24"></svg></span></button></div></div><button aria-haspopup="menu" aria-label="More options for Release ${n}" data-encore-id="buttonTertiary"><span><svg viewBox="0 0 24 24"></svg></span></button></div></div></div>`
+      + `<div><div><div role="grid" aria-rowcount="2" style="--row-height: 56px"><div><div role="row" aria-rowindex="1"><div role="columnheader">Title</div></div></div><div><div role="presentation"><div role="row" aria-rowindex="2"><div role="gridcell" aria-colindex="1">1</div><div role="gridcell" aria-colindex="2"><div><div>Song ${n}</div><span><a href="/artist/disco">Sena</a>${guest ? ', <a href="/artist/guest">Konuk</a>' : ''}</span></div></div></div></div></div></div></div></div></div></div>`;
+    await page.evaluate(html => {
+      Spicetify.Platform.History.push('/artist/disco/discography/all');
+      const s = document.createElement('section'); s.dataset.testid = 'artist-page'; s.id = 'mock-discography';
+      s.innerHTML = '<div style="position:sticky;top:64px;background:#1f1f1f"><div>Sena</div><button>All</button><button>Release date</button></div><div role="presentation">' + html + '</div>'; document.querySelector('.am-native-main main').append(s);
+    }, release(1, false) + release(2, true));
+    await page.waitForFunction(() => document.querySelectorAll('#mock-discography [data-am-release]').length === 2);
+    assert.deepEqual(await page.evaluate(() => {
+      const [one, two] = document.querySelectorAll('#mock-discography [data-am-release]'), head = one.querySelector('[data-am-release-head]'), line = r => getComputedStyle(r.querySelector('[aria-rowindex="2"] span')).display;
+      const shown = [...head.querySelectorAll('div:has(> [data-testid="release-date"]) > span')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.textContent);
+      return [Math.round(head.querySelector('img').getBoundingClientRect().width), shown.join(), getComputedStyle(head.querySelector('button[data-encore-id="buttonPrimary"] > span'), '::after').content, getComputedStyle(head.querySelector('button[aria-checked]')).borderRadius, line(one), line(two) !== 'none'];
+    }), [152, '2024', '"Çal"', '50%', 'none', true]);
+    // Its own sticky header is its one bar, the theme's glass, at the top; each release's column headings scroll with it.
+    assert.deepEqual(await page.evaluate(() => { const bar = document.querySelector('#mock-discography > div:first-child'), s = getComputedStyle(bar), glass = getComputedStyle(bar, '::before');
+      return [document.body.classList.contains('am-discography'), s.top, s.backgroundColor, /blur\(30px\)/.test(glass.backdropFilter), getComputedStyle(document.querySelector('#mock-discography [data-am-release] .main-trackList-trackListHeader') || bar).position]; }),
+      [true, '0px', 'rgba(0, 0, 0, 0)', true, 'static']);
+    await page.evaluate(() => { document.getElementById('mock-discography').remove(); Spicetify.Platform.History.push('/'); });
+  });
+
   await check('album page: artwork, title column and play controls laid out like Apple Music', async () => {
     await page.evaluate(() => Spicetify.Platform.History.push('/album/0'));
     // The shape of Spotify's album page: header, then the action bar inside an OverlayScrollbars host. Spotify's
