@@ -838,7 +838,9 @@
   // Search and Browse both open Spotify's /search page; the row that opened it stays selected there.
   let browsing = false;
   // The route change closes the library (H.listen), once the page under it has been replaced.
-  function go(path) { H.push(path); updateNav(); }
+  // A local file's album and artist are spotify:local:… URIs, which have no page (a blank one opened, #239): they lead
+  // to Local Files, as Spotify's own links do. Its library item is spotify:local-files, whose page is at this path too.
+  function go(path) { if (/^\/local(?:\/|-files$)/.test(path)) path = '/collection/local-files'; H.push(path); updateNav(); }
   // Library views live at /?am-library=..., which Spotify's own toolbar Home takes for home already, so it did nothing
   // there (issue #59): that click goes home.
   document.addEventListener('click',event=>{
@@ -985,10 +987,16 @@
       const result = await S.Platform.LibraryAPI.getContents({ filters: ['2', ...(sideListFilter[settings.sideLists] ? [sideListFilter[settings.sideLists]] : [])], sortOrder: '6', offset, limit });
       total = result?.totalLength ?? 0;
       for (const item of result?.items || []) {
-        if (!item?.uri || item.canView === false || !['playlist','folder'].includes(item.type)) continue;
+        // Local Files (Spotify's own list of them, pinned or not) is listed with the playlists, as in Spotify's (#239).
+        if (!item?.uri || item.canView === false || !['playlist','folder','local-files'].includes(item.type)) continue;
         items.push({ uri: item.uri, type: item.type, name: item.name || '', pinned: !!item.pinned, image: item.type === 'playlist' ? listImage(item) : '' });
       }
       if (!result?.items?.length) { total = 0; break; }
+    }
+    // "By you" (Spotify's filter 102) leaves Local Files out, though the files are the user's own: it is asked for apart.
+    if (settings.sideLists === 'own' && !items.some(i => i.type === 'local-files')) {
+      const local = (await S.Platform.LibraryAPI.getContents({ filters: ['2'], sortOrder: '6', offset: 0, limit: 50 }).catch(() => null))?.items?.find(i => i?.type === 'local-files' && i.canView !== false);
+      if (local) items.unshift({ uri: local.uri, type: local.type, name: local.name || '', pinned: !!local.pinned, image: '' });
     }
     return { complete: offset >= total, items: [...items.filter(i => i.pinned), ...items.filter(i => !i.pinned)] };
   }
@@ -997,7 +1005,7 @@
     const sig = JSON.stringify(item), kept = listRows.get(item.uri);
     if (kept?.sig === sig) return kept;
     const b = el('button', 'am-nav-row am-list-row'); b.type = 'button'; b.title = item.name; b.dataset.uri = item.uri; b.draggable = true;
-    const art = el('span', 'am-list-art'), icon = item.type === 'folder' ? 'folder' : 'playlist';
+    const art = el('span', 'am-list-art'), icon = item.type === 'folder' ? 'folder' : item.type === 'local-files' ? 'music' : 'playlist';
     if (item.image) {
       const img = el('img', ''); img.alt = ''; img.decoding = 'async'; img.dataset.src = item.image;
       img.onerror = () => { if (img.hasAttribute('src')) { listArt?.unobserve(img); img.remove(); art.innerHTML = svg(icon); } };
@@ -1389,13 +1397,14 @@
       for(const item of result.items||[]) {
         if(!item?.uri||item.canView===false) continue;
         if(kind==='artists'&&item.type!=='artist'||kind==='albums'&&item.type!=='album')continue;
-        if(kind==='playlists'&&!['playlist','folder','liked-songs','your-episodes'].includes(item.type)&&item.uri!=='spotify:collection:tracks')continue;
+        if(kind==='playlists'&&!['playlist','folder','liked-songs','your-episodes','local-files'].includes(item.type)&&item.uri!=='spotify:collection:tracks')continue;
         const added=libraryTime(item.addedAt);
-        items.push({uri:item.uri,type:item.type,name:item.name,imageUrl:libraryImage(item),added,played:Math.max(added,libraryTime(item.lastPlayedAt)),
-          own:!!item.isOwnedBySelf||['liked-songs','your-episodes'].includes(item.type),spotify:item.owner?.uri==='spotify:user:spotify',mixed:!!item.isMixed,
+        // Local Files' cover (spotify:local-files:cover:v1) loads nowhere but Spotify's own view: the card draws its icon.
+        items.push({uri:item.uri,type:item.type,name:item.name,imageUrl:item.type==='local-files'?'':libraryImage(item),added,played:Math.max(added,libraryTime(item.lastPlayedAt)),
+          own:!!item.isOwnedBySelf||['liked-songs','your-episodes','local-files'].includes(item.type),spotify:item.owner?.uri==='spotify:user:spotify',mixed:!!item.isMixed,
           artistUri:item.type==='album'?item.artists?.find(a=>a?.uri)?.uri||'':'',
           // Spotify's library items carry album artists in artists[], playlist owners in owner.
-          subtitle:item.owner?.displayName||item.owner?.name||item.artists?.map(a=>a.name).filter(Boolean).join(', ')||({artist:T('Sanatçı','Artist'),album:T('Albüm','Album'),playlist:T('Çalma listesi','Playlist'),folder:T('Klasör','Folder')}[item.type]||'')});
+          subtitle:item.owner?.displayName||item.owner?.name||item.artists?.map(a=>a.name).filter(Boolean).join(', ')||({artist:T('Sanatçı','Artist'),album:T('Albüm','Album'),playlist:T('Çalma listesi','Playlist'),folder:T('Klasör','Folder'),'local-files':T('Bilgisayarındaki dosyalar','Files from your computer')}[item.type]||'')});
       }
       if(!result.items?.length||offset+result.items.length>=result.totalLength||result.items.length<200) break;
     }
