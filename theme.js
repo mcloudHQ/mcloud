@@ -3675,7 +3675,7 @@
     const url=photoCovers.get(id);if(!url||slot.dataset.amMixSrc===url)return;
     slot.dataset.amMixSrc=url;
     if(!mixUrl.test(url)||settings.mixCovers==='spotify'){slot.classList.remove('am-mix','am-mix-ready','am-mix-plain','am-mix-trio');slot.style.setProperty('--am-photo-art',`url("${spotifyImage(url)}")`);return;}
-    slot.dataset.amMixStyle=mixStyle(url);slot.dataset.amMix=header.querySelector('h1')?.textContent.trim()||'';
+    slot.dataset.amMixStyle=mixStyle(url);slot.dataset.amMix=coverName(header.querySelector('h1')?.textContent.trim()||'');
     slot.classList.add('am-mix');slot.style.setProperty('--am-mix-radius','10px');
     const known=mixCovers.get(url);if(known){drawMix(slot,known);if(!mixStale(url,known))return;}
     else slot.classList.remove('am-mix-ready');
@@ -4625,6 +4625,18 @@
   const mixStale=(url,cover)=>!cover.related&&!mixTried.has(url)&&mixStyle(url)==='station'&&/\/img\/radio\/(?:artist|track)\//.test(url);
   // The name drawn into the band: a card's title, a playlist page's h1, else the nearest link with text around the image
   // (Home's big "Made for you" cards and the shortcuts at the top have neither; their band was drawn empty, #194).
+  // "This Is …" as Apple names the same playlists, "… Essentials" (#228), on the cover only: the name drawn into its
+  // band, which a long artist's name crowded in two lines. The playlist's own title stays Spotify's.
+  function coverName(name){return settings.thisIsName==='essentials'?name.replace(/^This Is (\S.*)$/,'$1 Essentials'):name;}
+  defineSetting({key:'thisIsName',group:'home',rank:1.1,label:T('This Is kapakları','This Is covers'),type:'choice',default:'thisis',context:['home'],
+    options:[['thisis','This Is …'],['essentials','… Essentials']],note:T('Kapağa yazılan ad; listenin adı aynı kalır.','The name on the cover; the playlist keeps its title.'),dim:()=>settings.mixCovers==='spotify',
+    apply:()=>{for(const img of document.querySelectorAll(mixImages))markMix(img);for(const box of document.querySelectorAll('.am-photo-art'))delete box.dataset.amMixSrc;syncPhotoArt();}});
+  // Apple's editorial covers let their name glide up and back in the band (#228). Here only where one cover is in view
+  // and looked at: a playlist page's own cover, and a card under the pointer (user.css, body.am-mix-motion); never with
+  // Reduce motion.
+  defineSetting({key:'mixMotion',group:'home',rank:1.2,label:T('Kapak adı hareketli','Moving cover name'),type:'toggle',default:true,context:['home'],dim:()=>settings.mixCovers==='spotify',
+    note:T('Liste sayfasında ve üzerine gelinen kartta.','On a playlist page and the card under the pointer.'),apply:v=>document.body.classList.toggle('am-mix-motion',v)});
+  document.body.classList.toggle('am-mix-motion',settings.mixMotion!==false);
   function mixName(img) {
     const own=img.closest('.am-card,.am-top-open'),row=!own&&img.closest('#search-dropdown [role="row"]');
     if(own||row)return (own?own.title:row.querySelector('[id$="-title"]')?.textContent)?.trim()||'';
@@ -4644,7 +4656,7 @@
     const uploaded=settings.mixCovers!=='spotify'&&!mixUrl.test(url)?thisIsSource(img,url):null;if(uploaded===undefined)return;
     if(!mixUrl.test(url)&&!uploaded||settings.mixCovers==='spotify'){if(box.classList.contains('am-mix'))box.classList.remove('am-mix','am-mix-ready','am-mix-plain','am-mix-trio');delete box.dataset.amMixSrc;return;}
     box.dataset.amMixStyle=mixStyle(url);
-    const name=mixName(img);if(box.dataset.amMix!==name)box.dataset.amMix=name;
+    const name=coverName(mixName(img));if(box.dataset.amMix!==name)box.dataset.amMix=name;
     if(box.dataset.amMixSrc===url&&box.classList.contains('am-mix-ready'))return;
     box.dataset.amMixSrc=url;box.classList.add('am-mix');
     // The corners are the image's, else its box's (the suggestions' and the theme's own artwork round the box).

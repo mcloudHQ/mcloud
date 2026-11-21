@@ -2523,6 +2523,13 @@ body.am-mix-titles [data-encore-id="card"]:has(img:is([src^="https://pickasso.sp
    containing block in Spotify's cards, so its overflow does not clip them: ::before rounds itself (#84). */
 .am-mix-ready[data-am-mix-style="band"]:not(.am-mix-plain)::before {background:linear-gradient(var(--am-mix-band),var(--am-mix-band)) top/100% 31.5cqw no-repeat,var(--am-mix-photo) 50% 18cqw/100% auto no-repeat,var(--am-mix-band)}
 .am-mix-ready[data-am-mix-style="band"]::after {content:attr(data-am-mix);left:0;right:0;bottom:calc(100% - 31.5cqw);padding:0 4.6cqw 1.7cqw 4.1cqw;color:#000000e0;font-size:12.9cqw;font-weight:550;line-height:1.08;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* The name glides up into the band and back, as on Apple's editorial covers (#228): the box stays on the band's lower
+   edge and its padding grows, so the name rises inside the band (max-height keeps it there; overflow clips it). Only
+   on a playlist page's own cover and the card under the pointer (theme.js, body.am-mix-motion). */
+@keyframes am-mix-glide {0%,20% {padding-bottom:1.7cqw} 50%,70% {padding-bottom:12cqw} 100% {padding-bottom:1.7cqw}}
+body.am-mix-motion :is(.am-native-main [data-testid="entity-header"],:is([data-encore-id="card"],.am-card,#search-dropdown [role="row"]):hover) .am-mix-ready[data-am-mix-style="band"]:not(.am-mix-plain)::after {max-height:31.5cqw;animation:am-mix-glide 9s cubic-bezier(.45,0,.25,1) infinite}
+@media(prefers-reduced-motion:reduce){.am-mix-ready[data-am-mix-style="band"]::after{animation:none!important}}
+body.am-reduce-motion .am-mix-ready[data-am-mix-style="band"]::after {animation:none!important}
 /* Gradient: Apple's personal mixes, the name large on a two-colour gradient (no photo). The leading stays Apple's 1.02;
    at it Inter's descenders (g, p, y: .21em) end ~.09em below the last line box, so .11em above and below (the name stays
    centred) keeps them inside the clip (#215). A fourth line's ascenders start .13em down, so it still stays hidden. */
