@@ -5254,6 +5254,21 @@
     });
     return nav;
   }
+  // macOS's traffic lights where System Settings has them, drawn as #am-traffic's (user.css): close, and minimise and zoom
+  // greyed. Grey in the background, as the window's own: the class follows the window's focus.
+  function settingsLights() {
+    const box=el('div','am-settings-lights');box.setAttribute('role','group');box.setAttribute('aria-label',T('Pencere','Window'));
+    for(const [kind,label,glyph] of [['close',T('Kapat','Close'),'<path d="M4.6 4.6l4.8 4.8M9.4 4.6l-4.8 4.8" stroke-width="1.6"/>'],['minimize',T('Küçült','Minimise'),''],['zoom',T('Büyüt','Zoom'),'']]){
+      const b=el('button','am-traffic-'+kind+(kind==='close'?' am-settings-close':''));b.type='button';b.setAttribute('aria-label',label);
+      b.innerHTML=`<svg viewBox="0 0 14 14" aria-hidden="true">${glyph}</svg>`;
+      if(kind==='close')b.addEventListener('click',closeSettings);else{b.disabled=true;b.tabIndex=-1;}
+      box.append(b);
+    }
+    box.classList.toggle('am-traffic-inactive',!document.hasFocus());
+    return box;
+  }
+  addEventListener('focus',()=>document.querySelector('.am-settings-lights')?.classList.remove('am-traffic-inactive'));
+  addEventListener('blur',()=>document.querySelector('.am-settings-lights')?.classList.add('am-traffic-inactive'));
   const settingsState=defs=>defs.map(d=>d.key+(dimmed(d)?'~':'')).join();
   function renderSettings() {
     const defs=shownDefs(),panes=settingPanes(defs);
@@ -5262,7 +5277,7 @@
     const focusKey=settingsBox.contains(active)&&active.closest('.am-settings-row')?.dataset.key,searching=settingsBox.contains(active)&&active.matches('.am-settings-search-field');
     settingsBox.replaceChildren();settingsShown=settingsState(defs);
     const title=el('h2','am-settings-title');title.id='am-settings-title';
-    const close=button(T('Kapat','Close'),'close',closeSettings,'am-settings-close'),body=el('div','am-settings-body');
+    const close=settingsLights(),body=el('div','am-settings-body');
     const side=el('div','am-settings-side'),main=el('div','am-settings-main'),head=settingsHandle(el('div','am-settings-titlebar'));
     side.append(settingsHandle(el('div','am-settings-sidetop')),settingsSearch(T('Ara','Search')),settingsTabs(el('div','am-settings-nav'),panes));
     side.firstChild.append(close);head.append(title);main.append(head,body);settingsBox.append(side,main);
