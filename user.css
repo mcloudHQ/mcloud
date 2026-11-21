@@ -1698,6 +1698,12 @@ body.am-search-results .am-native-main {visibility:hidden!important;opacity:0!im
 /* Apple's explicit mark: a small grey square with the page's colour for the letter. Spotify's own lists take it too,
    and the search suggestions (#238), where a highlighted row turns it white with the accent's letter. */
 :is(.am-native-main,#search-dropdown) [data-encore-id="tagIcon"] {box-sizing:border-box;width:12px!important;height:12px!important;padding:0!important;border-radius:3px!important;background:rgb(var(--am-ink)/.45)!important;color:var(--am-bg)!important;font-size:9px!important;line-height:1!important;letter-spacing:0}
+/* After an explicit album's name (#238, theme.js explicitWatch): the theme's album cards and the suggestions' albums. */
+.am-card[data-am-explicit] .am-card-name::after {content:"E" / var(--am-t-explicit,"Explicit");display:inline-grid;place-items:center;width:12px;height:12px;margin-inline-start:5px;vertical-align:1px;border-radius:3px;background:rgb(var(--am-ink)/.45);color:var(--am-bg);font:700 9px/1 var(--encore-body-font-stack);letter-spacing:0}
+#search-dropdown [role="row"][data-am-explicit] [id$="-title"] [data-encore-id="listRowTitle"] {display:flex!important;align-items:center;gap:5px}
+#search-dropdown [role="row"][data-am-explicit] [id$="-title"] [data-encore-id="listRowTitle"] > * {min-width:0}
+#search-dropdown [role="row"][data-am-explicit] [id$="-title"] [data-encore-id="listRowTitle"]::after {content:"E" / var(--am-t-explicit,"Explicit");flex:none;display:grid;place-items:center;width:12px;height:12px;border-radius:3px;background:rgb(var(--am-ink)/.45);color:var(--am-bg);font:700 9px/1 var(--encore-body-font-stack);letter-spacing:0}
+#search-dropdown [role="row"][data-am-explicit]:is(:hover,[aria-selected="true"]) [id$="-title"] [data-encore-id="listRowTitle"]::after {background:#fff;color:var(--am-accent)}
 .am-explicit {flex:none;display:inline-grid;place-items:center;width:12px;height:12px;border-radius:3px;background:rgb(var(--am-ink)/.45);color:var(--am-bg);font-size:9px;font-weight:700;line-height:1;letter-spacing:0}
 .am-song-name {display:flex;align-items:center;gap:5px}
 /* Songs: columns of three rows. */
@@ -2523,11 +2529,11 @@ body.am-mix-titles [data-encore-id="card"]:has(img:is([src^="https://pickasso.sp
    containing block in Spotify's cards, so its overflow does not clip them: ::before rounds itself (#84). */
 .am-mix-ready[data-am-mix-style="band"]:not(.am-mix-plain)::before {background:linear-gradient(var(--am-mix-band),var(--am-mix-band)) top/100% 31.5cqw no-repeat,var(--am-mix-photo) 50% 18cqw/100% auto no-repeat,var(--am-mix-band)}
 .am-mix-ready[data-am-mix-style="band"]::after {content:attr(data-am-mix);left:0;right:0;bottom:calc(100% - 31.5cqw);padding:0 4.6cqw 1.7cqw 4.1cqw;color:#000000e0;font-size:12.9cqw;font-weight:550;line-height:1.08;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-/* The name glides up into the band and back, as on Apple's editorial covers (#228): the box stays on the band's lower
-   edge and its padding grows, so the name rises inside the band (max-height keeps it there; overflow clips it). Only
-   on a playlist page's own cover and the card under the pointer (theme.js, body.am-mix-motion). */
-@keyframes am-mix-glide {0%,20% {padding-bottom:1.7cqw} 50%,70% {padding-bottom:12cqw} 100% {padding-bottom:1.7cqw}}
-body.am-mix-motion :is(.am-native-main [data-testid="entity-header"],:is([data-encore-id="card"],.am-card,#search-dropdown [role="row"]):hover) .am-mix-ready[data-am-mix-style="band"]:not(.am-mix-plain)::after {max-height:31.5cqw;animation:am-mix-glide 9s cubic-bezier(.45,0,.25,1) infinite}
+/* The name bobs gently up and down in the band, as on Apple's editorial covers (#228: ±1.3cqw, about 4px at 270px, an
+   8.8s loop, eased both ways; the name stays inside the band). A transform, so the compositor moves it. Only on a
+   playlist page's own cover and the card under the pointer (theme.js, body.am-mix-motion). */
+@keyframes am-mix-glide {0%,100% {transform:translateY(-1.3cqw)} 50% {transform:translateY(1.3cqw)}}
+body.am-mix-motion :is(.am-native-main [data-testid="entity-header"],:is([data-encore-id="card"],.am-card,#search-dropdown [role="row"]):hover) .am-mix-ready[data-am-mix-style="band"]:not(.am-mix-plain)::after {animation:am-mix-glide 8.8s ease-in-out -2.2s infinite}
 @media(prefers-reduced-motion:reduce){.am-mix-ready[data-am-mix-style="band"]::after{animation:none!important}}
 body.am-reduce-motion .am-mix-ready[data-am-mix-style="band"]::after {animation:none!important}
 /* Gradient: Apple's personal mixes, the name large on a two-colour gradient (no photo). The leading stays Apple's 1.02;

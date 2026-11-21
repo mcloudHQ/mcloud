@@ -221,6 +221,7 @@
   document.documentElement.style.setProperty('--am-t-play',JSON.stringify(T('Çal','Play')));
   document.documentElement.style.setProperty('--am-t-pause',JSON.stringify(T('Duraklat','Pause')));
   // Spotify's Edit details labels its close button Cancel (#232).
+  document.documentElement.style.setProperty('--am-t-explicit',JSON.stringify(T('Müstehcen','Explicit')));
   document.documentElement.style.setProperty('--am-t-cancel',JSON.stringify(T('Vazgeç','Cancel')));
   // Spicetify's Player.isPlaying throws while its player state is being built (seen at boot with the Now Playing pane
   // shown: its tick ran before Spotify's player had a state, which aborted the rest of the theme's start).
@@ -3846,6 +3847,7 @@
     open.addEventListener('click',()=>openUri(release.uri));
     const items=()=>entityItems(release.uri);
     card.append(open);if(!round)card.append(cardTools(release.uri,items));
+    if(/^spotify:album:/.test(release.uri))explicitWatch(card,release.uri.split(':')[2]);
     card.addEventListener('contextmenu',event=>{event.preventDefault();event.stopPropagation();togglePopover({x:event.clientX,y:event.clientY},items);});
     return card;
   }
@@ -4628,13 +4630,13 @@
   // "This Is …" as Apple names the same playlists, "… Essentials" (#228), on the cover only: the name drawn into its
   // band, which a long artist's name crowded in two lines. The playlist's own title stays Spotify's.
   function coverName(name){return settings.thisIsName==='essentials'?name.replace(/^This Is (\S.*)$/,'$1 Essentials'):name;}
-  defineSetting({key:'thisIsName',group:'home',rank:1.1,label:T('This Is kapakları','This Is covers'),type:'choice',default:'thisis',context:['home'],
+  defineSetting({key:'thisIsName',group:'home',rank:1.1,label:T('This Is kapakları','This Is covers'),type:'choice',default:'thisis',
     options:[['thisis','This Is …'],['essentials','… Essentials']],note:T('Kapağa yazılan ad; listenin adı aynı kalır.','The name on the cover; the playlist keeps its title.'),dim:()=>settings.mixCovers==='spotify',
     apply:()=>{for(const img of document.querySelectorAll(mixImages))markMix(img);for(const box of document.querySelectorAll('.am-photo-art'))delete box.dataset.amMixSrc;syncPhotoArt();}});
   // Apple's editorial covers let their name glide up and back in the band (#228). Here only where one cover is in view
   // and looked at: a playlist page's own cover, and a card under the pointer (user.css, body.am-mix-motion); never with
   // Reduce motion.
-  defineSetting({key:'mixMotion',group:'home',rank:1.2,label:T('Kapak adı hareketli','Moving cover name'),type:'toggle',default:true,context:['home'],dim:()=>settings.mixCovers==='spotify',
+  defineSetting({key:'mixMotion',group:'home',rank:1.2,label:T('Kapak adı hareketli','Moving cover name'),type:'toggle',default:true,dim:()=>settings.mixCovers==='spotify',
     note:T('Liste sayfasında ve üzerine gelinen kartta.','On a playlist page and the card under the pointer.'),apply:v=>document.body.classList.toggle('am-mix-motion',v)});
   document.body.classList.toggle('am-mix-motion',settings.mixMotion!==false);
   function mixName(img) {
@@ -4894,9 +4896,65 @@
         info={explicit:tracks.some(item=>item?.track?.contentRating?.label==='EXPLICIT'),artists:(album.artists?.items||[]).map(a=>/[A-Za-z0-9]+$/.exec(a.uri||'')?.[0]).filter(Boolean),cover:smallImage(album.coverArt),edgeCover:spotifyImage(bySize(album.coverArt).find(source=>(source.width||source.maxWidth||0)>=300)?.url||''),list:count?listInfo(count,ms):''};
       }
     }catch{}
-    if(info){if(albumInfo.size>50)albumInfo.delete(albumInfo.keys().next().value);albumInfo.set(id,info);}
+    if(info){if(albumInfo.size>50)albumInfo.delete(albumInfo.keys().next().value);albumInfo.set(id,info);explicitKnown(id,info.explicit);}
     return info;
   }
+  // Apple marks an album with an explicit song after its name wherever it lists one (#238): the theme's album cards (an
+  // artist's discography, the search results) and the albums in the search suggestions. Spotify's data for those leaves
+  // it out, so an album is looked up once (its first 50 songs) and the answer kept (localStorage['mcloud:explicit']).
+  // How eagerly follows the glass mode: Full looks up the albums in view three at a time, Balanced one at a time once
+  // an album has stayed in view 300ms, Light shows only what is known already (an album page seen), Eco none.
+  // Function declarations and state on the function: cards are drawn from code above that runs before this line.
+  function explicitState() {
+    const s=explicitState;if(s.known)return s;
+    s.known=new Map();s.waiting=new Map();s.queue=[];s.busy=new Set();s.failed=new Set();s.ids=new WeakMap();s.timers=new WeakMap();
+    try{for(const [id,v] of JSON.parse(localStorage.getItem('mcloud:explicit')||'[]'))if(typeof id==='string')s.known.set(id,!!v);}catch{}
+    document.addEventListener('am-settings',()=>{if(!explicitMode())for(const n of document.querySelectorAll('[data-am-explicit]'))delete n.dataset.amExplicit;else{for(const [id,nodes] of s.waiting)for(const n of nodes)if(n.isConnected)explicitWatch(n,id);explicitPump();}});
+    document.addEventListener('visibilitychange',()=>explicitPump());
+    return s;
+  }
+  function explicitMode(){const mode=settings.optimized?'light':settings.glass;return mode==='eco'?0:mode==='light'?1:mode==='full'?3:2;}
+  function explicitLimit(){return {3:3,2:1}[explicitMode()]||0;}
+  function explicitShow(node,value){if(value&&explicitMode())node.dataset.amExplicit='';else delete node.dataset.amExplicit;}
+  function explicitKnown(id,value) {
+    const s=explicitState();s.known.delete(id);s.known.set(id,!!value);if(s.known.size>3000)s.known.delete(s.known.keys().next().value);
+    clearTimeout(s.save);s.save=setTimeout(()=>{try{localStorage.setItem('mcloud:explicit',JSON.stringify([...s.known].map(([k,v])=>[k,v?1:0])));}catch{}},1000);
+    for(const node of s.waiting.get(id)||[])if(node.isConnected&&s.ids.get(node)===id){s.io?.unobserve(node);explicitShow(node,value);}
+    s.waiting.delete(id);
+  }
+  function explicitWatch(node,id) {
+    const s=explicitState();s.ids.set(node,id);
+    if(s.known.has(id)){explicitShow(node,s.known.get(id));return;}
+    delete node.dataset.amExplicit;
+    const nodes=s.waiting.get(id)||new Set();for(const n of nodes)if(!n.isConnected)nodes.delete(n);nodes.add(node);s.waiting.set(id,nodes);
+    if(!explicitLimit()||s.failed.has(id)||typeof IntersectionObserver!=='function')return;
+    s.io||=new IntersectionObserver(entries=>{for(const e of entries){
+      const n=e.target,id=s.ids.get(n);clearTimeout(s.timers.get(n));if(!e.isIntersecting||!id)continue;
+      const go=()=>{s.io.unobserve(n);if(!s.known.has(id)&&!s.busy.has(id)&&!s.queue.includes(id))s.queue.push(id);explicitPump();};
+      if(explicitLimit()===1)s.timers.set(n,setTimeout(go,300));else go();
+    }},{rootMargin:'100px 0px'});
+    s.io.observe(node);
+  }
+  function explicitPump() {
+    const s=explicitState();
+    while(s.busy.size<explicitLimit()&&s.queue.length&&!document.hidden){
+      const id=s.queue.shift();if(s.known.has(id)||![...(s.waiting.get(id)||[])].some(n=>n.isConnected))continue;
+      s.busy.add(id);
+      (async()=>{
+        try{
+          const album=(await gql()(S.GraphQL.Definitions.getAlbum,{uri:'spotify:album:'+id,locale:'',offset:0,limit:50}))?.data?.albumUnion;
+          if(album?.tracksV2)explicitKnown(id,(album.tracksV2.items||[]).some(item=>item?.track?.contentRating?.label==='EXPLICIT'));else s.failed.add(id);
+        }catch{s.failed.add(id);}
+        s.busy.delete(id);explicitPump();
+      })();
+    }
+  }
+  // A suggestion's row is Spotify's: its thumbnail loading is the cue that the row shows a new item (React reuses rows).
+  document.addEventListener('load',event=>{
+    const row=event.target.tagName==='IMG'&&event.target.closest?.('#search-dropdown [role="row"]');if(!row)return;
+    const id=/\/album\/([A-Za-z0-9]+)/.exec(row.querySelector('[id$="-title"] a[href*="/album/"]')?.getAttribute('href')||'')?.[1];
+    if(id)explicitWatch(row,id);else{delete row.dataset.amExplicit;explicitState().ids.delete(row);}
+  },true);
   // Albums and playlists (#97) take their colour level from albumTint; other pages have none.
   const albumTints=['off','subtle','full'];
   function tintLevel() {
