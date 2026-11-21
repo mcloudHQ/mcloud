@@ -83,7 +83,7 @@
         // filters ['2'] = playlists and folders; sortOrder '6' = Recents, the order the mock list is already in.
         getContents: async ({ offset, filters = [], folderUri }) => {
           let items = folderUri ? folders[folderUri] || [] : library;
-          if (filters.includes('2')) items = items.filter(i => ['playlist', 'folder', 'liked-songs'].includes(i.type));
+          if (filters.includes('2')) items = items.filter(i => ['playlist', 'folder', 'liked-songs', 'local-files'].includes(i.type));
           // By you (102), By Spotify (103) and Mixed (107) keep a folder only if a playlist in it passes, as Spotify's do
           // (measured with a test folder in the client, 2026-11-04); its playlists stay inside it.
           const own = i => i.isOwnedBySelf, spotify = i => i.owner?.uri === 'spotify:user:spotify', mixed = i => i.isMixed;
