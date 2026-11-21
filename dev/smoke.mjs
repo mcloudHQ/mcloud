@@ -3764,6 +3764,71 @@ try {
     await page.evaluate(() => Spicetify.Platform.History.push('/'));
   });
 
+  // An explicit album is marked after its name in the suggestions (#238), looked up as the glass mode allows: Balanced
+  // once a row has stayed in view (one at a time), Light only from what is known, Eco not at all.
+  await check('explicit albums in the suggestions are marked, looked up as the glass mode allows (#238)', async () => {
+    const rows = ids => page.evaluate(ids => {
+      document.querySelector('.mock-explicit')?.remove();
+      const d = document.createElement('div'); d.id = 'search-dropdown'; d.className = 'mock-explicit';
+      d.innerHTML = ids.map(id => `<div role="row" aria-selected="false"><div><img alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAMMzN////yH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==#${id}"></div><div role="gridcell" id="${id}-title"><a href="/album/${id}"><span data-encore-id="listRowTitle"><span>${id}</span></span></a></div></div>`).join('');
+      document.body.append(d);
+    }, ids);
+    const marks = () => page.evaluate(() => [...document.querySelectorAll('.mock-explicit [role="row"]')].map(r => 'amExplicit' in r.dataset));
+    const requests = () => page.evaluate(() => (window.__albumRequests || []).filter(v => /:x[EC]\d$/.test(v.uri)).length);
+    await page.evaluate(() => {
+      const track = label => ({ track: { duration: { totalMilliseconds: 1000 }, contentRating: { label } } });
+      Object.assign(window.__mockAlbums, { xE1: { __typename: 'Album', name: 'E', tracksV2: { totalCount: 2, items: [track('NONE'), track('EXPLICIT')] } }, xC1: { __typename: 'Album', name: 'C', tracksV2: { totalCount: 1, items: [track('NONE')] } },
+        xE2: { __typename: 'Album', name: 'E2', tracksV2: { totalCount: 1, items: [track('EXPLICIT')] } } });
+    });
+    await rows(['xE1', 'xC1']);
+    await page.waitForFunction(() => document.querySelector('.mock-explicit [role="row"]')?.dataset.amExplicit === '', null, { timeout: 3000 });
+    await page.waitForTimeout(400);
+    assert.deepEqual([await marks(), await requests()], [[true, false], 2]);
+    const style = await page.evaluate(() => { const a = getComputedStyle(document.querySelector('.mock-explicit [data-encore-id="listRowTitle"]'), '::after'); return [a.content.startsWith('"E"'), a.width, a.borderRadius]; });
+    assert.deepEqual(style, [true, '12px', '3px']);
+    // Known ones come back at once, without a request; Light looks up nothing new, Eco shows nothing.
+    await settingsWindow.pick('glass', 'Hafif');
+    await rows(['xE1', 'xE2']); await page.waitForTimeout(500);
+    assert.deepEqual([await marks(), await requests()], [[true, false], 2]);
+    await settingsWindow.pick('glass', 'Eko');
+    await rows(['xE1']); await page.waitForTimeout(100);
+    assert.deepEqual(await marks(), [false]);
+    await settingsWindow.pick('glass', 'Tam');
+    await rows(['xE1', 'xE2']);
+    await page.waitForFunction(() => [...document.querySelectorAll('.mock-explicit [role="row"]')].every(r => 'amExplicit' in r.dataset), null, { timeout: 3000 });
+    assert.equal(await requests(), 3);
+    await page.waitForTimeout(1100); // the answers are saved a second after the last one
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('mcloud:explicit') || '[]').filter(([id]) => /^x[EC]\d$/.test(id)).sort()), [['xC1', 0], ['xE1', 1], ['xE2', 1]]);
+    await settingsWindow.pick('glass', 'Dengeli');
+    await page.evaluate(() => document.querySelector('.mock-explicit')?.remove());
+  });
+
+  // "This Is …" or Apple's "… Essentials" on the cover (#228b); the band's name glides only on the page's own cover or
+  // a card under the pointer, and not with Reduce motion (#228c).
+  await check('This Is covers: "… Essentials" on the cover only, the name glides where one cover is looked at (#228)', async () => {
+    const read = () => page.evaluate(async () => {
+      for (let i = 0; i < 100 && !document.querySelector('#mock-ess .am-mix-ready'); i++) await new Promise(r => setTimeout(r, 20));
+      const box = document.querySelector('#mock-ess .am-mix-ready');
+      return [box?.dataset.amMix, document.querySelector('#mock-ess [data-encore-id="cardTitle"]').textContent, getComputedStyle(box, '::after').animationName];
+    });
+    await page.evaluate(() => {
+      const s = document.createElement('section'); s.id = 'mock-ess';
+      s.innerHTML = `<div data-encore-id="card" style="position:relative;width:180px"><div style="position:relative;width:180px;height:180px"><div><img alt="" style="position:absolute;inset:0;width:100%;height:100%" src="https://pickasso.spotifycdn.com/image/ab67c0de0000deef/dt/v1/img/thisisv3/1Xyo4u8uXC1ZmMpatF05PJ/en"></div></div><a><p data-encore-id="cardTitle">This Is Sena Şener</p></a></div>`;
+      document.querySelector('.am-native-main main').prepend(s);
+    });
+    assert.deepEqual(await read(), ['This Is Sena Şener', 'This Is Sena Şener', 'none']);
+    await settingsWindow.pick('thisIsName', '… Essentials');
+    await page.hover('#mock-ess [data-encore-id="card"]');
+    assert.deepEqual(await read(), ['Sena Şener Essentials', 'This Is Sena Şener', 'am-mix-glide']);
+    await settingsWindow.pick('reduceMotion');
+    await page.hover('#mock-ess [data-encore-id="card"]');
+    assert.equal((await read())[2], 'none');
+    await settingsWindow.pick('reduceMotion');
+    await settingsWindow.pick('thisIsName', 'This Is …');
+    assert.equal((await read())[0], 'This Is Sena Şener');
+    await page.evaluate(() => document.getElementById('mock-ess').remove());
+  });
+
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
     // Spotify's page for a mix: no artwork container, an empty slot before the text, the photo in .before-scroll-node,
     // and "About recommendations" as a button under the creator line. The cover comes from the playlist's metadata.
