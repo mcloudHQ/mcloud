@@ -703,14 +703,14 @@
       nodes.push(...root.querySelectorAll(tagged));
       for(const node of nodes){
         if(node.matches('[data-testid="shortcut-background"]'))tagShortcut(node);
-        else if(node.matches('[role="grid"]')){tagTrackList(node);compactRows(node);}
+        else if(node.matches('[role="grid"]')){tagTrackList(node);tagRelease(node);compactRows(node);}
         else if(node.matches('[role="row"]')){tagTrackRow(node);featRow(node);}
         else if(node.matches('[role="list"],.main-gridContainer-gridContainer'))tagGenreList(node);
         else if(!node.hasAttribute('data-shelf'))node.setAttribute('data-shelf','');
       }
       // Browse all's tiles arrive one by one after the empty list; a list's header and a row's cells can land after theirs.
       const list=root.closest('[role="list"],.main-gridContainer-gridContainer');if(list)tagGenreList(list);
-      const grid=root.closest('[role="grid"]');if(grid){tagTrackList(grid);compactRows(grid);}
+      const grid=root.closest('[role="grid"]');if(grid){tagTrackList(grid);tagRelease(grid);compactRows(grid);}
       const row=root.closest('[role="row"]');if(row){tagTrackRow(row);featRow(row);}
       root.closest('section.Shelf,[data-testid="component-shelf"]')?.setAttribute('data-shelf','');
       tagChevrons(root);
@@ -749,9 +749,21 @@
   // rewritten as Spotify changes them, before the frame is painted. Measured in the client (1.3.10): albums of 13 to 50
   // tracks scroll with every row filled; at 100 Spotify fetches the tracks in windows by its own 56px arithmetic and the
   // lower rows stayed skeletons, so longer albums keep 56px, as does Spotify's own Compact view (32px).
+  // An artist's discography in list view (#230): each release is a header (cover, title, year, buttons) over its track
+  // list, with no test id of its own; the release is marked data-am-release and its header data-am-release-head, so
+  // the album page's rules and logic take them (user.css, cleanRows, featRow, compactRows).
+  function tagRelease(grid) {
+    if(!discographyId()||!grid.closest('.am-native-main [data-testid="artist-page"]'))return;
+    for(let block=grid.parentElement,i=0;block&&i<6;block=block.parentElement,i++){
+      const head=[...block.children].find(child=>!child.contains(grid)&&child.querySelector('[data-testid="release-date"]'));
+      if(!head)continue;
+      if(!block.hasAttribute('data-am-release')){block.setAttribute('data-am-release','');head.setAttribute('data-am-release-head','');}
+      return;
+    }
+  }
   const compactGrids=new WeakSet();
   function compactRows(grid) {
-    if(compactGrids.has(grid)||!grid.closest('[data-testid="album-page"]'))return;compactGrids.add(grid);
+    if(compactGrids.has(grid)||!grid.closest('[data-testid="album-page"],[data-am-release]'))return;compactGrids.add(grid);
     const set=(node,name,value)=>{if(node.style.getPropertyValue(name)!==value)node.style.setProperty(name,value);};
     const px=value=>`${Math.round(parseFloat(value)*48/56*100)/100}px`;
     // The grid is marked only once the list's height and the rows' offset are found and mirrored: were Spotify to place
@@ -789,7 +801,7 @@
   function featRow(row) {
     if(!albumFeat)return;
     const title=row.querySelector('.main-trackList-rowMainContent > :first-child');if(!title)return;
-    const links=row.closest('[data-testid="album-page"]')?[...row.querySelectorAll('.main-trackList-rowMainContent > :is(a,div,span):last-child:not(:first-child) a[href*="/artist/"]')]:[];
+    const links=row.closest('[data-testid="album-page"],[data-am-release]')?[...row.querySelectorAll('.main-trackList-rowMainContent > :is(a,div,span):last-child:not(:first-child) a[href*="/artist/"]')]:[];
     const own=links.filter(a=>albumFeat.some(id=>a.getAttribute('href').endsWith('/artist/'+id)));
     // A title that names its guests already (Spotify's own "(feat. …)", "ft.", "(with …)") is left as it is.
     const names=own.length&&!/\b(feat|ft)\.|\(with /i.test(title.textContent)?links.filter(a=>!own.includes(a)).map(a=>a.textContent.trim()):[];
@@ -4872,7 +4884,8 @@
   // Track numbers are set apart for albums (numbersAlbum) and every other list (numbers): body.am-no-numbers follows
   // the page. Someone who had hid them keeps them hidden on albums too.
   try{const saved=JSON.parse(localStorage.getItem('mcloud:settings')||'{}');if(saved.numbers===false&&!('numbersAlbum' in saved))settings.numbersAlbum=false;}catch{}
-  const numbersKey=()=>albumId()?'numbersAlbum':'numbers';
+  // A discography's releases are albums too (#230): their numbers follow "Numbers on albums".
+  const numbersKey=()=>albumId()||/^\/artist\/[A-Za-z0-9]+\/discography/.test(routePath())?'numbersAlbum':'numbers';
   function syncNumbers(){document.body.classList.toggle('am-no-numbers',!settings[numbersKey()]);}
   document.addEventListener('am-settings',syncNumbers);H.listen(syncNumbers);
   // An album's artists, artwork colour and length, from Spotify's own album query (one per album, kept for the session).
@@ -5003,9 +5016,27 @@
     document.body.classList.toggle('am-album-apple-ink',!!apple&&1.05/(pageLum+.05)>=4.5);
     document.body.classList.add('am-album-tinted');
   }
+  // "Artist only on guest tracks" for a list whose own artists are known: a row without another artist loses its artist
+  // line, and a guest's row too unless featured artists are shown (#187); with Apple Music's way the guests go into the
+  // title (featRow). Album pages, and an artist's discography in list view (#230), where the artist is the page's.
+  function cleanRows(scope,artists) {
+    if(!settings.albumClean||!artists.length)return '';
+    const sub='.main-trackList-rowMainContent > :is(a,div,span):last-child'; // a tag, not a bare :last-child, after :has() (#137)
+    // Without its artist line a row's title sits in the middle, so its number is centred too (Spotify lifts it 4px to
+    // meet a title on the top line; #93).
+    const own=`body.am-album-clean .am-native-main ${scope} .main-trackList-trackListRow:not(:has(${sub} a[href*="/artist/"]${artists.map(a=>`:not([href$="/artist/${a}"])`).join('')}))`;
+    // Hidden, or moved into the title, a guest's line goes too (#187): any row with one of the album's artists on it.
+    const rows=[own];if(settings.albumFeatures!=='show')rows.push(`body.am-album-clean .am-native-main ${scope} .main-trackList-trackListRow:has(${sub} :is(${artists.map(a=>`a[href$="/artist/${a}"]`).join(',')}))`);
+    if(settings.albumFeatures==='apple'){albumFeat=artists;document.querySelectorAll(`.am-native-main ${scope} [role="row"]`).forEach(featRow);}
+    return rows.map(row=>`${row} ${sub}{display:none!important}${row} .main-trackList-rowMarker > span{top:50%!important;translate:0 -50%}`).join('');
+  }
+  // A function, not a const: tagRelease runs from the first layout pass, before this line is reached.
+  function discographyId(){return /^\/artist\/([A-Za-z0-9]+)\/discography/.exec(routePath())?.[1]||'';}
   async function syncAlbum() {
     const id=albumId(),playlist=playlistId(),request=++albumRequest,level=tintLevel(),tint=level!=='off',body=document.body.classList;albumFeat=null;
     if(playlist){albumPending(level==='full');return syncPlaylist(playlist,request,tint);}
+    const artist=discographyId();body.toggle('am-discography',!!artist);
+    if(artist){albumStyle.textContent=cleanRows('[data-am-release]',[artist]);body.remove('am-album-tinted');setListInfo('');albumPending(false);return;}
     if(!id||!gql()||!S.GraphQL?.Definitions?.getAlbum){
       albumStyle.textContent='';body.remove('am-album-tinted');setListInfo('');albumPending(false);
       // An album opened before the client is there asks again (every 0.5s for 15s) while the page stays open.
@@ -5019,16 +5050,9 @@
     if(request!==albumRequest)return;
     if(!info){albumStyle.textContent='';albumPending(false);return;}
     setListInfo(info.list);
-    const sub='.main-trackList-rowMainContent > :is(a,div,span):last-child'; // a tag, not a bare :last-child, after :has() (#137)
-    // Without its artist line a row's title sits in the middle, so its number is centred too (Spotify lifts it 4px to
-    // meet a title on the top line; #93).
-    const own=`body.am-album-clean .am-native-main [data-testid="album-page"] .main-trackList-trackListRow:not(:has(${sub} a[href*="/artist/"]${info.artists.map(a=>`:not([href$="/artist/${a}"])`).join('')}))`;
-    // Hidden, or moved into the title, a guest's line goes too (#187): any row with one of the album's artists on it.
-    const rows=[own];if(settings.albumFeatures!=='show')rows.push(`body.am-album-clean .am-native-main [data-testid="album-page"] .main-trackList-trackListRow:has(${sub} :is(${info.artists.map(a=>`a[href$="/artist/${a}"]`).join(',')}))`);
-    albumStyle.textContent=settings.albumClean&&info.artists.length?rows.map(row=>`${row} ${sub}{display:none!important}${row} .main-trackList-rowMarker > span{top:50%!important;translate:0 -50%}`).join(''):'';
+    albumStyle.textContent=cleanRows('[data-testid="album-page"]',info.artists);
     // Apple marks an album with an explicit song after its title (#238): the header's title ends in the explicit mark.
     if(info.explicit)albumStyle.textContent+=`.am-native-main [data-testid="album-page"] [data-testid="entity-header"] h1::after{content:"E" / ${JSON.stringify(T('Müstehcen','Explicit'))};display:inline-grid;place-items:center;width:16px;height:16px;margin-inline-start:8px;vertical-align:4px;border-radius:4px;background:rgb(var(--am-ink)/.45);color:var(--am-bg);font:700 11px/1 var(--encore-body-font-stack);letter-spacing:0}`;
-    if(settings.albumClean&&settings.albumFeatures==='apple'&&info.artists.length){albumFeat=info.artists;document.querySelectorAll('.am-native-main [data-testid="album-page"] [role="row"]').forEach(featRow);}
     if(!tint)return;
     if(info.color===undefined)info.color=await artworkColor(info.cover);
     if(appleFill()&&info.edge===undefined)info.edge=await edgeColor(info.edgeCover||info.cover); // 300px: closer to Apple's than the 64px cover
@@ -5054,8 +5078,10 @@
   const starStyle=el('style','');starStyle.id='am-star-style';document.head.append(starStyle);
   const saveLabels=['save_to_your_library','remove_from_your_library'].map(spotifyText).filter(label=>label&&!/^[a-z_.-]+$/.test(label));
   if(!saveLabels.length)saveLabels.push('Save to Your Library','Remove from Your Library');
-  const saveButton=`.am-native-main [data-testid="action-bar-row"] button:is(${saveLabels.map(label=>`[aria-label=${JSON.stringify(label)}]`).join(',')}):not(#am-none)`;
+  const saveButton=`.am-native-main :is([data-testid="action-bar-row"],[data-am-release-head]) button:is(${saveLabels.map(label=>`[aria-label=${JSON.stringify(label)}]`).join(',')}):not(#am-none)`;
   starStyle.textContent=`${saveButton}{color:var(--am-star-color,var(--am-accent))!important}${saveButton} :is(svg,div[style*="pointer-events: none"]){background:currentColor;-webkit-mask:var(--am-star-line) center/contain no-repeat;mask:var(--am-star-line) center/contain no-repeat}${saveButton} svg path{display:none}${saveButton} div[style*="pointer-events: none"] > div{opacity:0;filter:none}${saveButton}[aria-checked="true"] :is(svg,div[style*="pointer-events: none"]){-webkit-mask-image:var(--am-star-fill);mask-image:var(--am-star-fill)}`;
+  // A discography release's play pill reads Pause while it plays, by Spotify's own label on the button (#230).
+  starStyle.textContent+=`.am-native-main [data-am-release-head] button[data-encore-id="buttonPrimary"][aria-label=${JSON.stringify(spotifyText('pause')||'Pause')}] > span::after{content:var(--am-t-pause,"Duraklat")}`;
   pageSetting({key:'numbersAlbum',group:'pages',section:T('Parça listeleri','Track lists'),rank:3,label:T('Albümlerde numaralar','Numbers on albums'),type:'toggle',default:true,context:['list'],here:()=>!!albumId(),apply:syncNumbers});
   // Albums list the artist on a track only when it is not the album's own (a guest, a compilation), as Apple Music does.
   pageSetting({key:'albumClean',group:'pages',section:T('Albümlerde sanatçılar','Artists on albums'),rank:6,label:T('Sanatçıyı yalnız konuklarda göster','Artist only on guest tracks'),note:T('Albümün kendi sanatçısı şarkılarda yazmaz.','The album’s own artist is left off its tracks.'),type:'toggle',default:true,context:['list','view'],here:()=>!!albumId(),apply:value=>{document.body.classList.toggle('am-album-clean',value);syncAlbum();}});
