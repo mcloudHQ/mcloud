@@ -3671,6 +3671,25 @@ try {
     }, pick), ['Chill Mix', true, '"Chill Mix"', 'station', true, true, '1+2', true, 2, 'station', true, true, true]);
   });
 
+  // "This Is" playlists whose cover Spotify's editors uploaded (i.scdn.co ab67706f…) name no artist in the URL (#228):
+  // a Spotify-owned one takes its most frequent artist and Apple's Essentials band, as generated ones do; a user's
+  // playlist with an uploaded cover and the same kind of name keeps its own.
+  await check('an uploaded "This Is" cover is redrawn as the generated ones are, a user\'s is not (#228)', async () => {
+    assert.deepEqual(await page.evaluate(async () => {
+      const api = Spicetify.Platform.PlaylistAPI, meta = api.getMetadata, contents = api.getContents;
+      api.getMetadata = async uri => ({ uri, owner: { uri: uri.endsWith('thisis') ? 'spotify:user:spotify' : 'spotify:user:emir' } });
+      api.getContents = async () => ({ items: [{ artists: [{ uri: 'spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ' }] }, { artists: [{ uri: 'spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ' }, { uri: 'spotify:artist:0ECwFtbIWEVNwjlrfc6xoL' }] }] });
+      const card = (id, name, hex) => `<div data-encore-id="card" aria-labelledby="card-title-spotify:playlist:${id}-0" style="position:relative;width:180px"><div style="position:relative;width:180px;height:180px"><div><img alt="" style="position:absolute;inset:0;width:100%;height:100%" src="https://i.scdn.co/image/ab67706f00000002${hex}"></div></div><a><p data-encore-id="cardTitle">${name}</p></a></div>`;
+      const s = document.createElement('section'); s.id = 'mock-thisis'; s.innerHTML = card('thisis', 'This Is Sena Şener', 'aaaa1111') + card('mine', 'This Is Me', 'bbbb2222');
+      document.querySelector('.am-native-main main').prepend(s);
+      const [spotify, mine] = [...s.querySelectorAll('[data-encore-id="card"] > div')];
+      for (let i = 0; i < 150 && !spotify.classList.contains('am-mix-ready'); i++) await new Promise(r => setTimeout(r, 20));
+      await new Promise(r => setTimeout(r, 200));
+      const out = [spotify.classList.contains('am-mix-ready'), spotify.dataset.amMixStyle, spotify.dataset.amMix, /^url\("?data:/.test(spotify.style.getPropertyValue('--am-mix-photo')), mine.classList.contains('am-mix')];
+      api.getMetadata = meta; api.getContents = contents; s.remove(); return out;
+    }), [true, 'band', 'This Is Sena Şener', true, false]);
+  });
+
   await check('photo headers (Daily Mix, Today\'s Top Hits) are laid out as playlists, with the mix cover as artwork', async () => {
     // Spotify's page for a mix: no artwork container, an empty slot before the text, the photo in .before-scroll-node,
     // and "About recommendations" as a button under the creator line. The cover comes from the playlist's metadata.
