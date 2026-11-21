@@ -1462,10 +1462,15 @@ try {
     // A two-row menu (a folder's) moves to a slot already holding its smaller corners, and back.
     await page.evaluate(() => { window.__hrefSets = 0; const mo = new MutationObserver(r => { window.__hrefSets += r.filter(m => m.attributeName === 'href').length; });
       for (const f of document.querySelectorAll('[id^="am-menu-glass-"]')) mo.observe(f, { attributes: true, subtree: true }); });
-    const slots = [];
+    // The slot follows the menu's size through a ResizeObserver, which reports in the frame after the menu opens: once
+    // its rows are in, two frames pass before the slot is read (a fixed 100ms wait read the last menu's on a slow runner).
+    const slots = [], settled = async () => {
+      await page.waitForFunction(() => !document.getElementById('am-popover').hidden && document.querySelector('#am-popover .am-popover-item'));
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    };
     for (let n = 0; n < 2; n++) {
-      await page.click('.am-more'); await page.waitForTimeout(100); slots.push(await page.getAttribute('#am-popover', 'data-am-glass')); await page.keyboard.press('Escape');
-      await page.click('#am-sidebar .am-list-row[title="Ruh Hali"]', { button: 'right' }); await page.waitForTimeout(100); slots.push(await page.getAttribute('#am-popover', 'data-am-glass')); await page.keyboard.press('Escape');
+      await page.click('.am-more'); await settled(); slots.push(await page.getAttribute('#am-popover', 'data-am-glass')); await page.keyboard.press('Escape');
+      await page.click('#am-sidebar .am-list-row[title="Ruh Hali"]', { button: 'right' }); await settled(); slots.push(await page.getAttribute('#am-popover', 'data-am-glass')); await page.keyboard.press('Escape');
     }
     assert.equal(await page.evaluate(() => window.__hrefSets), 0);
     assert.ok(slots[0] !== slots[1] && slots[0] === slots[2] && slots[1] === slots[3], slots.join());
