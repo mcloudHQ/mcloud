@@ -1712,6 +1712,23 @@ try {
     assert.deepEqual(out, [true, true, true, '13px', true, true, '11px', '"›"', true, 'none', true, true, 10, 10, 0, 0, true, 'auto']);
   });
 
+  // A long submenu's list (Add to playlist) is as tall as its rows (#248): Spotify 1.3.10 sets its row and separator sizes
+  // again on the Encore menu (32px and 17px) and gives the list a min-height counted in them, which left empty glass.
+  await check('a long Encore submenu is as tall as its rows, with no empty space under them (#248)', async () => {
+    assert.deepEqual(await page.evaluate(async () => {
+      const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const css = document.createElement('style');
+      css.textContent = '.mock-encore-menu{--context-menu-submenu-item-height:32px;--context-menu-submenu-divider-height:17px}.mock-encore-section[data-encore-id="menuSection"]{--context-menu-submenu-filter-height:0px;min-height:calc(var(--context-menu-submenu-length) * var(--context-menu-submenu-item-height,40px) + var(--context-menu-submenu-item-height,40px) + var(--context-menu-submenu-filter-height,32px) + var(--context-menu-submenu-divider-count,0) * var(--context-menu-submenu-divider-height,0px));height:auto}';
+      const row = text => `<div data-encore-id="menuRow" role="menuitem" style="display:flex"><div></div><div><span>${text}</span></div></div>`;
+      const tip = document.createElement('div'); tip.setAttribute('data-tippy-root', ''); tip.style.cssText = 'position:absolute;inset:0px auto auto 0px;z-index:9999;transform:translate(200px,100px)';
+      tip.innerHTML = `<div id="context-menu"><div data-encore-id="menu" role="menu">${row('Add to playlist')}</div><div><div data-encore-id="popover" style="position:absolute;z-index:100000;top:0;left:300px"><div data-encore-id="menu" role="menu" class="mock-encore-menu" data-depth="1"><section data-encore-id="menuSection" role="presentation" class="mock-encore-section" style="--context-menu-submenu-length:5;--context-menu-submenu-divider-count:1;display:flex;flex-direction:column">${row('New playlist')}<div data-encore-id="menuDivider" role="separator"></div>${['One', 'Two', 'Three', 'Four', 'Five'].map(row).join('')}</section></div></div></div></div>`;
+      document.head.append(css); document.body.append(tip); await frame();
+      const section = tip.querySelector('section'), rows = section.querySelectorAll('[data-encore-id="menuRow"]');
+      const empty = Math.round(section.getBoundingClientRect().bottom - rows[rows.length - 1].getBoundingClientRect().bottom), height = section.offsetHeight;
+      tip.remove(); css.remove(); return [empty, height];
+    }), [0, 6 * 24 + 11]);
+  });
+
   // The account menu (#236): its rows get the theme's line icons in their empty slot (found by link, role and Spotify's
   // own label), Spicetify's own icon gives way to the theme's, an unknown extension's row keeps its empty slot, and a menu
   // that isn't the account menu gets none.
