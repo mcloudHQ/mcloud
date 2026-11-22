@@ -833,7 +833,10 @@ body.am-solid [data-encore-id="tooltip"][role="tooltip"] {background:var(--am-me
    its search above the list; the popover is the box and takes the glass, the list in it none. Rows are menuRow divs
    (a link row has no li), separators menuDivider, a submenu row ends in its trailing slot and a hidden svg. */
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="popover"]:has(> [role="menu"]) {border-radius:13px!important;padding:5px!important;background:var(--am-menu-solid-a)!important;box-shadow:none!important}
-:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="popover"][data-am-glass] {background:none!important}
+/* Spotify draws the popover's shadow with filter:drop-shadow, which makes the popover its ::before glass's backdrop
+   root: the glass read nothing, and the tone turned that into a flat grey box (170 of 255 in light, 32 in dark). The
+   glass's own box-shadow is the shadow. */
+:is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="popover"][data-am-glass] {background:none!important;filter:none!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="popover"] > [role="menu"] {padding:0!important;border-radius:0!important;background:none!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuDivider"] {width:auto!important;height:1px!important;margin:5px 11px!important;padding:0!important;border:0!important;background:rgb(var(--am-ink)/.141)!important}
 :is(body > [data-tippy-root],:is(dialog,[role="dialog"],[data-am-preview]) [data-tippy-root]) [data-encore-id="menuRow"][data-has-submenu] > div:last-of-type svg {display:none!important}
